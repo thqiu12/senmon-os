@@ -1,7 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+
+interface FormFieldConfig {
+  fieldKey: string;
+  label: string;
+  fieldType?: string;
+  isEnabled: boolean;
+  isRequired: boolean;
+  displayOrder: number;
+  section: string;
+  description?: string | null;
+}
+
+interface SchoolDepartment {
+  name: string;
+  duration: string;
+  courses: string[];
+}
+
+interface SchoolData {
+  id: string;
+  schoolKey: string;
+  name: string;
+  hojin: string;
+  icon: string;
+  isActive: boolean;
+  displayOrder: number;
+  departments: SchoolDepartment[];
+}
 
 const STEPS = [
   { number: 1, label: "個人情報" },
@@ -73,22 +101,16 @@ const DOC_CATEGORIES = [
   },
 ];
 
-const SCHOOLS: {
-  id: string;
-  name: string;
-  hojin: string;
-  color: string;
-  accent: string;
-  icon: string;
-  departments: { name: string; duration: string; courses: string[] }[];
-}[] = [
+// Hardcoded fallback schools (used if DB is empty or API fails)
+const SCHOOLS_FALLBACK: SchoolData[] = [
   {
     id: "chuo-seminar",
+    schoolKey: "chuo-seminar",
     name: "中央ゼミナール",
     hojin: "学校法人 羽場学園",
-    color: "blue",
-    accent: "#3b82f6",
     icon: "📚",
+    isActive: true,
+    displayOrder: 0,
     departments: [
       { name: "大学・大学院受験科", duration: "1年制", courses: ["文系コース","理系コース","医歯薬コース","芸術系コース","総合コース"] },
       { name: "美術系受験科", duration: "1年制", courses: ["東京藝術大学コース","多摩美・武蔵美コース","デザインコース","映像・メディアコース"] },
@@ -96,11 +118,12 @@ const SCHOOLS: {
   },
   {
     id: "tdb",
+    schoolKey: "tdb",
     name: "東京デジタルビジネス専門学校（TDB）",
     hojin: "学校法人 羽場学園",
-    color: "indigo",
-    accent: "#6366f1",
     icon: "💻",
+    isActive: true,
+    displayOrder: 1,
     departments: [
       { name: "デジタルビジネス科", duration: "2年制", courses: ["デジタルビジネスコース"] },
       { name: "中国語デジタルビジネス科", duration: "2年制", courses: ["中国語デジタルビジネスコース"] },
@@ -108,11 +131,12 @@ const SCHOOLS: {
   },
   {
     id: "kanagawa-judo",
+    schoolKey: "kanagawa-judo",
     name: "神奈川柔整鍼灸専門学校",
     hojin: "学校法人 平井学園",
-    color: "emerald",
-    accent: "#10b981",
     icon: "⚕️",
+    isActive: true,
+    displayOrder: 2,
     departments: [
       { name: "柔道整復師科", duration: "3年制", courses: ["昼間部","夜間部"] },
       { name: "鍼灸師科", duration: "3年制", courses: ["昼間部","夜間部"] },
@@ -128,6 +152,8 @@ interface FormData {
   postalCode: string; prefecture: string; city: string; address: string; addressDetail: string;
   residenceStatus: string; residenceExpiry: string; japaneseLevel: string; jlptCertified: boolean;
   schoolId: string; schoolName: string; department: string; course: string;
+  // 並願（追加志望校）
+  additionalSchools: { schoolId: string; schoolName: string; department: string; course: string; }[];
   enrollmentYear: string; enrollmentMonth: string; applicationReason: string;
   lastSchoolName: string; lastSchoolCountry: string; lastSchoolGraduate: string; workExperience: string;
   examMode: string; referrerName: string; referrerType: string;
@@ -143,6 +169,7 @@ const initialForm: FormData = {
   postalCode: "", prefecture: "", city: "", address: "", addressDetail: "",
   residenceStatus: "", residenceExpiry: "", japaneseLevel: "", jlptCertified: false,
   schoolId: "", schoolName: "", department: "", course: "",
+  additionalSchools: [],
   enrollmentYear: "", enrollmentMonth: "4", applicationReason: "",
   lastSchoolName: "", lastSchoolCountry: "", lastSchoolGraduate: "", workExperience: "",
   examMode: "一般", referrerName: "", referrerType: "",
@@ -265,209 +292,363 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 }
 
 // ========== Step 1 ==========
-function Step1({ form, onChange, errors }: {
+function Step1({ form, onChange, errors, formConfig }: {
   form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
+  formConfig: FormFieldConfig[] | null;
 }) {
+  const isEnabled = (key: string) => {
+    if (!formConfig || formConfig.length === 0) return true;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    return cfg ? cfg.isEnabled : true;
+  };
+  const isRequired = (key: string, defaultReq = true) => {
+    if (!formConfig || formConfig.length === 0) return defaultReq;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    return cfg ? cfg.isRequired : defaultReq;
+  };
+
+  const hasNameFields = isEnabled("lastName") || isEnabled("firstName") || isEnabled("lastNameKana") || isEnabled("firstNameKana");
+  const hasBasicFields = isEnabled("birthDate") || isEnabled("gender") || isEnabled("nationality");
+  const hasContactFields = isEnabled("phone") || isEnabled("email");
+  const hasAddressFields = isEnabled("postalCode") || isEnabled("prefecture") || isEnabled("city") || isEnabled("address") || isEnabled("addressDetail");
+  const hasResidenceFields = isEnabled("residenceStatus") || isEnabled("residenceExpiry") || isEnabled("japaneseLevel") || isEnabled("jlptCertified");
+
   return (
     <div className="space-y-6">
-      <SectionTitle icon="👤">氏名</SectionTitle>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="姓（漢字・ローマ字）" required error={errors.lastName}>
-          <Input placeholder="山田" value={form.lastName} error={!!errors.lastName} onChange={e => onChange("lastName", e.target.value)} />
-        </Field>
-        <Field label="名（漢字・ローマ字）" required error={errors.firstName}>
-          <Input placeholder="太郎" value={form.firstName} error={!!errors.firstName} onChange={e => onChange("firstName", e.target.value)} />
-        </Field>
-        <Field label="姓（カナ）" required error={errors.lastNameKana}>
-          <Input placeholder="ヤマダ" value={form.lastNameKana} error={!!errors.lastNameKana} onChange={e => onChange("lastNameKana", e.target.value)} />
-        </Field>
-        <Field label="名（カナ）" required error={errors.firstNameKana}>
-          <Input placeholder="タロウ" value={form.firstNameKana} error={!!errors.firstNameKana} onChange={e => onChange("firstNameKana", e.target.value)} />
-        </Field>
-      </div>
+      {hasNameFields && (
+        <>
+          <SectionTitle icon="👤">氏名</SectionTitle>
+          <div className="grid grid-cols-2 gap-4">
+            {isEnabled("lastName") && (
+              <Field label="姓（漢字・ローマ字）" required={isRequired("lastName")} error={errors.lastName}>
+                <Input placeholder="山田" value={form.lastName} error={!!errors.lastName} onChange={e => onChange("lastName", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("firstName") && (
+              <Field label="名（漢字・ローマ字）" required={isRequired("firstName")} error={errors.firstName}>
+                <Input placeholder="太郎" value={form.firstName} error={!!errors.firstName} onChange={e => onChange("firstName", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("lastNameKana") && (
+              <Field label="姓（カナ）" required={isRequired("lastNameKana")} error={errors.lastNameKana}>
+                <Input placeholder="ヤマダ" value={form.lastNameKana} error={!!errors.lastNameKana} onChange={e => onChange("lastNameKana", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("firstNameKana") && (
+              <Field label="名（カナ）" required={isRequired("firstNameKana")} error={errors.firstNameKana}>
+                <Input placeholder="タロウ" value={form.firstNameKana} error={!!errors.firstNameKana} onChange={e => onChange("firstNameKana", e.target.value)} />
+              </Field>
+            )}
+          </div>
+        </>
+      )}
 
-      <Divider />
-      <SectionTitle icon="📋">基本情報</SectionTitle>
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="sm:col-span-2">
-          <Field label="生年月日" required error={errors.birthDate}>
-            <DateSelect value={form.birthDate} onChange={v => onChange("birthDate", v)}
-              minYear={new Date().getFullYear() - 73} maxYear={new Date().getFullYear() - 14} hasError={!!errors.birthDate} />
-          </Field>
-        </div>
-        <Field label="性別" required error={errors.gender}>
-          <Select value={form.gender} error={!!errors.gender} onChange={e => onChange("gender", e.target.value)}>
-            <option value="">選択</option>
-            <option value="男性">男性</option>
-            <option value="女性">女性</option>
-          </Select>
-        </Field>
-        <Field label="国籍" required error={errors.nationality}>
-          <Select value={form.nationality} error={!!errors.nationality} onChange={e => onChange("nationality", e.target.value)}>
-            <option value="">選択</option>
-            {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
-          </Select>
-        </Field>
-      </div>
+      {hasBasicFields && (
+        <>
+          <Divider />
+          <SectionTitle icon="📋">基本情報</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {isEnabled("birthDate") && (
+              <div className="sm:col-span-2">
+                <Field label="生年月日" required={isRequired("birthDate")} error={errors.birthDate}>
+                  <DateSelect value={form.birthDate} onChange={v => onChange("birthDate", v)}
+                    minYear={new Date().getFullYear() - 73} maxYear={new Date().getFullYear() - 14} hasError={!!errors.birthDate} />
+                </Field>
+              </div>
+            )}
+            {isEnabled("gender") && (
+              <Field label="性別" required={isRequired("gender")} error={errors.gender}>
+                <Select value={form.gender} error={!!errors.gender} onChange={e => onChange("gender", e.target.value)}>
+                  <option value="">選択</option>
+                  <option value="男性">男性</option>
+                  <option value="女性">女性</option>
+                </Select>
+              </Field>
+            )}
+            {isEnabled("nationality") && (
+              <Field label="国籍" required={isRequired("nationality")} error={errors.nationality}>
+                <Select value={form.nationality} error={!!errors.nationality} onChange={e => onChange("nationality", e.target.value)}>
+                  <option value="">選択</option>
+                  {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
+                </Select>
+              </Field>
+            )}
+          </div>
+        </>
+      )}
 
-      <Divider />
-      <SectionTitle icon="📞">連絡先</SectionTitle>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="電話番号" required hint="ハイフンなし" error={errors.phone}>
-          <Input type="tel" placeholder="09012345678" value={form.phone} error={!!errors.phone} onChange={e => onChange("phone", e.target.value)} />
-        </Field>
-        <Field label="メールアドレス" required hint="審査結果の通知に使用" error={errors.email}>
-          <Input type="email" placeholder="example@email.com" value={form.email} error={!!errors.email} onChange={e => onChange("email", e.target.value)} />
-        </Field>
-      </div>
+      {hasContactFields && (
+        <>
+          <Divider />
+          <SectionTitle icon="📞">連絡先</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isEnabled("phone") && (
+              <Field label="電話番号" required={isRequired("phone")} hint="ハイフンなし" error={errors.phone}>
+                <Input type="tel" placeholder="09012345678" value={form.phone} error={!!errors.phone} onChange={e => onChange("phone", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("email") && (
+              <Field label="メールアドレス" required={isRequired("email")} hint="審査結果の通知に使用" error={errors.email}>
+                <Input type="email" placeholder="example@email.com" value={form.email} error={!!errors.email} onChange={e => onChange("email", e.target.value)} />
+              </Field>
+            )}
+          </div>
+        </>
+      )}
 
-      <Divider />
-      <SectionTitle icon="🏠">住所</SectionTitle>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Field label="郵便番号" required hint="ハイフンなし7桁" error={errors.postalCode}>
-          <Input placeholder="1000001" maxLength={7} value={form.postalCode} error={!!errors.postalCode}
-            onChange={e => onChange("postalCode", e.target.value.replace(/\D/g, ""))} />
-        </Field>
-        <Field label="都道府県" required error={errors.prefecture}>
-          <Select value={form.prefecture} error={!!errors.prefecture} onChange={e => onChange("prefecture", e.target.value)}>
-            <option value="">選択</option>
-            {PREFECTURES.map(p => <option key={p} value={p}>{p}</option>)}
-          </Select>
-        </Field>
-        <Field label="市区町村" required error={errors.city}>
-          <Input placeholder="新宿区" value={form.city} error={!!errors.city} onChange={e => onChange("city", e.target.value)} />
-        </Field>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="番地" required error={errors.address}>
-          <Input placeholder="西新宿1-1-1" value={form.address} error={!!errors.address} onChange={e => onChange("address", e.target.value)} />
-        </Field>
-        <Field label="建物名・部屋番号（任意）">
-          <Input placeholder="○○マンション 101号室" value={form.addressDetail} onChange={e => onChange("addressDetail", e.target.value)} />
-        </Field>
-      </div>
+      {hasAddressFields && (
+        <>
+          <Divider />
+          <SectionTitle icon="🏠">住所</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {isEnabled("postalCode") && (
+              <Field label="郵便番号" required={isRequired("postalCode")} hint="ハイフンなし7桁" error={errors.postalCode}>
+                <Input placeholder="1000001" maxLength={7} value={form.postalCode} error={!!errors.postalCode}
+                  onChange={e => onChange("postalCode", e.target.value.replace(/\D/g, ""))} />
+              </Field>
+            )}
+            {isEnabled("prefecture") && (
+              <Field label="都道府県" required={isRequired("prefecture")} error={errors.prefecture}>
+                <Select value={form.prefecture} error={!!errors.prefecture} onChange={e => onChange("prefecture", e.target.value)}>
+                  <option value="">選択</option>
+                  {PREFECTURES.map(p => <option key={p} value={p}>{p}</option>)}
+                </Select>
+              </Field>
+            )}
+            {isEnabled("city") && (
+              <Field label="市区町村" required={isRequired("city")} error={errors.city}>
+                <Input placeholder="新宿区" value={form.city} error={!!errors.city} onChange={e => onChange("city", e.target.value)} />
+              </Field>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isEnabled("address") && (
+              <Field label="番地" required={isRequired("address")} error={errors.address}>
+                <Input placeholder="西新宿1-1-1" value={form.address} error={!!errors.address} onChange={e => onChange("address", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("addressDetail") && (
+              <Field label="建物名・部屋番号（任意）">
+                <Input placeholder="○○マンション 101号室" value={form.addressDetail} onChange={e => onChange("addressDetail", e.target.value)} />
+              </Field>
+            )}
+          </div>
+        </>
+      )}
 
-      <Divider />
-      <SectionTitle icon="🗾">在日情報・日本語能力</SectionTitle>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="在留資格（日本在住の方）">
-          <Select value={form.residenceStatus} onChange={e => onChange("residenceStatus", e.target.value)}>
-            <option value="">選択してください（任意）</option>
-            {["留学","技術・人文知識・国際業務","特定技能","技能実習","永住者","定住者","日本人の配偶者等","家族滞在","その他"].map(v =>
-              <option key={v} value={v}>{v}</option>)}
-          </Select>
-        </Field>
-        <Field label="在留期限（日本在住の方）">
-          <DateSelect value={form.residenceExpiry} onChange={v => onChange("residenceExpiry", v)}
-            minYear={new Date().getFullYear()} maxYear={new Date().getFullYear() + 10} />
-        </Field>
-        <Field label="日本語レベル" required error={errors.japaneseLevel}>
-          <Select value={form.japaneseLevel} error={!!errors.japaneseLevel} onChange={e => onChange("japaneseLevel", e.target.value)}>
-            <option value="">選択してください</option>
-            <option value="N1">N1（最上級）</option>
-            <option value="N2">N2</option>
-            <option value="N3">N3</option>
-            <option value="N4">N4</option>
-            <option value="N5">N5（初級）</option>
-            <option value="なし">資格なし</option>
-          </Select>
-        </Field>
-        <Field label="JLPT合格証明書">
-          <label className="flex items-center gap-3 h-[42px] cursor-pointer">
-            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-blue-600"
-              checked={form.jlptCertified} onChange={e => onChange("jlptCertified", e.target.checked)} />
-            <span className="text-sm text-gray-700">JLPT合格証明書を持っている</span>
-          </label>
-        </Field>
-      </div>
+      {hasResidenceFields && (
+        <>
+          <Divider />
+          <SectionTitle icon="🗾">在日情報・日本語能力</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isEnabled("residenceStatus") && (
+              <Field label="在留資格（日本在住の方）">
+                <Select value={form.residenceStatus} onChange={e => onChange("residenceStatus", e.target.value)}>
+                  <option value="">選択してください（任意）</option>
+                  {["留学","技術・人文知識・国際業務","特定技能","技能実習","永住者","定住者","日本人の配偶者等","家族滞在","その他"].map(v =>
+                    <option key={v} value={v}>{v}</option>)}
+                </Select>
+              </Field>
+            )}
+            {isEnabled("residenceExpiry") && (
+              <Field label="在留期限（日本在住の方）">
+                <DateSelect value={form.residenceExpiry} onChange={v => onChange("residenceExpiry", v)}
+                  minYear={new Date().getFullYear()} maxYear={new Date().getFullYear() + 10} />
+              </Field>
+            )}
+            {isEnabled("japaneseLevel") && (
+              <Field label="日本語レベル" required={isRequired("japaneseLevel")} error={errors.japaneseLevel}>
+                <Select value={form.japaneseLevel} error={!!errors.japaneseLevel} onChange={e => onChange("japaneseLevel", e.target.value)}>
+                  <option value="">選択してください</option>
+                  <option value="N1">N1（最上級）</option>
+                  <option value="N2">N2</option>
+                  <option value="N3">N3</option>
+                  <option value="N4">N4</option>
+                  <option value="N5">N5（初級）</option>
+                  <option value="なし">資格なし</option>
+                </Select>
+              </Field>
+            )}
+            {isEnabled("jlptCertified") && (
+              <Field label="JLPT合格証明書">
+                <label className="flex items-center gap-3 h-[42px] cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+                    checked={form.jlptCertified} onChange={e => onChange("jlptCertified", e.target.checked)} />
+                  <span className="text-sm text-gray-700">JLPT合格証明書を持っている</span>
+                </label>
+              </Field>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ========== Step 2 ==========
-function Step2({ form, onChange, errors }: {
-  form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
+// 学科選択サブコンポーネント（メイン校・並願校共用）
+function SchoolDeptPicker({ school, department, course, onChange, errors, deptKey, courseKey }: {
+  school: SchoolData;
+  department: string;
+  course: string;
+  onChange: (field: string, value: string) => void;
+  errors: Record<string, string>;
+  deptKey: string;
+  courseKey: string;
 }) {
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear + 1, currentYear + 2];
-  const selectedSchool = SCHOOLS.find(s => s.id === form.schoolId);
-  const selectedDept = selectedSchool?.departments.find(d => d.name === form.department);
-
-  const handleSchoolChange = (id: string) => {
-    const school = SCHOOLS.find(s => s.id === id);
-    onChange("schoolId", id);
-    onChange("schoolName", school ? `${school.hojin} ${school.name}` : "");
-    onChange("department", "");
-    onChange("course", "");
-  };
-
+  const selectedDept = school.departments.find(d => d.name === department);
   const durationColor: Record<string, string> = {
     "1年制": "bg-blue-100 text-blue-700",
     "2年制": "bg-purple-100 text-purple-700",
     "3年制": "bg-orange-100 text-orange-700",
   };
-
   return (
-    <div className="space-y-6">
-      <SectionTitle icon="🏫">志望校の選択</SectionTitle>
-      {errors.schoolId && <FieldError msg={errors.schoolId} />}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {SCHOOLS.map(school => {
-          const selected = form.schoolId === school.id;
+    <div className="space-y-3">
+      <Label required>志望学科</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {school.departments.map(dept => {
+          const sel = department === dept.name;
           return (
-            <button key={school.id} type="button" onClick={() => handleSchoolChange(school.id)}
-              className={`text-left p-4 rounded-xl border-2 transition-all hover:shadow-md
-                ${selected ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 bg-white hover:border-blue-200"}`}>
-              <div className="text-2xl mb-2">{school.icon}</div>
-              <p className="text-xs text-gray-400 mb-0.5">{school.hojin}</p>
-              <p className={`font-bold text-sm leading-snug ${selected ? "text-blue-700" : "text-gray-800"}`}>{school.name}</p>
-              <p className="text-xs text-gray-400 mt-1.5">{school.departments.length}学科</p>
-              {selected && <div className="mt-2 text-xs font-semibold text-blue-600 flex items-center gap-1"><span>✓</span> 選択中</div>}
-            </button>
+            <label key={dept.name} className={`cursor-pointer rounded-xl border-2 p-4 flex items-start gap-3 transition-all
+              ${sel ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/30"}`}>
+              <input type="radio" name={deptKey} value={dept.name} className="hidden"
+                checked={sel} onChange={() => { onChange(deptKey, dept.name); onChange(courseKey, ""); }} />
+              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
+                ${sel ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
+                {sel && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-semibold text-sm ${sel ? "text-blue-700" : "text-gray-800"}`}>{dept.name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${durationColor[dept.duration] ?? "bg-gray-100 text-gray-600"}`}>{dept.duration}</span>
+                </div>
+              </div>
+            </label>
           );
         })}
       </div>
+      {errors[deptKey] && <FieldError msg={errors[deptKey]} />}
+      {selectedDept && selectedDept.courses && selectedDept.courses.length > 0 && (
+        <Field label="志望コース" required error={errors[courseKey]}>
+          <Select value={course} error={!!errors[courseKey]} onChange={e => onChange(courseKey, e.target.value)}>
+            <option value="">選択してください</option>
+            {selectedDept.courses.map(c => <option key={c} value={c}>{c}</option>)}
+          </Select>
+        </Field>
+      )}
+    </div>
+  );
+}
 
-      {selectedSchool && (
-        <>
-          <Divider />
-          <SectionTitle icon="📖">学科・コース</SectionTitle>
-          <div className="space-y-3">
-            <Label required>志望学科</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {selectedSchool.departments.map(dept => {
-                const sel = form.department === dept.name;
-                return (
-                  <label key={dept.name} className={`cursor-pointer rounded-xl border-2 p-4 flex items-start gap-3 transition-all
-                    ${sel ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/30"}`}>
-                    <input type="radio" name="department" value={dept.name} className="hidden"
-                      checked={sel} onChange={() => { onChange("department", dept.name); onChange("course", ""); }} />
-                    <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
-                      ${sel ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
-                      {sel && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-semibold text-sm ${sel ? "text-blue-700" : "text-gray-800"}`}>{dept.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${durationColor[dept.duration] ?? "bg-gray-100 text-gray-600"}`}>{dept.duration}</span>
-                      </div>
-                      {dept.courses.length > 1 && <p className="text-xs text-gray-400 mt-0.5">{dept.courses.join(" / ")}</p>}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <FieldError msg={errors.department} />
+function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAdditional, errors, formConfig, schools, preselectedSchool }: {
+  form: FormData;
+  onChange: (f: keyof FormData, v: string | boolean) => void;
+  onChangeAdditional: (index: number, field: string, value: string) => void;
+  onAddAdditional: (school: SchoolData) => void;
+  onRemoveAdditional: (index: number) => void;
+  errors: Record<string, string>;
+  formConfig: FormFieldConfig[] | null;
+  schools: SchoolData[];
+  preselectedSchool?: boolean;
+}) {
+  const isEnabled = (key: string) => {
+    if (!formConfig || formConfig.length === 0) return true;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    return cfg ? cfg.isEnabled : true;
+  };
+  const isRequired = (key: string, defaultReq = true) => {
+    if (!formConfig || formConfig.length === 0) return defaultReq;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    return cfg ? cfg.isRequired : defaultReq;
+  };
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear, currentYear + 1, currentYear + 2];
+  const selectedSchool = schools.find(s => s.id === form.schoolId);
+
+  // 並願で選択済み学校ID一覧（メイン + 追加）
+  const usedSchoolIds = [form.schoolId, ...form.additionalSchools.map(a => a.schoolId)].filter(Boolean);
+  // 並願に追加できる学校（メイン校・既追加校を除く）
+  const availableForAdditional = schools.filter(s => !usedSchoolIds.includes(s.id));
+
+  return (
+    <div className="space-y-6">
+      {/* メイン志望校：固定表示 */}
+      <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{selectedSchool?.icon ?? "🏫"}</span>
+          <div className="flex-1">
+            <p className="text-xs text-gray-500">{selectedSchool?.hojin ?? ""}</p>
+            <p className="font-bold text-blue-700 text-base">{selectedSchool?.name ?? form.schoolName}</p>
           </div>
-          {selectedDept && (
-            <Field label="志望コース" required={selectedDept.courses.length > 1} error={errors.course}>
-              <Select value={form.course} error={!!errors.course} onChange={e => onChange("course", e.target.value)} disabled={!selectedDept}>
-                <option value="">選択してください</option>
-                {selectedDept.courses.map(c => <option key={c} value={c}>{c}</option>)}
-              </Select>
-            </Field>
-          )}
-        </>
+          <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">第一志望</span>
+        </div>
+      </div>
+
+      {/* メイン校の学科選択 */}
+      {selectedSchool && (
+        <SchoolDeptPicker
+          school={selectedSchool}
+          department={form.department}
+          course={form.course}
+          onChange={(field, value) => onChange(field as keyof FormData, value)}
+          errors={errors}
+          deptKey="department"
+          courseKey="course"
+        />
+      )}
+
+      {/* 並願校 */}
+      {form.additionalSchools.map((add, idx) => {
+        const addSchool = schools.find(s => s.id === add.schoolId);
+        if (!addSchool) return null;
+        return (
+          <div key={idx} className="border-2 border-orange-200 rounded-xl p-4 space-y-4 bg-orange-50/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{addSchool.icon}</span>
+                <div>
+                  <p className="text-xs text-gray-500">{addSchool.hojin}</p>
+                  <p className="font-bold text-gray-800">{addSchool.name}</p>
+                </div>
+                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-full">並願</span>
+              </div>
+              <button type="button" onClick={() => onRemoveAdditional(idx)}
+                className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition">
+                削除
+              </button>
+            </div>
+            <SchoolDeptPicker
+              school={addSchool}
+              department={add.department}
+              course={add.course}
+              onChange={(field, value) => {
+                // field は "additional_N_department" or "additional_N_course" なので末尾を取る
+                const actualField = field.endsWith("_course") ? "course" : "department";
+                onChangeAdditional(idx, actualField, value);
+              }}
+              errors={errors}
+              deptKey={`additional_${idx}_department`}
+              courseKey={`additional_${idx}_course`}
+            />
+          </div>
+        );
+      })}
+
+      {/* 並願追加ボタン */}
+      {availableForAdditional.length > 0 && (
+        <div className="border-2 border-dashed border-gray-200 rounded-xl p-4">
+          <p className="text-sm text-gray-500 mb-3">他の学校にも出願しますか？（並願）</p>
+          <div className="flex flex-wrap gap-2">
+            {availableForAdditional.map(s => (
+              <button key={s.id} type="button" onClick={() => onAddAdditional(s)}
+                className="flex items-center gap-2 text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
+                <span>{s.icon}</span>
+                <span className="font-medium text-gray-700">{s.name}</span>
+                <span className="text-blue-500">＋</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <Divider />
@@ -486,42 +667,58 @@ function Step2({ form, onChange, errors }: {
         </Field>
       </div>
 
-      <Divider />
-      <SectionTitle icon="✍️">志望動機</SectionTitle>
-      <Field label="志望動機" required hint="300字以上で具体的にご記入ください" error={errors.applicationReason}>
-        <textarea
-          className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
-            ${errors.applicationReason ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
-          placeholder="志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。"
-          value={form.applicationReason} onChange={e => onChange("applicationReason", e.target.value)} />
-        <div className="flex justify-end mt-1">
-          <span className={`text-xs ${form.applicationReason.length >= 300 ? "text-green-600 font-semibold" : "text-gray-400"}`}>
-            {form.applicationReason.length} / 300文字
-          </span>
-        </div>
-      </Field>
+      {isEnabled("applicationReason") && (
+        <>
+          <Divider />
+          <SectionTitle icon="✍️">志望動機</SectionTitle>
+          <Field label="志望動機" required={isRequired("applicationReason")} hint="300字以上で具体的にご記入ください" error={errors.applicationReason}>
+            <textarea
+              className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
+                ${errors.applicationReason ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
+              placeholder="志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。"
+              value={form.applicationReason} onChange={e => onChange("applicationReason", e.target.value)} />
+            <div className="flex justify-end mt-1">
+              <span className={`text-xs ${form.applicationReason.length >= 300 ? "text-green-600 font-semibold" : "text-gray-400"}`}>
+                {form.applicationReason.length} / 300文字
+              </span>
+            </div>
+          </Field>
+        </>
+      )}
 
-      <Divider />
-      <SectionTitle icon="🎓">最終学歴</SectionTitle>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Field label="学校名" required error={errors.lastSchoolName}>
-          <Input placeholder="○○大学" value={form.lastSchoolName} error={!!errors.lastSchoolName} onChange={e => onChange("lastSchoolName", e.target.value)} />
-        </Field>
-        <Field label="国" required error={errors.lastSchoolCountry}>
-          <Input placeholder="中国" value={form.lastSchoolCountry} error={!!errors.lastSchoolCountry} onChange={e => onChange("lastSchoolCountry", e.target.value)} />
-        </Field>
-        <Field label="卒業状況" required error={errors.lastSchoolGraduate}>
-          <Select value={form.lastSchoolGraduate} error={!!errors.lastSchoolGraduate} onChange={e => onChange("lastSchoolGraduate", e.target.value)}>
-            <option value="">選択してください</option>
-            {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{v}</option>)}
-          </Select>
-        </Field>
-      </div>
+      {(isEnabled("lastSchoolName") || isEnabled("lastSchoolCountry") || isEnabled("lastSchoolGraduate") || isEnabled("priorAttendanceRate") || isEnabled("workExperience")) && (
+        <>
+          <Divider />
+          <SectionTitle icon="🎓">最終学歴</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {isEnabled("lastSchoolName") && (
+              <Field label="学校名" required={isRequired("lastSchoolName")} error={errors.lastSchoolName}>
+                <Input placeholder="○○大学" value={form.lastSchoolName} error={!!errors.lastSchoolName} onChange={e => onChange("lastSchoolName", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("lastSchoolCountry") && (
+              <Field label="国" required={isRequired("lastSchoolCountry")} error={errors.lastSchoolCountry}>
+                <Input placeholder="中国" value={form.lastSchoolCountry} error={!!errors.lastSchoolCountry} onChange={e => onChange("lastSchoolCountry", e.target.value)} />
+              </Field>
+            )}
+            {isEnabled("lastSchoolGraduate") && (
+              <Field label="卒業状況" required={isRequired("lastSchoolGraduate")} error={errors.lastSchoolGraduate}>
+                <Select value={form.lastSchoolGraduate} error={!!errors.lastSchoolGraduate} onChange={e => onChange("lastSchoolGraduate", e.target.value)}>
+                  <option value="">選択してください</option>
+                  {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{v}</option>)}
+                </Select>
+              </Field>
+            )}
+          </div>
 
-      <Field label="職務経歴（任意）" hint="直近の職務経歴をご記入ください">
-        <textarea className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
-          placeholder="会社名、職種、期間などをご記入ください" value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
-      </Field>
+          {isEnabled("workExperience") && (
+            <Field label="職務経歴（任意）" hint="直近の職務経歴をご記入ください">
+              <textarea className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
+                placeholder="会社名、職種、期間などをご記入ください" value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
+            </Field>
+          )}
+        </>
+      )}
 
       <Divider />
       <SectionTitle icon="🏷️">選考区分・推薦</SectionTitle>
@@ -567,9 +764,10 @@ function Step2({ form, onChange, errors }: {
 }
 
 // ========== Step 3 ==========
-function Step3({ applicationId, uploadedDocs, onUpload, onDelete }: {
+function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: {
   applicationId: string | null; uploadedDocs: UploadedDoc[];
   onUpload: (doc: UploadedDoc) => void; onDelete: (id: string) => void;
+  formConfig: FormFieldConfig[] | null;
 }) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -580,6 +778,12 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete }: {
 
   const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1024 / 1024).toFixed(1)}MB`;
 
+  const dynamicFileFields = formConfig
+    ? formConfig.filter(c => c.fieldType === "file" && c.isEnabled)
+    : [];
+
+  const hasConfiguredFileFields = dynamicFileFields.length > 0;
+
   if (!applicationId) return (
     <div className="text-center py-12 text-gray-400">
       <div className="text-4xl mb-3">⚠️</div>
@@ -587,11 +791,51 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete }: {
     </div>
   );
 
-  const catStyle: Record<string, { bg: string; badge: string }> = {
-    red: { bg: "bg-red-50 border-red-200", badge: "bg-red-100 text-red-700" },
-    blue: { bg: "bg-blue-50 border-blue-200", badge: "bg-blue-100 text-blue-700" },
-    purple: { bg: "bg-purple-50 border-purple-200", badge: "bg-purple-100 text-purple-700" },
-    gray: { bg: "bg-gray-50 border-gray-200", badge: "bg-gray-100 text-gray-600" },
+  const renderFileRow = (key: string, label: string, description: string | null | undefined, isRequired: boolean) => {
+    const uploaded = uploadedDocs.filter(u => u.docType === label);
+    const isUp = uploading === label;
+    return (
+      <div key={key} className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-gray-800">📎 {label}</p>
+            {uploaded.length > 0 && (
+              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">✓ {uploaded.length}件</span>
+            )}
+          </div>
+          {description && (
+            <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+          )}
+          {uploaded.length > 0 && (
+            <div className="mt-1.5 space-y-1">
+              {uploaded.map(u => (
+                <div key={u.id} className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="text-green-500">📄</span>
+                  <span className="truncate">{u.originalName}</span>
+                  <span className="shrink-0 text-gray-400">{formatSize(u.fileSize)}</span>
+                  <button onClick={() => handleDelete(u.id)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors border
+          ${isUp ? "bg-gray-100 text-gray-400 border-gray-200 cursor-wait" : "bg-white border-blue-200 text-blue-700 hover:bg-blue-50"}`}>
+          <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={isUp}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (!file || !applicationId) return;
+              setUploading(label); setUploadError(null);
+              const fd = new FormData();
+              fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
+              fetch("/api/upload", { method: "POST", body: fd })
+                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
+                .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
+            }} />
+          {isUp ? "送信中..." : "+ 追加"}
+        </label>
+      </div>
+    );
   };
 
   return (
@@ -605,63 +849,103 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete }: {
       </div>
       {uploadError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{uploadError}</div>}
 
-      {DOC_CATEGORIES.map(cat => {
-        const s = catStyle[cat.color];
-        return (
-          <div key={cat.label} className={`rounded-xl border p-4 ${s.bg}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>{cat.required ? "必須" : "任意"}</span>
-              <h3 className="font-semibold text-gray-800 text-sm">{cat.label}</h3>
+      {hasConfiguredFileFields ? (
+        <>
+          {dynamicFileFields.filter(f => f.isRequired).length > 0 && (
+            <div className="rounded-xl border p-4 bg-red-50 border-red-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">必須</span>
+                <h3 className="font-semibold text-gray-800 text-sm">必須書類</h3>
+              </div>
+              <div className="space-y-2">
+                {dynamicFileFields.filter(f => f.isRequired).map(field =>
+                  renderFileRow(field.fieldKey, field.label, field.description, true)
+                )}
+              </div>
             </div>
-            <div className="space-y-2">
-              {cat.docs.map(doc => {
-                const uploaded = uploadedDocs.filter(u => u.docType === doc.type);
-                const isUp = uploading === doc.type;
-                return (
-                  <div key={doc.type} className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-gray-800">{doc.type}</p>
-                        {uploaded.length > 0 && (
-                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">✓ {uploaded.length}件</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">{doc.desc}</p>
-                      {uploaded.length > 0 && (
-                        <div className="mt-1.5 space-y-1">
-                          {uploaded.map(u => (
-                            <div key={u.id} className="flex items-center gap-2 text-xs text-gray-500">
-                              <span className="text-green-500">📄</span>
-                              <span className="truncate">{u.originalName}</span>
-                              <span className="shrink-0 text-gray-400">{formatSize(u.fileSize)}</span>
-                              <button onClick={() => handleDelete(u.id)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+          )}
+
+          {dynamicFileFields.filter(f => !f.isRequired).length > 0 && (
+            <div className="rounded-xl border p-4 bg-gray-50 border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">任意</span>
+                <h3 className="font-semibold text-gray-800 text-sm">任意提出書類</h3>
+              </div>
+              <div className="space-y-2">
+                {dynamicFileFields.filter(f => !f.isRequired).map(field =>
+                  renderFileRow(field.fieldKey, field.label, field.description, false)
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        (() => {
+          const catStyle: Record<string, { bg: string; badge: string }> = {
+            red: { bg: "bg-red-50 border-red-200", badge: "bg-red-100 text-red-700" },
+            blue: { bg: "bg-blue-50 border-blue-200", badge: "bg-blue-100 text-blue-700" },
+            purple: { bg: "bg-purple-50 border-purple-200", badge: "bg-purple-100 text-purple-700" },
+            gray: { bg: "bg-gray-50 border-gray-200", badge: "bg-gray-100 text-gray-600" },
+          };
+          return DOC_CATEGORIES.map(cat => {
+            const s = catStyle[cat.color];
+            return (
+              <div key={cat.label} className={`rounded-xl border p-4 ${s.bg}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>{cat.required ? "必須" : "任意"}</span>
+                  <h3 className="font-semibold text-gray-800 text-sm">{cat.label}</h3>
+                </div>
+                <div className="space-y-2">
+                  {cat.docs.map(doc => {
+                    const uploaded = uploadedDocs.filter(u => u.docType === doc.type);
+                    const isUp = uploading === doc.type;
+                    return (
+                      <div key={doc.type} className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-gray-800">{doc.type}</p>
+                            {uploaded.length > 0 && (
+                              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">✓ {uploaded.length}件</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5">{doc.desc}</p>
+                          {uploaded.length > 0 && (
+                            <div className="mt-1.5 space-y-1">
+                              {uploaded.map(u => (
+                                <div key={u.id} className="flex items-center gap-2 text-xs text-gray-500">
+                                  <span className="text-green-500">📄</span>
+                                  <span className="truncate">{u.originalName}</span>
+                                  <span className="shrink-0 text-gray-400">{formatSize(u.fileSize)}</span>
+                                  <button onClick={() => handleDelete(u.id)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors border
-                      ${isUp ? "bg-gray-100 text-gray-400 border-gray-200 cursor-wait" : "bg-white border-blue-200 text-blue-700 hover:bg-blue-50"}`}>
-                      <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={isUp}
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (!file || !applicationId) return;
-                          setUploading(doc.type); setUploadError(null);
-                          const fd = new FormData();
-                          fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
-                          fetch("/api/upload", { method: "POST", body: fd })
-                            .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
-                            .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
-                        }} />
-                      {isUp ? "送信中..." : "+ 追加"}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+                        <label className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors border
+                          ${isUp ? "bg-gray-100 text-gray-400 border-gray-200 cursor-wait" : "bg-white border-blue-200 text-blue-700 hover:bg-blue-50"}`}>
+                          <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={isUp}
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (!file || !applicationId) return;
+                              setUploading(doc.type); setUploadError(null);
+                              const fd = new FormData();
+                              fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
+                              fetch("/api/upload", { method: "POST", body: fd })
+                                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
+                                .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
+                            }} />
+                          {isUp ? "送信中..." : "+ 追加"}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          });
+        })()
+      )}
       <p className="text-sm text-gray-500 text-right">アップロード済み：<span className="font-bold text-blue-700">{uploadedDocs.length}件</span></p>
     </div>
   );
@@ -698,13 +982,11 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
 
   return (
     <div className="space-y-5">
-      {/* 金額 */}
       <div className="rounded-2xl p-6 text-white" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
         <p className="text-blue-200 text-sm mb-1">選考費（{schoolCount}校 × 20,000円）</p>
         <p className="text-4xl font-bold tracking-tight">¥{fee.toLocaleString()}<span className="text-lg font-normal text-blue-300 ml-2">税込</span></p>
       </div>
 
-      {/* 振込先 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">🏦 振込先情報</h3>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
@@ -720,7 +1002,6 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
         </div>
       </div>
 
-      {/* 振込証明書 */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-bold text-gray-800 mb-1">📎 振込証明書のアップロード</h3>
         <p className="text-xs text-gray-400 mb-4">銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。</p>
@@ -747,7 +1028,6 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
         {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
       </div>
 
-      {/* ステータス */}
       <div className="flex items-center justify-between bg-gray-50 rounded-xl border border-gray-200 px-5 py-4">
         <span className="text-sm font-medium text-gray-700">現在の支払い状態</span>
         <span className={`text-sm font-bold px-3 py-1 rounded-full ${
@@ -797,9 +1077,17 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
         <Row label="JLPT証明書" value={form.jlptCertified} />
       </Section>
       <Section title="志望校情報">
-        <Row label="志望校" value={form.schoolName} />
+        <Row label="志望校（第一志望）" value={form.schoolName} />
         <Row label="学科" value={form.department} />
-        <Row label="コース" value={form.course} />
+        {form.course && <Row label="コース" value={form.course} />}
+        {form.additionalSchools.map((add, idx) => (
+          <div key={idx}>
+            <Row label={`並願校${idx + 1}`} value={add.schoolName} />
+            <Row label={`並願校${idx + 1} 学科`} value={add.department} />
+            {add.course && <Row label={`並願校${idx + 1} コース`} value={add.course} />}
+          </div>
+        ))}
+        {form.course && <Row label="コース" value={form.course} />}
         <Row label="入学希望" value={`${form.enrollmentYear}年${form.enrollmentMonth}月`} />
         <Row label="志望動機" value={form.applicationReason} />
       </Section>
@@ -827,8 +1115,127 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
   );
 }
 
+// ========== 出願番号発行確認画面 (between Step 2 and Step 3) ==========
+function ApplicationNoConfirm({
+  applicationNo,
+  email,
+  onContinue,
+  onSaveAndExit,
+}: {
+  applicationNo: string;
+  email: string;
+  onContinue: () => void;
+  onSaveAndExit: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🎉</div>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">出願番号が発行されました</h2>
+        <p className="text-sm text-gray-500">ステップ1・2の情報を受け付けました</p>
+      </div>
+
+      {/* 出願番号 */}
+      <div className="rounded-2xl p-6 text-white text-center" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
+        <p className="text-blue-200 text-sm mb-2">出願番号</p>
+        <p className="text-4xl font-bold tracking-widest">{applicationNo}</p>
+        <p className="text-blue-300 text-xs mt-3">この番号は必ず控えてください</p>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+        <p className="font-semibold mb-1">💡 この番号でできること</p>
+        <p className="text-xs text-blue-700">
+          この番号でいつでもログインして書類アップロード・選考料のお支払いができます。
+          後から続ける場合は <strong>/apply/status</strong> にアクセスし、出願番号とメールアドレスで検索してください。
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={onContinue}
+          className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition flex items-center justify-center gap-2"
+        >
+          続けて書類をアップロードする →
+        </button>
+        <button
+          onClick={onSaveAndExit}
+          className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition"
+        >
+          後で続きをする
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-400 text-center">
+        登録メールアドレス: <span className="font-medium text-gray-600">{email}</span>
+      </p>
+    </div>
+  );
+}
+
+// ========== 後で続きをする 完了画面 ==========
+function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; email: string }) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b border-gray-200 py-4 px-4">
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
+          <span className="font-bold text-gray-800">入学出願システム</span>
+        </div>
+      </header>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">📋</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">出願を一時保存しました</h2>
+            <p className="text-gray-500 text-sm">後から書類アップロードを再開できます</p>
+          </div>
+
+          <div className="rounded-2xl p-6 mb-6 text-white" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
+            <p className="text-blue-200 text-sm mb-2">出願番号</p>
+            <p className="text-3xl font-bold tracking-widest">{applicationNo}</p>
+            <p className="text-blue-300 text-xs mt-2">この番号を必ず控えてください</p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-3">
+            <h3 className="font-bold text-gray-800 text-sm">続きの手続き方法</h3>
+            <div className="space-y-2 text-sm text-gray-600">
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">1</span>
+                <p><strong>/apply/status</strong> にアクセスします</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">2</span>
+                <p>出願番号 <strong>{applicationNo}</strong> とメールアドレス <strong>{email}</strong> で検索します</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">3</span>
+                <p>書類アップロードと選考料のお支払いを完了してください</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/apply/status"
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition text-center"
+            >
+              出願状況を確認する
+            </Link>
+            <Link
+              href="/"
+              className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition text-center"
+            >
+              トップへ戻る
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ========== Main ==========
-export default function ApplyPage() {
+function ApplyPageInner() {
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -839,31 +1246,193 @@ export default function ApplyPage() {
   const [applicationNo, setApplicationNo] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [examFeeStatus, setExamFeeStatus] = useState("未払い");
-  const schoolCount = 1;
+  const [formConfig, setFormConfig] = useState<FormFieldConfig[] | null>(null);
+  const [schools, setSchools] = useState<SchoolData[]>(SCHOOLS_FALLBACK);
+  // showAppNoConfirm: after Step 2 save, before Step 3
+  const [showAppNoConfirm, setShowAppNoConfirm] = useState(false);
+  // saveAndExit: user chose to save and exit after seeing appNo
+  const [saveAndExit, setSaveAndExit] = useState(false);
+  // resumeLoading: fetching existing application data for resume flow
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [isResumed, setIsResumed] = useState(false); // resume フローかどうか
+  const [preselectedSchool, setPreselectedSchool] = useState(false); // トップから学校指定で来た場合
+  const schoolCount = 1 + form.additionalSchools.length;
+
+  // Fetch schools from DB on mount (with fallback to hardcoded)
+  useEffect(() => {
+    fetch("/api/apply/schools")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const list = (Array.isArray(data) && data.length > 0) ? data : SCHOOLS_FALLBACK;
+        if (Array.isArray(data) && data.length > 0) setSchools(data);
+
+        // ?school=xxx パラメータ処理：fetch完了後に直接適用
+        const schoolParam = new URLSearchParams(window.location.search).get("school");
+        console.log("[apply] schoolParam=", schoolParam, "list ids=", list.map((s: SchoolData) => s.id));
+        if (schoolParam) {
+          const found = list.find((s: SchoolData) => s.id === schoolParam || s.schoolKey === schoolParam);
+          console.log("[apply] found=", found);
+          if (found) {
+            setForm(prev => ({
+              ...prev,
+              schoolId: found.id,
+              schoolName: `${found.hojin} ${found.name}`,
+            }));
+            setPreselectedSchool(true);
+            fetchFormConfig(found.id);
+          }
+        }
+      })
+      .catch(() => {
+        // Keep fallback — school param処理はFALLBACKで試みる
+        const schoolParam = new URLSearchParams(window.location.search).get("school");
+        if (schoolParam) {
+          const found = SCHOOLS_FALLBACK.find(s => s.id === schoolParam || s.schoolKey === schoolParam);
+          if (found) {
+            setForm(prev => ({ ...prev, schoolId: found.id, schoolName: `${found.hojin} ${found.name}` }));
+            setPreselectedSchool(true);
+          }
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // フォームフィールド設定を取得（schoolId に応じて切り替え）
+  const fetchFormConfig = (schoolId?: string) => {
+    const url = schoolId
+      ? `/api/apply/form-config?schoolId=${encodeURIComponent(schoolId)}`
+      : "/api/apply/form-config";
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setFormConfig(data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchFormConfig();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+
+  // resume フロー: URL に ?resume=1&applicationNo=XXX&email=YYY がある場合
+  // 既存の出願データを取得して Step3 から再開
+  const handleResume = useCallback(async (appNo: string, emailAddr: string) => {
+    setResumeLoading(true);
+    try {
+      const params = new URLSearchParams({ applicationNo: appNo, email: emailAddr });
+      const res = await fetch(`/api/applications/status?${params}`);
+      if (!res.ok) throw new Error("取得失敗");
+      const data = await res.json();
+      if (data.id) {
+        setApplicationId(data.id);
+        setApplicationNo(data.applicationNo);
+        setUploadedDocs(data.documents || []);
+        setExamFeeStatus(data.examFeeStatus || "未払い");
+        setIsResumed(true); // resume フロー確定
+        // 書類待ち・受付中 → Step3 から再開
+        // 選考費未払い → Step4 から再開
+        if (data.examFeeStatus && data.examFeeStatus !== "未払い") {
+          setCurrentStep(4);
+        } else {
+          setCurrentStep(3);
+        }
+      }
+    } catch {
+      // 失敗したら通常フローで続ける
+    } finally {
+      setResumeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // window.location.search を直接読む（useSearchParams は Static Generation では空になる）
+    const sp = new URLSearchParams(window.location.search);
+    const resume = sp.get("resume");
+    const appNo = sp.get("applicationNo");
+    const emailAddr = sp.get("email");
+    if (resume === "1" && appNo && emailAddr) {
+      handleResume(appNo, emailAddr);
+    }
+
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (field: keyof FormData, value: string | boolean) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+    if (field === "schoolId" && typeof value === "string") {
+      fetchFormConfig(value || undefined);
+    }
+  };
+
+  // 並願校ハンドラ
+  const handleChangeAdditional = (index: number, field: string, value: string) => {
+    setForm(prev => {
+      const updated = [...prev.additionalSchools];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, additionalSchools: updated };
+    });
+    setErrors(prev => { const n = { ...prev }; delete n[`additional_${index}_${field}`]; return n; });
+  };
+
+  const handleAddAdditional = (school: SchoolData) => {
+    setForm(prev => ({
+      ...prev,
+      additionalSchools: [
+        ...prev.additionalSchools,
+        { schoolId: school.id, schoolName: `${school.hojin} ${school.name}`, department: "", course: "" },
+      ],
+    }));
+  };
+
+  const handleRemoveAdditional = (index: number) => {
+    setForm(prev => {
+      const updated = prev.additionalSchools.filter((_, i) => i !== index);
+      return { ...prev, additionalSchools: updated };
+    });
+  };
+
+  const isFieldRequired = (key: string, defaultReq = true): boolean => {
+    if (!formConfig || formConfig.length === 0) return defaultReq;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    if (!cfg) return defaultReq;
+    return cfg.isEnabled && cfg.isRequired;
+  };
+
+  const isFieldEnabled = (key: string): boolean => {
+    if (!formConfig || formConfig.length === 0) return true;
+    const cfg = formConfig.find(c => c.fieldKey === key);
+    return cfg ? cfg.isEnabled : true;
   };
 
   const validateStep1 = (): boolean => {
     const e: Record<string, string> = {};
-    if (!form.lastName) e.lastName = "姓を入力してください";
-    if (!form.firstName) e.firstName = "名を入力してください";
-    if (!form.lastNameKana) e.lastNameKana = "姓（カナ）を入力してください";
-    if (!form.firstNameKana) e.firstNameKana = "名（カナ）を入力してください";
-    if (!form.birthDate) e.birthDate = "生年月日を入力してください";
-    if (!form.gender) e.gender = "性別を選択してください";
-    if (!form.nationality) e.nationality = "国籍を選択してください";
-    if (!form.phone) e.phone = "電話番号を入力してください";
-    if (!form.email) e.email = "メールアドレスを入力してください";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "有効なメールアドレスを入力してください";
-    if (!form.postalCode) e.postalCode = "郵便番号を入力してください";
-    else if (form.postalCode.length !== 7) e.postalCode = "郵便番号は7桁で入力してください";
-    if (!form.prefecture) e.prefecture = "都道府県を選択してください";
-    if (!form.city) e.city = "市区町村を入力してください";
-    if (!form.address) e.address = "番地を入力してください";
-    if (!form.japaneseLevel) e.japaneseLevel = "日本語レベルを選択してください";
+    if (isFieldRequired("lastName") && !form.lastName) e.lastName = "姓を入力してください";
+    if (isFieldRequired("firstName") && !form.firstName) e.firstName = "名を入力してください";
+    if (isFieldRequired("lastNameKana") && !form.lastNameKana) e.lastNameKana = "姓（カナ）を入力してください";
+    if (isFieldRequired("firstNameKana") && !form.firstNameKana) e.firstNameKana = "名（カナ）を入力してください";
+    if (isFieldRequired("birthDate") && !form.birthDate) e.birthDate = "生年月日を入力してください";
+    if (isFieldRequired("gender") && !form.gender) e.gender = "性別を選択してください";
+    if (isFieldRequired("nationality") && !form.nationality) e.nationality = "国籍を選択してください";
+    if (isFieldRequired("phone") && !form.phone) e.phone = "電話番号を入力してください";
+    if (isFieldEnabled("email")) {
+      if (isFieldRequired("email") && !form.email) e.email = "メールアドレスを入力してください";
+      else if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "有効なメールアドレスを入力してください";
+    }
+    if (isFieldRequired("postalCode")) {
+      if (!form.postalCode) e.postalCode = "郵便番号を入力してください";
+      else if (form.postalCode.length !== 7) e.postalCode = "郵便番号は7桁で入力してください";
+    }
+    if (isFieldRequired("prefecture") && !form.prefecture) e.prefecture = "都道府県を選択してください";
+    if (isFieldRequired("city") && !form.city) e.city = "市区町村を入力してください";
+    if (isFieldRequired("address") && !form.address) e.address = "番地を入力してください";
+    if (isFieldRequired("japaneseLevel") && !form.japaneseLevel) e.japaneseLevel = "日本語レベルを選択してください";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -872,21 +1441,34 @@ export default function ApplyPage() {
     const e: Record<string, string> = {};
     if (!form.schoolId) e.schoolId = "志望校を選択してください";
     if (!form.department) e.department = "志望学科を選択してください";
-    const dept = SCHOOLS.find(s => s.id === form.schoolId)?.departments.find(d => d.name === form.department);
-    if (dept && dept.courses.length > 0 && !form.course) e.course = "コースを選択してください";
+    const dept = schools.find(s => s.id === form.schoolId)?.departments.find(d => d.name === form.department);
+    // コースが設定されている学科のみコース必須チェック
+    if (dept && dept.courses && dept.courses.length > 0 && !form.course) e.course = "コースを選択してください";
+    // 並願校のバリデーション
+    form.additionalSchools.forEach((add, idx) => {
+      if (!add.department) e[`additional_${idx}_department`] = "志望学科を選択してください";
+      const addDept = schools.find(s => s.id === add.schoolId)?.departments.find(d => d.name === add.department);
+      if (addDept && addDept.courses && addDept.courses.length > 0 && !add.course) e[`additional_${idx}_course`] = "コースを選択してください";
+    });
     if (!form.enrollmentYear) e.enrollmentYear = "入学希望年を選択してください";
-    if (!form.applicationReason) e.applicationReason = "志望動機を入力してください";
-    else if (form.applicationReason.length < 300) e.applicationReason = `300文字以上入力してください（現在${form.applicationReason.length}文字）`;
-    if (!form.lastSchoolName) e.lastSchoolName = "学校名を入力してください";
-    if (!form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
-    if (!form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
+    if (isFieldRequired("applicationReason")) {
+      if (!form.applicationReason) e.applicationReason = "志望動機を入力してください";
+      else if (form.applicationReason.length < 300) e.applicationReason = `300文字以上入力してください（現在${form.applicationReason.length}文字）`;
+    }
+    if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) e.lastSchoolName = "学校名を入力してください";
+    if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
+    if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const saveStep1And2 = async (): Promise<boolean> => {
     try {
-      const r = await fetch("/api/applications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const r = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, status: "書類待ち" }),
+      });
       const data = await r.json();
       if (!r.ok) { setSubmitError(data.error || "保存に失敗しました"); return false; }
       setApplicationId(data.id); setApplicationNo(data.applicationNo); return true;
@@ -903,8 +1485,19 @@ export default function ApplyPage() {
       const ok = await saveStep1And2();
       setSubmitting(false);
       if (!ok) return;
-      setCurrentStep(3);
+      // Show 出願番号発行 confirmation screen instead of going directly to Step 3
+      setShowAppNoConfirm(true);
     } else if (currentStep === 3) {
+      // 必須書類のアップロードチェック
+      if (formConfig) {
+        const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired);
+        const missingDocs = requiredFileFields.filter(f => !uploadedDocs.some(d => d.docType === f.label));
+        if (missingDocs.length > 0) {
+          setErrors({ step3: `以下の必須書類をアップロードしてください：${missingDocs.map(f => f.label).join("、")}` });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
       if (applicationId) {
         await fetch(`/api/applications/${applicationId}/fee`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -915,7 +1508,25 @@ export default function ApplyPage() {
     } else if (currentStep === 4) { setCurrentStep(5); }
   };
 
-  const handleBack = () => { setErrors({}); window.scrollTo({ top: 0, behavior: "smooth" }); setCurrentStep(p => Math.max(1, p - 1)); };
+  const handleBack = () => {
+    setErrors({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (showAppNoConfirm) {
+      // Go back from confirmation screen to Step 2
+      setShowAppNoConfirm(false);
+    } else if (currentStep >= 3 && applicationId) {
+      // Step3以降かつ出願番号発行済みの場合はStep3より前に戻れない
+      // Step3→Step3のまま（何もしない）、Step4→Step3、Step5→Step4
+      setCurrentStep(p => Math.max(3, p - 1));
+    } else {
+      setCurrentStep(p => Math.max(1, p - 1));
+    }
+  };
+
+  // 「後で続きをする」pressed
+  if (saveAndExit && applicationNo) {
+    return <SaveAndExitScreen applicationNo={applicationNo} email={form.email} />;
+  }
 
   // 完了画面
   if (submitted && applicationNo) {
@@ -956,7 +1567,7 @@ export default function ApplyPage() {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
             <div>
               <p className="font-bold text-gray-800 text-sm leading-none">入学出願システム</p>
-              <p className="text-xs text-gray-400 mt-0.5">ステップ {currentStep} / {STEPS.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">ステップ {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
             </div>
           </div>
           <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">← トップへ</Link>
@@ -965,18 +1576,47 @@ export default function ApplyPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Step Indicator */}
-        <StepIndicator currentStep={currentStep} />
+        <StepIndicator currentStep={showAppNoConfirm ? 3 : currentStep} />
 
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-5">
-          <h1 className="text-lg font-bold text-gray-800 mb-6">{STEPS[currentStep - 1].label}</h1>
-          {currentStep === 1 && <Step1 form={form} onChange={handleChange} errors={errors} />}
-          {currentStep === 2 && <Step2 form={form} onChange={handleChange} errors={errors} />}
-          {currentStep === 3 && <Step3 applicationId={applicationId} uploadedDocs={uploadedDocs}
-            onUpload={doc => setUploadedDocs(p => [...p, doc])} onDelete={id => setUploadedDocs(p => p.filter(d => d.id !== id))} />}
-          {currentStep === 4 && <Step4Payment applicationId={applicationId} schoolCount={schoolCount}
-            feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
-          {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} />}
+          {resumeLoading ? (
+            <div className="text-center py-16">
+              <svg className="animate-spin w-8 h-8 text-blue-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p className="text-gray-500 text-sm">出願情報を読み込んでいます...</p>
+            </div>
+          ) : showAppNoConfirm ? (
+            // 出願番号発行確認画面
+            <ApplicationNoConfirm
+              applicationNo={applicationNo!}
+              email={form.email}
+              onContinue={() => { setShowAppNoConfirm(false); setCurrentStep(3); }}
+              onSaveAndExit={() => setSaveAndExit(true)}
+            />
+          ) : (
+            <>
+              <h1 className="text-lg font-bold text-gray-800 mb-6">{STEPS[currentStep - 1].label}</h1>
+              {currentStep === 1 && <Step1 form={form} onChange={handleChange} errors={errors} formConfig={formConfig} />}
+              {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} />}
+              {currentStep === 3 && <>
+                {errors.step3 && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
+                    <span>⚠️</span><span>{errors.step3}</span>
+                  </div>
+                )}
+                <Step3 applicationId={applicationId} uploadedDocs={uploadedDocs}
+                  onUpload={doc => { setUploadedDocs(p => [...p, doc]); setErrors(p => { const n={...p}; delete n.step3; return n; }); }}
+                  onDelete={id => setUploadedDocs(p => p.filter(d => d.id !== id))}
+                  formConfig={formConfig} />
+              </>}
+              {currentStep === 4 && <Step4Payment applicationId={applicationId} schoolCount={schoolCount}
+                feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
+              {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} />}
+            </>
+          )}
         </div>
 
         {submitError && (
@@ -985,27 +1625,50 @@ export default function ApplyPage() {
           </div>
         )}
 
-        {/* Navigation */}
-        <div className="flex justify-between items-center">
-          <button onClick={handleBack} disabled={currentStep === 1 || submitting}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed">
-            ← 前へ
-          </button>
-          {currentStep < 5 ? (
-            <button onClick={handleNext} disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-200">
-              {submitting ? (
-                <><span className="animate-spin">⏳</span> 保存中...</>
-              ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
-            </button>
-          ) : (
-            <button onClick={() => setSubmitted(true)} disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
-              ✅ 提出する
-            </button>
-          )}
-        </div>
+        {/* Navigation — hide on AppNoConfirm screen (it has its own buttons) */}
+        {!showAppNoConfirm && (
+          <div className="flex justify-between items-center">
+            {/* resumeフロー時はStep1/2に戻れないので前へボタン非表示 */}
+            {/* 通常フローでStep3以降かつ出願番号発行済みも同様 */}
+            {(isResumed || (currentStep >= 3 && !!applicationId)) ? (
+              <div />
+            ) : (
+              <button onClick={handleBack} disabled={currentStep === 1 || submitting}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed">
+                ← 前へ
+              </button>
+            )}
+            {currentStep < 5 ? (
+              <button onClick={handleNext} disabled={submitting}
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-200">
+                {submitting ? (
+                  <><span className="animate-spin">⏳</span> 保存中...</>
+                ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
+              </button>
+            ) : (
+              <button onClick={() => setSubmitted(true)} disabled={submitting}
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
+                ✅ 提出する
+              </button>
+            )}
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+export default function ApplyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <svg className="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    }>
+      <ApplyPageInner />
+    </Suspense>
   );
 }

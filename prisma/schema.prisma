@@ -604,6 +604,36 @@ model ApplicationSchool {
   @@unique([applicationId, priority])
 }
 
+model FormFieldConfig {
+  id           String   @id @default(cuid())
+  fieldKey     String
+  schoolId     String?  // null = 全校共通（グローバルデフォルト）
+  label        String
+  fieldType    String   @default("text")  // text, select, textarea, checkbox, date, tel, email, file
+  isEnabled    Boolean  @default(true)
+  isRequired   Boolean  @default(true)
+  displayOrder Int      @default(0)
+  section      String   @default("個人情報")
+  description  String?  // ヒントテキスト（ファイルフィールド等で使用）
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([fieldKey, schoolId])
+}
+
+model ApplySchool {
+  id           String   @id @default(cuid())
+  schoolKey    String   @unique   // e.g. 'chuo-seminar'
+  name         String             // e.g. '中央ゼミナール'
+  hojin        String             // e.g. '学校法人 羽場学園'
+  icon         String   @default("🏫")
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  departments  String             // JSON array: [{name, duration, courses:[]}]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // 定員管理（学校×学科×入学年度）
 model EnrollmentQuota {
   id             String   @id @default(cuid())

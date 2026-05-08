@@ -3,6 +3,124 @@ import { prisma } from "@/lib/prisma";
 import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
 import { exec } from "child_process";
 import { getSession, isAdmin, checkRateLimit } from "@/lib/auth";
+import nodemailer from "nodemailer";
+
+// 学生へ出願番号確認メール送信
+async function sendStudentConfirmation(application: {
+  applicationNo: string;
+  lastName: string;
+  firstName: string;
+  lastNameKana: string;
+  firstNameKana: string;
+  email: string;
+  phone: string;
+  birthDate: string;
+  gender: string;
+  nationality: string;
+  postalCode: string;
+  prefecture: string;
+  city: string;
+  address: string;
+  addressDetail?: string | null;
+  residenceStatus?: string | null;
+  residenceExpiry?: string | null;
+  japaneseLevel: string;
+  jlptCertified: boolean;
+  schoolName: string;
+  department: string;
+  course?: string | null;
+  enrollmentYear: string;
+  enrollmentMonth: string;
+  applicationReason: string;
+  lastSchoolName: string;
+  lastSchoolCountry: string;
+  lastSchoolGraduate: string;
+  workExperience?: string | null;
+}) {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://20.112.84.17:3000";
+  const subject = `【出願番号発行のお知らせ】${application.applicationNo}`;
+  const body = `${application.lastName} ${application.firstName} 様
+
+この度はご出願いただき、誠にありがとうございます。
+以下の通り、出願番号が発行されました。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+　出願番号：${application.applicationNo}
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+この番号は書類アップロード・選考料のお支払い時に必要です。
+大切に保管してください。
+
+## ご出願内容
+
+【個人情報】
+- 氏名：${application.lastName} ${application.firstName}（${application.lastNameKana} ${application.firstNameKana}）
+- 生年月日：${application.birthDate}
+- 性別：${application.gender}
+- 国籍：${application.nationality}
+- 電話番号：${application.phone}
+- メールアドレス：${application.email}
+
+【住所】
+- 〒${application.postalCode} ${application.prefecture}${application.city}${application.address}${application.addressDetail ? " " + application.addressDetail : ""}
+
+【在日情報】
+- 在留資格：${application.residenceStatus || "未記入"}
+- 在留期限：${application.residenceExpiry || "未記入"}
+- 日本語レベル：${application.japaneseLevel}
+- JLPT合格：${application.jlptCertified ? "あり" : "なし"}
+
+【志望校情報】
+- 志望校：${application.schoolName}
+- 志望学科：${application.department}${application.course ? "（" + application.course + "）" : ""}
+- 入学希望：${application.enrollmentYear}年${application.enrollmentMonth}月
+
+【志望動機】
+${application.applicationReason}
+
+【学歴】
+- 最終学校：${application.lastSchoolName}（${application.lastSchoolCountry}）
+- 卒業状況：${application.lastSchoolGraduate}
+${application.workExperience ? "- 職務経歴：" + application.workExperience : ""}
+
+## 次のステップ
+
+書類アップロードと選考料のお支払いは、以下のURLから続きを行えます：
+${baseUrl}/apply/status
+
+出願番号（${application.applicationNo}）とご登録のメールアドレスでログインしてください。
+
+ご不明な点がございましたら、お気軽にお問い合わせください。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+このメールは出願システムより自動送信されました。
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+  try {
+    const apiKey = process.env.RESEND_API_KEY;
+    const from = process.env.RESEND_FROM || "出願システム <onboarding@resend.dev>";
+    if (!apiKey) throw new Error("RESEND_API_KEY not set");
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: application.email,
+        subject,
+        text: body,
+      }),
+    });
+    const data = await res.json() as { id?: string; message?: string };
+    if (!res.ok) throw new Error(data.message || "Resend API error");
+    console.log(`学生メール送信完了: ${application.email} id=${data.id}`);
+  } catch (err) {
+    console.error("学生メール送信エラー:", err);
+  }
+}
 
 // 管理者へメール通知
 async function sendAdminNotification(application: {
@@ -196,11 +314,14 @@ export async function POST(request: NextRequest) {
       applicationNo = generateApplicationNo();
     }
 
+    // Allow partial submissions with status '書類待ち' (from apply flow Step 2 → Step 3)
+    const submittedStatus = body.status === "書類待ち" ? "書類待ち" : "受付中";
+
     const application = await prisma.application.create({
       data: {
         applicationNo,
         cohortId,
-        status: "受付中",
+        status: submittedStatus,
         lastName: body.lastName,
         firstName: body.firstName,
         lastNameKana: body.lastNameKana,
@@ -237,6 +358,9 @@ export async function POST(request: NextRequest) {
 
     // 管理者へメール通知（非同期・失敗しても無視）
     void sendAdminNotification(application).catch(() => {});
+
+    // 学生へ出願番号確認メール送信（非同期・失敗しても無視）
+    void sendStudentConfirmation(application).catch(() => {});
 
     return NextResponse.json(
       {

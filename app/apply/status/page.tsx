@@ -83,6 +83,7 @@ function getProgressIndex(status: string, enrollmentStatus?: string): number {
     return 4;
   }
   const map: Record<string, number> = {
+    書類待ち: 0,
     受付中: 0,
     書類確認中: 1,
     面接待ち: 2,
@@ -825,7 +826,7 @@ function StatusPageInner() {
                 <div className="mb-8">
                   <h2 className="text-2xl font-bold text-navy-800">出願状況の確認</h2>
                   <p className="text-gray-500 mt-1 text-sm">
-                    申請番号と登録したメールアドレスで現在の審査状況をご確認いただけます。
+                    申請番号と登録したメールアドレスで現在の審査状況をご確認いただけます。書類アップロードや選考料お支払いの続きもこちらから行えます。
                   </p>
                 </div>
                 <div className="card mb-6">
@@ -948,8 +949,39 @@ function StatusPageInner() {
                 </div>
               )}
 
+              {/* 書類待ち：続きをする（書類アップロード・選考料支払い） */}
+              {result.status === "書類待ち" && (
+                <div className="rounded-xl p-5 mb-6 bg-amber-50 border-2 border-amber-300">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">📋</span>
+                    <div>
+                      <p className="font-bold text-amber-800 text-base">書類アップロード・選考料のお支払いが未完了です</p>
+                      <p className="text-amber-700 text-xs mt-0.5">出願番号が発行されています。続きの手続きを完了してください。</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-white rounded-lg border border-amber-200 p-3 text-center">
+                      <p className="text-xs text-gray-500 mb-1">書類</p>
+                      <p className={`text-lg font-bold ${result.documents.length > 0 ? "text-green-600" : "text-amber-600"}`}>
+                        {result.documents.length > 0 ? `${result.documents.length}件提出済み` : "未提出"}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg border border-amber-200 p-3 text-center">
+                      <p className="text-xs text-gray-500 mb-1">選考料</p>
+                      <p className="text-lg font-bold text-amber-600">未払い</p>
+                    </div>
+                  </div>
+                  <a
+                    href={`/apply?resume=1&applicationNo=${result.applicationNo}&email=${encodeURIComponent(email)}`}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition"
+                  >
+                    続きをする（書類アップロード・選考料）→
+                  </a>
+                </div>
+              )}
+
               {/* その他ステータス説明 */}
-              {result.status !== "合格" && result.status !== "補欠合格" && result.status !== "不合格" && (
+              {result.status !== "合格" && result.status !== "補欠合格" && result.status !== "不合格" && result.status !== "書類待ち" && (
                 <div className="rounded-xl p-4 mb-6 bg-blue-50 border border-blue-200">
                   <p className="text-sm font-medium text-blue-800">
                     {({

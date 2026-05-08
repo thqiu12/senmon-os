@@ -31,3 +31,7 @@ yarn-error.log*
 *.pem
 .vercel
 tsconfig.tsbuildinfo
+public/uploads/
+*.bak
+dev.db
+prisma/dev.db

@@ -246,9 +246,6 @@ export default function AdminDashboard() {
               <Link href="/admin/agents" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
                 エージェント
               </Link>
-              <Link href="/" target="_blank" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
-                出願フォーム
-              </Link>
             </div>
             {/* ===== 在籍管理セクション ===== */}
             <div className="flex items-center gap-0.5 border-r border-navy-600 pr-3 mr-1">
@@ -256,15 +253,15 @@ export default function AdminDashboard() {
               <Link href="/admin/students" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
                 在籍管理
               </Link>
-              <Link href="/admin/attendance" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
-                出席入力
-              </Link>
             </div>
             {/* ===== システム管理セクション ===== */}
             <div className="flex items-center gap-0.5 border-r border-navy-600 pr-3 mr-1">
               <span className="text-navy-500 text-xs font-bold mr-1 whitespace-nowrap">⚙️ 管理</span>
               <Link href="/admin/quota" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
                 定員管理
+              </Link>
+              <Link href="/admin/form-config" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
+                フォーム管理
               </Link>
               <AccountManagementLink />
             </div>

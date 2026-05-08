@@ -102,10 +102,16 @@ export default function StudentsPage() {
             <span className="text-navy-600">/</span>
             <h1 className="font-bold">在籍学生管理</h1>
           </div>
-          <button onClick={openEnrollModal}
-            className="bg-white text-navy-800 text-sm font-bold px-4 py-2 rounded-lg hover:bg-navy-50 transition-colors">
-            📋 出願→在籍 一括転換
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/attendance"
+              className="bg-navy-700 hover:bg-navy-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+              📅 出席入力
+            </Link>
+            <button onClick={openEnrollModal}
+              className="bg-white text-navy-800 text-sm font-bold px-4 py-2 rounded-lg hover:bg-navy-50 transition-colors">
+              📋 出願→在籍 一括転換
+            </button>
+          </div>
         </div>
       </header>
 

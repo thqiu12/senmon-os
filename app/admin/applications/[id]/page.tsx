@@ -1505,16 +1505,19 @@ export default function ApplicationDetailPage() {
                 <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">🎫 この出願者は筆記試験免除の選考区分です。</p>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">試験日</label>
-                      <input type="date" className="form-input text-sm" value={writtenExamDate} onChange={e=>setWrittenExamDate(e.target.value)} />
+                  <div className="flex items-end gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">日本語スコア（100点満点）</label>
+                      <div className="flex items-center gap-3">
+                        <input type="number" min="0" max="100" className="form-input text-2xl font-bold text-center w-28" placeholder="—" value={writtenExamScoreReading} onChange={e=>setWrittenExamScoreReading(e.target.value)} />
+                        <span className="text-gray-400 text-sm">/ 100点</span>
+                      </div>
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <label className="block text-xs font-medium text-gray-600 mb-1">合否判定</label>
                       <div className="flex gap-2">
                         {["採点中","合格","不合格"].map(r=>(
-                          <label key={r} className={`flex-1 cursor-pointer rounded-lg border-2 py-1.5 text-center text-xs font-bold transition-colors ${writtenExamResult===r ? r==="合格"?"border-green-500 bg-green-50 text-green-700":r==="不合格"?"border-red-500 bg-red-50 text-red-700":"border-navy-700 bg-navy-50 text-navy-800" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                          <label key={r} className={`flex-1 cursor-pointer rounded-lg border-2 py-2 text-center text-xs font-bold transition-colors ${writtenExamResult===r ? r==="合格"?"border-green-500 bg-green-50 text-green-700":r==="不合格"?"border-red-500 bg-red-50 text-red-700":"border-navy-700 bg-navy-50 text-navy-800" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
                             <input type="radio" className="hidden" checked={writtenExamResult===r} onChange={()=>setWrittenExamResult(r)} />
                             {r==="合格"?"✓ "+r:r==="不合格"?"✗ "+r:"⏳ "+r}
                           </label>
@@ -1523,33 +1526,11 @@ export default function ApplicationDetailPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-600 mb-2">科目別スコア（各100点満点）</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        {label:"日本語（読解）", val:writtenExamScoreReading, set:setWrittenExamScoreReading},
-                        {label:"日本語（文法）", val:writtenExamScoreGrammar, set:setWrittenExamScoreGrammar},
-                        {label:"一般教養", val:writtenExamScoreGeneral, set:setWrittenExamScoreGeneral},
-                      ].map(s=>(
-                        <div key={s.label}>
-                          <label className="block text-xs text-gray-500 mb-1">{s.label}</label>
-                          <input type="number" min="0" max="100" className="form-input text-sm text-center font-bold" placeholder="—" value={s.val} onChange={e=>s.set(e.target.value)} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                      <span className="text-xs text-gray-600">合計スコア</span>
-                      <span className="text-xl font-bold text-navy-800">
-                        {[writtenExamScoreReading,writtenExamScoreGrammar,writtenExamScoreGeneral].every(v=>v==="") ? "—" :
-                          `${[writtenExamScoreReading,writtenExamScoreGrammar,writtenExamScoreGeneral].reduce((acc,v)=>acc+(v===""?0:Number(v)),0)} / 300`}
-                      </span>
-                    </div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">備考</label>
+                    <textarea className="form-input text-sm min-h-[60px] resize-y" placeholder="特記事項など（任意）" value={writtenExamNotes} onChange={e=>setWrittenExamNotes(e.target.value)} />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">備考・特記事項</label>
-                    <textarea className="form-input text-sm min-h-[80px] resize-y" placeholder="試験時の特記事項など" value={writtenExamNotes} onChange={e=>setWrittenExamNotes(e.target.value)} />
-                  </div>
-                  <button onClick={handleWrittenExamSave} disabled={writtenExamSaving} className="btn-primary w-full text-sm">
-                    {writtenExamSaving?"保存中…":writtenExamSaved?"✓ 保存しました":"筆記試験成績を保存"}
+                  <button onClick={handleWrittenExamSave} disabled={writtenExamSaving} className="btn-primary text-sm">
+                    {writtenExamSaving?"保存中…":writtenExamSaved?"✓ 保存しました":"成績を保存"}
                   </button>
                 </div>
               )}
@@ -1906,7 +1887,9 @@ export default function ApplicationDetailPage() {
             )}
             </div>{/* end screening right tab */}
 
-            {/* 入学手続き管理（合格後のみ・入学手続きタブ） */}
+
+
+        {/* 入学手続き管理（合格後のみ・入学手続きタブ） */}
             <div style={{display: activeTab==="enrollment" ? undefined : "none"}}>
             {(application.status === "合格" || application.status === "補欠合格") && (
               <div className="card">
@@ -2378,6 +2361,8 @@ export default function ApplicationDetailPage() {
               </div>
             </div>
           </div>
+
+
         </div>
       </main>
     </div>

@@ -1,45 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getSession, isAdmin } from "@/lib/auth";
+import { NotificationSchema } from "@/lib/schemas";
+import { escapeHtml } from "@/lib/security";
+import { ENV } from "@/lib/env";
+import { z } from "zod";
 
-type NotificationType = "interview" | "result" | "enrollment";
-
-interface NotificationPayload {
-  type: NotificationType;
-  to: string;
-  applicantName: string;
-  applicationNo: string;
-  applicantEmail?: string;
-  // interview
-  interviewDate?: string;
-  interviewTime?: string;
-  interviewPlace?: string;
-  interviewNotes?: string;
-  // result
-  resultStatus?: "合格" | "補欠合格" | "不合格";
-  // enrollment
-  instructions?: string;
-  deadline?: string;
-}
+type NotificationPayload = z.infer<typeof NotificationSchema>;
 
 function getPortalUrl(applicationNo: string, email: string): string {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const base = ENV.PUBLIC_BASE_URL || "http://localhost:3000";
   const params = new URLSearchParams({ applicationNo, email });
   return `${base}/apply/status?${params.toString()}`;
 }
 
+const e = escapeHtml;
+
 function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; html: string } {
   const { applicantName, applicationNo, applicantEmail = payload.to } = payload;
   const portalUrl = getPortalUrl(applicationNo, applicantEmail);
+  const portalUrlSafe = e(portalUrl);
+  const applicantNameSafe = e(applicantName);
+  const applicationNoSafe = e(applicationNo);
 
   const portalButton = (label: string, color: string) => `
     <div style="text-align: center; margin: 28px 0;">
-      <a href="${portalUrl}" style="display: inline-block; background: ${color}; color: #fff; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 8px; letter-spacing: 0.5px;">
+      <a href="${portalUrlSafe}" style="display: inline-block; background: ${color}; color: #fff; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 8px; letter-spacing: 0.5px;">
         ${label}
       </a>
       <p style="margin: 10px 0 0; font-size: 12px; color: #999;">
         ボタンが開かない場合は以下のURLをブラウザに貼り付けてください：<br>
-        <a href="${portalUrl}" style="color: #666; word-break: break-all;">${portalUrl}</a>
+        <a href="${portalUrlSafe}" style="color: #666; word-break: break-all;">${portalUrlSafe}</a>
       </p>
     </div>`;
 
@@ -57,7 +48,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
       <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
     </div>
     <div style="padding: 32px;">
-      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantName} 様</p>
+      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
       <p style="color: #333; font-size: 15px; line-height: 1.7;">
         この度は弊校へのご出願ありがとうございます。<br>
         書類審査の結果、下記の日程にて面接を実施することになりました。
@@ -67,20 +58,20 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tr>
             <td style="padding: 6px 0; color: #666; width: 100px; vertical-align: top;">日付</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${payload.interviewDate || "—"}</td>
+            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewDate) || "—"}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #666;">時間</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${payload.interviewTime || "—"}</td>
+            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewTime) || "—"}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #666;">場所</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${payload.interviewPlace || "—"}</td>
+            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewPlace) || "—"}</td>
           </tr>
           ${payload.interviewNotes ? `
           <tr>
             <td style="padding: 6px 0; color: #666; vertical-align: top;">注意事項</td>
-            <td style="padding: 6px 0; color: #333; white-space: pre-line;">${payload.interviewNotes}</td>
+            <td style="padding: 6px 0; color: #333; white-space: pre-line;">${e(payload.interviewNotes)}</td>
           </tr>` : ""}
         </table>
       </div>
@@ -89,7 +80,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
         ご不明な点がございましたら、入学相談室（平日9:00〜17:00）までお問い合わせください。
       </p>
       <div style="background: #f0f4f8; border-radius: 4px; padding: 12px 16px; margin-top: 24px; font-size: 12px; color: #888;">
-        申請番号：${applicationNo}
+        申請番号：${applicationNoSafe}
       </div>
     </div>
   </div>
@@ -120,7 +111,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
       <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
     </div>
     <div style="padding: 32px;">
-      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantName} 様</p>
+      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
 
       ${isPass ? `
       <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 24px; margin: 20px 0; text-align: center;">
@@ -169,7 +160,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
       `}
 
       <div style="background: #f0f4f8; border-radius: 4px; padding: 12px 16px; margin-top: 24px; font-size: 12px; color: #888;">
-        申請番号：${applicationNo}
+        申請番号：${applicationNoSafe}
       </div>
     </div>
   </div>
@@ -191,7 +182,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
       <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
     </div>
     <div style="padding: 32px;">
-      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantName} 様</p>
+      <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
       <p style="color: #333; font-size: 15px; line-height: 1.7;">
         入学手続きに関するご案内の準備が整いました。<br>
         下記の内容をご確認の上、<strong>期日までにオンラインで手続きを完了</strong>してください。
@@ -199,7 +190,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
 
       ${payload.deadline ? `
       <div style="background: #fff8e1; border-left: 4px solid #f59e0b; border-radius: 4px; padding: 16px 20px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 15px; color: #92400e; font-weight: 700;">⏰ 手続き期限：${payload.deadline}</p>
+        <p style="margin: 0; font-size: 15px; color: #92400e; font-weight: 700;">⏰ 手続き期限：${e(payload.deadline)}</p>
       </div>` : ""}
 
       <div style="background: #f0f7ff; border-radius: 8px; padding: 20px 24px; margin: 16px 0;">
@@ -222,7 +213,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
 
       ${payload.instructions ? `
       <div style="background: #f8f9fa; border-radius: 4px; padding: 20px 24px; margin: 16px 0; font-size: 14px; color: #333; line-height: 1.8; white-space: pre-line;">
-${payload.instructions}
+${e(payload.instructions)}
       </div>` : ""}
 
       ${portalButton("今すぐ入学手続きを始める →", "#1e3a5f")}
@@ -232,7 +223,7 @@ ${payload.instructions}
         ご不明な点がございましたら、入学相談室（平日9:00〜17:00）までお問い合わせください。
       </p>
       <div style="background: #f0f4f8; border-radius: 4px; padding: 12px 16px; margin-top: 24px; font-size: 12px; color: #888;">
-        申請番号：${applicationNo}
+        申請番号：${applicationNoSafe}
       </div>
     </div>
   </div>
@@ -247,14 +238,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   try {
-    const body: NotificationPayload = await request.json();
-
-    // applicantEmailが未指定の場合はtoを使う
-    if (!body.applicantEmail) {
-      body.applicantEmail = body.to;
+    const parsed = NotificationSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "入力エラー", issues: parsed.error.flatten() },
+        { status: 400 },
+      );
     }
+    const body: NotificationPayload = {
+      ...parsed.data,
+      applicantEmail: parsed.data.applicantEmail || parsed.data.to,
+    };
 
-    // SMTP設定確認
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587;
     const smtpUser = process.env.SMTP_USER;
@@ -276,7 +271,7 @@ export async function POST(request: NextRequest) {
       port: smtpPort,
       secure: smtpPort === 465,
       auth: {
-        user: decodeURIComponent(smtpUser),
+        user: smtpUser,
         pass: smtpPass,
       },
     });

@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer-core";
 import { existsSync } from "fs";
+import { escapeHtml } from "@/lib/security";
 
 export interface AdmissionLetterData {
   type: "admission_notice" | "admission_permit";
@@ -43,14 +44,21 @@ function buildNoticeHTML(data: AdmissionLetterData): string {
   const school = getSchoolConfig(data.schoolName);
   const docTitle = isPermit ? "入　学　許　可　書" : "合　格　通　知　書";
 
-  // 発行日をフォーマット（例：令和7年4月5日）
-  // ここでは渡された issueDate をそのまま使う
-  const issueDate = data.issueDate;
+  const e = escapeHtml;
+  const issueDate = e(data.issueDate);
+  const applicationNoSafe = e(data.applicationNo);
+  const applicantNameSafe = e(data.applicantName);
+  const schoolNameSafe = e(data.schoolName);
+  const departmentSafe = e(data.department);
+  const courseSafe = e(data.course);
+  const principalSafe = e(school.principal);
+  const legalNameSafe = e(school.legalName);
+  const officialNameSafe = e(school.officialName);
 
-  const enrollmentText = `${data.enrollmentYear}年${data.enrollmentMonth}月`;
+  const enrollmentText = `${e(data.enrollmentYear)}年${e(data.enrollmentMonth)}月`;
 
   const bodyText = isPermit
-    ? `あなたは所定の入学手続きを完了されましたので、${enrollmentText}より${school.officialName} ${data.department}${data.course ? ` ${data.course}` : ""}への入学を許可いたします。`
+    ? `あなたは所定の入学手続きを完了されましたので、${enrollmentText}より${officialNameSafe} ${departmentSafe}${courseSafe ? ` ${courseSafe}` : ""}への入学を許可いたします。`
     : `あなたは選考の結果、${enrollmentText}入学生として合格と決定いたしましたので、ご通知申し上げます。`;
 
   return `<!DOCTYPE html>
@@ -246,10 +254,10 @@ function buildNoticeHTML(data: AdmissionLetterData): string {
     <div class="stamp-top-inner">学長<br>之印</div>
   </div>
 
-  <!-- 発行番号（合格通知には学籍番号の代わりに申請番号） -->
-  <div class="doc-number">第&nbsp;&nbsp;${data.applicationNo}&nbsp;&nbsp;号</div>
+  <!-- 発行番号 -->
+  <div class="doc-number">第&nbsp;&nbsp;${applicationNoSafe}&nbsp;&nbsp;号</div>
 
-  <!-- タイトル -->
+  <!-- タイトル（固定文字列） -->
   <div class="doc-title">${docTitle}</div>
 
   <!-- 発行日 -->
@@ -257,13 +265,13 @@ function buildNoticeHTML(data: AdmissionLetterData): string {
 
   <!-- 宛先 -->
   <div class="recipient-block">
-    <div class="recipient-name">${data.applicantName}&nbsp;様</div>
+    <div class="recipient-name">${applicantNameSafe}&nbsp;様</div>
   </div>
 
   <!-- 志望コース情報 -->
   <div class="course-info">
-    <div class="course-line">${data.schoolName}</div>
-    <div class="course-line">${data.department}${data.course ? `　${data.course}` : ""}</div>
+    <div class="course-line">${schoolNameSafe}</div>
+    <div class="course-line">${departmentSafe}${courseSafe ? `　${courseSafe}` : ""}</div>
     <div class="course-line">${enrollmentText}入学</div>
   </div>
 
@@ -280,10 +288,10 @@ function buildNoticeHTML(data: AdmissionLetterData): string {
 
   <!-- 署名 -->
   <div class="sign-block">
-    <div class="sign-line">${school.legalName}</div>
-    <div class="sign-line">${school.officialName}</div>
+    <div class="sign-line">${legalNameSafe}</div>
+    <div class="sign-line">${officialNameSafe}</div>
     <div class="sign-line">校　長</div>
-    <div class="sign-principal">${school.principal}</div>
+    <div class="sign-principal">${principalSafe}</div>
   </div>
 
   <!-- 右下の大きな角印 -->

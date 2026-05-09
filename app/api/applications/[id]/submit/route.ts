@@ -1,26 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession, isAdmin } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/security";
 
-// POST /api/applications/:id/submit
-// 学生が出願を最終提出（書類待ち → 受付中）するためのエンドポイント
 export async function POST(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } },
 ) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`submit:${ip}`, 10, 60_000)) {
+    return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
+  }
+
   try {
     const application = await prisma.application.findUnique({
       where: { id: params.id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, email: true },
     });
-
     if (!application) {
       return NextResponse.json({ error: "出願が見つかりません" }, { status: 404 });
+    }
+
+    const session = await getSession(request);
+    if (!isAdmin(session)) {
+      let email: string | null = null;
+      try {
+        const body = await request.json();
+        email = typeof body?.email === "string" ? body.email : null;
+      } catch {
+        // body省略時はクエリパラメータも許容
+        email = new URL(request.url).searchParams.get("email");
+      }
+      if (!email || email !== application.email) {
+        return NextResponse.json({ error: "本人確認に失敗しました" }, { status: 403 });
+      }
     }
 
     if (application.status !== "書類待ち") {
       return NextResponse.json(
         { error: `この出願はすでに「${application.status}」の状態です` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateAdmissionPDF } from "@/lib/pdf/generate-pdf";
-import { verifyStudentOwnership, checkRateLimit } from "@/lib/auth";
+import { verifyStudentOwnership } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/security";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     // PDFダウンロードにもレートリミット
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    const ip = getClientIp(request);
     if (!checkRateLimit(`pdf:${ip}`, 10, 60_000)) {
       return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
     }

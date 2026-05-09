@@ -1,84 +1,90 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
-import { checkRateLimit } from "@/lib/auth";
+import { ENV } from "@/lib/env";
+import { makeSessionToken } from "@/lib/auth";
+import { checkRateLimit, getClientIp, issueCsrfToken, CSRF } from "@/lib/security";
+import { hashPassword, verifyPassword, PWD_VERSION_BCRYPT } from "@/lib/password";
+import { AdminLoginSchema } from "@/lib/schemas";
 
-function hashPassword(pwd: string): string {
-  return crypto.createHash("sha256").update(pwd + "senmon-salt-2024").digest("hex");
-}
-
-function makeSessionToken(userId: string, role: string): string {
-  const secret = process.env.SESSION_SECRET || "senmon-secret-2024";
-  const payload = `${userId}:${role}:${Date.now()}`;
-  const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-  return Buffer.from(`${payload}:${sig}`).toString("base64");
-}
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: ENV.isProd,
+  sameSite: "strict" as const,
+  maxAge: 60 * 60 * 8,
+  path: "/",
+};
 
 export async function POST(request: NextRequest) {
-  // ブルートフォース対策：IP単位で15分に10回まで
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000)) {
-    return NextResponse.json({ error: "ログイン試行回数が多すぎます。15分後に再試行してください" }, { status: 429 });
+    return NextResponse.json(
+      { error: "ログイン試行回数が多すぎます。15分後に再試行してください" },
+      { status: 429 },
+    );
   }
+
   try {
-    const body = await request.json();
-    const { username, password } = body;
-
-    if (!username || !password) {
-      return NextResponse.json({ error: "ユーザー名とパスワードを入力してください" }, { status: 400 });
+    const parsed = AdminLoginSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "ユーザー名とパスワードを入力してください" },
+        { status: 400 },
+      );
     }
+    const { username, password } = parsed.data;
 
-    // DBからユーザー取得
     const user = await prisma.adminUser.findUnique({ where: { username } });
+    const fakeHash = "$2b$12$............................................................";
+    const stored = user?.passwordHash || fakeHash;
+    const version = user?.passwordVersion ?? 1;
 
-    if (!user || !user.isActive) {
-      return NextResponse.json({ error: "ユーザー名またはパスワードが正しくありません" }, { status: 401 });
+    const ok = await verifyPassword(password, stored, version);
+    if (!user || !user.isActive || !ok) {
+      return NextResponse.json(
+        { error: "ユーザー名またはパスワードが正しくありません" },
+        { status: 401 },
+      );
     }
 
-    if (user.passwordHash !== hashPassword(password)) {
-      return NextResponse.json({ error: "ユーザー名またはパスワードが正しくありません" }, { status: 401 });
+    if (version !== PWD_VERSION_BCRYPT) {
+      const newHash = await hashPassword(password);
+      await prisma.adminUser.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash, passwordVersion: PWD_VERSION_BCRYPT, lastLoginAt: new Date() },
+      });
+    } else {
+      await prisma.adminUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     }
-
-    // 最終ログイン日時を更新
-    await prisma.adminUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     const token = makeSessionToken(user.id, user.role);
+    const csrf = issueCsrfToken();
+
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role },
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+      },
+      csrfToken: csrf,
     });
 
-    response.cookies.set({
-      name: "admin_token",
-      value: token,
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 8,
-      path: "/",
-    });
-
-    // ロール情報もCookieに（フロント参照用・署名なし）
-    response.cookies.set({
-      name: "admin_role",
-      value: user.role,
+    response.cookies.set({ name: "admin_token", value: token, ...COOKIE_OPTS });
+    const uiCookie = {
       httpOnly: false,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 8,
+      secure: ENV.isProd,
+      sameSite: "strict" as const,
+      maxAge: COOKIE_OPTS.maxAge,
       path: "/",
-    });
-
+    };
+    response.cookies.set({ name: CSRF.COOKIE, value: csrf, ...uiCookie });
+    response.cookies.set({ name: "admin_role", value: user.role, ...uiCookie });
     response.cookies.set({
       name: "admin_display_name",
       value: Buffer.from(user.displayName).toString("base64"),
-      httpOnly: false,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 8,
-      path: "/",
+      ...uiCookie,
     });
-
     return response;
   } catch (error) {
     console.error("POST /api/admin/login error:", error);
@@ -88,8 +94,16 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  ["admin_token", "admin_role", "admin_display_name"].forEach(name => {
-    response.cookies.set({ name, value: "", httpOnly: false, secure: false, sameSite: "lax", maxAge: 0, path: "/" });
-  });
+  for (const name of ["admin_token", CSRF.COOKIE, "admin_role", "admin_display_name"]) {
+    response.cookies.set({
+      name,
+      value: "",
+      httpOnly: name === "admin_token",
+      secure: ENV.isProd,
+      sameSite: "strict",
+      maxAge: 0,
+      path: "/",
+    });
+  }
   return response;
 }

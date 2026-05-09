@@ -7,19 +7,20 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:/home/work/.openclaw/workspace/senmon-nyuugaku/dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model AdminUser {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  passwordHash String
-  displayName  String
-  role         String   @default("interviewer") // super_admin / admin / interviewer
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  lastLoginAt  DateTime?
+  id              String   @id @default(cuid())
+  username        String   @unique
+  passwordHash    String
+  passwordVersion Int      @default(1) // 1 = legacy SHA-256, 2 = bcrypt
+  displayName     String
+  role            String   @default("interviewer") // super_admin / admin / interviewer
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastLoginAt     DateTime?
 }
 
 model Cohort {

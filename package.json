@@ -15,14 +15,19 @@
     "@prisma/client": "^5.8.0",
     "@react-pdf/renderer": "^4.3.2",
     "@types/nodemailer": "^7.0.11",
+    "bcrypt": "^5.1.1",
+    "file-type": "^19.6.0",
+    "lru-cache": "^11.0.2",
     "next": "14.1.0",
     "nodemailer": "^8.0.4",
     "puppeteer-core": "^24.40.0",
     "react": "^18",
     "react-dom": "^18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -31,6 +36,7 @@
     "eslint-config-next": "14.1.0",
     "postcss": "^8",
     "prisma": "^5.8.0",
-    "tailwindcss": "^3.3.0"
+    "tailwindcss": "^3.3.0",
+    "ts-node": "^10.9.2"
   }
 }

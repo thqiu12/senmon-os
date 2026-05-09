@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
-import { getSession, isAdmin, checkRateLimit } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/security";
+import { ApplicationCreateSchema } from "@/lib/schemas";
+import { ENV } from "@/lib/env";
 
 // 学生へ出願番号確認メール送信
 async function sendStudentConfirmation(application: {
@@ -35,7 +38,7 @@ async function sendStudentConfirmation(application: {
   lastSchoolGraduate: string;
   workExperience?: string | null;
 }) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://20.112.84.17:3000";
+  const baseUrl = ENV.PUBLIC_BASE_URL || "http://localhost:3000";
   const subject = `【出願番号発行のお知らせ】${application.applicationNo}`;
   const body = `${application.lastName} ${application.firstName} 様
 
@@ -95,8 +98,8 @@ ${baseUrl}/apply/status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   try {
-    const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM || "出願システム <onboarding@resend.dev>";
+    const apiKey = ENV.RESEND_API_KEY;
+    const from = ENV.RESEND_FROM || "出願システム <onboarding@resend.dev>";
     if (!apiKey) throw new Error("RESEND_API_KEY not set");
 
     const res = await fetch("https://api.resend.com/emails", {
@@ -133,9 +136,10 @@ async function sendAdminNotification(application: {
   enrollmentYear: string;
   enrollmentMonth: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "xueweixuan@chinichi.com";
+  const adminEmail = ENV.ADMIN_EMAIL;
+  if (!adminEmail) return;
   const subject = `【新規出願】${application.applicationNo}　${application.lastName}${application.firstName}様`;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://20.112.84.17:3000";
+  const baseUrl = ENV.PUBLIC_BASE_URL || "http://localhost:3000";
   const body = `${application.lastName} ${application.firstName} 様より新規出願を受け付けました。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -157,8 +161,8 @@ ${baseUrl}/admin
 このメールは出願システムより自動送信されました。`;
 
   try {
-    const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM || "出願システム <onboarding@resend.dev>";
+    const apiKey = ENV.RESEND_API_KEY;
+    const from = ENV.RESEND_FROM || "出願システム <onboarding@resend.dev>";
     if (!apiKey) throw new Error("RESEND_API_KEY not set");
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -262,48 +266,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // レートリミット（IP単位: 1時間5件まで）
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`apply:${ip}`, 5, 60 * 60 * 1000)) {
     return NextResponse.json({ error: "申請の送信が多すぎます。しばらく後に再試行してください" }, { status: 429 });
   }
   try {
-    const body = await request.json();
-
-    // Required fields validation
-    const required = [
-      "lastName",
-      "firstName",
-      "lastNameKana",
-      "firstNameKana",
-      "birthDate",
-      "gender",
-      "nationality",
-      "phone",
-      "email",
-      "postalCode",
-      "prefecture",
-      "city",
-      "address",
-      "japaneseLevel",
-      "schoolName",
-      "department",
-      "enrollmentYear",
-      "enrollmentMonth",
-      "applicationReason",
-      "lastSchoolName",
-      "lastSchoolCountry",
-      "lastSchoolGraduate",
-    ];
-
-    for (const field of required) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `${field} は必須項目です` },
-          { status: 400 }
-        );
-      }
+    const parsed = ApplicationCreateSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "入力エラー", issues: parsed.error.flatten() },
+        { status: 400 },
+      );
     }
+    const body = parsed.data;
 
     // デフォルトバッチを取得して申請番号を採番
     let applicationNo: string;

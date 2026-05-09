@@ -1,85 +1,108 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import crypto from "crypto";
+import { fileTypeFromBuffer } from "file-type";
 import { prisma } from "@/lib/prisma";
-import { getSession, isAdmin, checkRateLimit } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/security";
+import { ENV } from "@/lib/env";
+import { DocTypeEnum } from "@/lib/schemas";
 
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || "10") * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const MAX_FILE_SIZE = ENV.MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
+function uploadRoot(): string {
+  return path.isAbsolute(ENV.UPLOAD_DIR) ? ENV.UPLOAD_DIR : path.join(process.cwd(), ENV.UPLOAD_DIR);
+}
 
 export async function POST(request: NextRequest) {
-  // レートリミット（IP単位: 1分20ファイルまで）
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`upload:${ip}`, 20, 60_000)) {
-    return NextResponse.json({ error: "アップロード制限を超えました。しばらく後に再試行してください" }, { status: 429 });
+    return NextResponse.json(
+      { error: "アップロード制限を超えました。しばらく後に再試行してください" },
+      { status: 429 },
+    );
   }
 
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const applicationId = formData.get("applicationId") as string;
-    const applicationNo = formData.get("applicationNo") as string;
-    const email = formData.get("email") as string;
-    const docType = formData.get("docType") as string;
+    const file = formData.get("file") as File | null;
+    const applicationId = formData.get("applicationId") as string | null;
+    const applicationNo = formData.get("applicationNo") as string | null;
+    const email = formData.get("email") as string | null;
+    const docTypeRaw = formData.get("docType") as string | null;
 
     if (!file) return NextResponse.json({ error: "ファイルが選択されていません" }, { status: 400 });
-    if (!docType) return NextResponse.json({ error: "書類種別が必要です" }, { status: 400 });
+    if (!docTypeRaw) return NextResponse.json({ error: "書類種別が必要です" }, { status: 400 });
 
-    // ファイルサイズ・タイプチェック
+    const docTypeParsed = DocTypeEnum.safeParse(docTypeRaw);
+    if (!docTypeParsed.success) {
+      return NextResponse.json({ error: "書類種別が不正です" }, { status: 400 });
+    }
+    const docType = docTypeParsed.data;
+
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: `ファイルサイズは${process.env.MAX_FILE_SIZE_MB || 10}MB以下にしてください` }, { status: 400 });
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: "JPEG、PNG、WebP、PDFファイルのみアップロードできます" }, { status: 400 });
+      return NextResponse.json(
+        { error: `ファイルサイズは${ENV.MAX_FILE_SIZE_MB}MB以下にしてください` },
+        { status: 400 },
+      );
     }
 
-    // 認証チェック：管理者 or 学生本人
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const sniffed = await fileTypeFromBuffer(bytes);
+    if (!sniffed || !ALLOWED_MIME.has(sniffed.mime)) {
+      return NextResponse.json(
+        { error: "JPEG、PNG、WebP、PDFファイルのみアップロードできます" },
+        { status: 400 },
+      );
+    }
+
     const session = await getSession(request);
-    let resolvedApplicationId = applicationId;
+    let resolvedApplicationId: string | null = applicationId;
 
     if (isAdmin(session)) {
-      // 管理者：applicationId 直接指定
-      if (!applicationId) return NextResponse.json({ error: "applicationIdが必要です" }, { status: 400 });
+      if (!applicationId) {
+        return NextResponse.json({ error: "applicationIdが必要です" }, { status: 400 });
+      }
     } else {
-      // 学生：applicationNo + email で本人確認
       if (!applicationNo || !email) {
         return NextResponse.json({ error: "applicationNoとemailが必要です" }, { status: 400 });
       }
       const app = await prisma.application.findFirst({
-        where: { applicationNo, email: email },
+        where: { applicationNo, email },
         select: { id: true },
       });
       if (!app) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
       resolvedApplicationId = app.id;
     }
 
-    const application = await prisma.application.findUnique({ where: { id: resolvedApplicationId } });
+    if (!resolvedApplicationId || !/^[a-zA-Z0-9_-]+$/.test(resolvedApplicationId)) {
+      return NextResponse.json({ error: "applicationIdが不正です" }, { status: 400 });
+    }
+
+    const application = await prisma.application.findUnique({
+      where: { id: resolvedApplicationId },
+    });
     if (!application) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
 
-    // ファイル保存
-    const uploadDir = path.join(process.cwd(), "public", "uploads", resolvedApplicationId);
+    const uploadDir = path.join(uploadRoot(), resolvedApplicationId);
     await mkdir(uploadDir, { recursive: true });
 
-    const ext = path.extname(file.name);
-    const safeName = file.name
-      .replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF._-]/g, "_")
-      .substring(0, 100);
-    const timestamp = Date.now();
-    const fileName = `${timestamp}_${safeName}`;
+    const ext = "." + sniffed.ext;
+    const fileName = `${Date.now()}_${crypto.randomUUID()}${ext}`;
     const filePath = path.join(uploadDir, fileName);
-
-    const bytes = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(bytes));
+    await writeFile(filePath, bytes);
 
     const document = await prisma.document.create({
       data: {
         applicationId: resolvedApplicationId,
         docType,
         fileName,
-        originalName: file.name,
+        originalName: file.name.slice(0, 255),
         filePath: `/uploads/${resolvedApplicationId}/${fileName}`,
         fileSize: file.size,
-        mimeType: file.type,
+        mimeType: sniffed.mime,
       },
     });
 
@@ -107,29 +130,36 @@ export async function DELETE(request: NextRequest) {
     const applicationNo = searchParams.get("applicationNo");
     const email = searchParams.get("email");
 
-    if (!documentId) return NextResponse.json({ error: "ドキュメントIDが必要です" }, { status: 400 });
+    if (!documentId) {
+      return NextResponse.json({ error: "ドキュメントIDが必要です" }, { status: 400 });
+    }
 
     const document = await prisma.document.findUnique({ where: { id: documentId } });
     if (!document) return NextResponse.json({ error: "ドキュメントが見つかりません" }, { status: 404 });
 
-    // 認証：管理者 or 学生本人
     const session = await getSession(request);
     if (!isAdmin(session)) {
       if (!applicationNo || !email) {
         return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
       }
       const app = await prisma.application.findFirst({
-        where: { applicationNo, email: email },
+        where: { applicationNo, email },
         select: { id: true },
       });
       if (!app || app.id !== document.applicationId) {
-        return NextResponse.json({ error: "この書類を削除する権限がありません" }, { status: 403 });
+        return NextResponse.json(
+          { error: "この書類を削除する権限がありません" },
+          { status: 403 },
+        );
       }
     }
 
-    const { unlink } = await import("fs/promises");
-    const fullPath = path.join(process.cwd(), "public", document.filePath);
-    try { await unlink(fullPath); } catch { /* ファイルが存在しない場合は無視 */ }
+    const fullPath = path.join(uploadRoot(), document.applicationId, document.fileName);
+    try {
+      await unlink(fullPath);
+    } catch {
+      /* file already missing, continue */
+    }
 
     await prisma.document.delete({ where: { id: documentId } });
     return NextResponse.json({ success: true });

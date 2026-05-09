@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyStudentOwnership, checkRateLimit } from "@/lib/auth";
+import { verifyStudentOwnership } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/security";
+import crypto from "crypto";
 
 const STUDENT_INCLUDE = {
   school: { select: { id: true, name: true } },
@@ -91,7 +93,7 @@ async function getStudentData(student: { id: string }) {
 
 // GET: 学生ポータルデータ取得
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`portal:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
   }
@@ -154,7 +156,7 @@ export async function GET(request: NextRequest) {
 
 // POST: 欠席届・証明書申請
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`portal-post:${ip}`, 10, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
   }
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 });
       }
       const leave = await prisma.leaveRequest.create({
-        data: { id: require("crypto").randomUUID(), studentId: student.id, type, startDate, endDate, reason, status: "申請中",
+        data: { id: crypto.randomUUID(), studentId: student.id, type, startDate, endDate, reason, status: "申請中",
           proofFilePath: proofFilePath || null, updatedAt: new Date() },
       });
       return NextResponse.json({ success: true, leave });
@@ -190,7 +192,7 @@ export async function POST(request: NextRequest) {
       const { type, purpose, copies } = body;
       if (!type) return NextResponse.json({ error: "証明書種別が必要です" }, { status: 400 });
       const cert = await prisma.certificateRequest.create({
-        data: { id: require("crypto").randomUUID(), studentId: student.id, type, purpose: purpose || null, copies: copies || 1, status: "申請中", updatedAt: new Date() },
+        data: { id: crypto.randomUUID(), studentId: student.id, type, purpose: purpose || null, copies: copies || 1, status: "申請中", updatedAt: new Date() },
       });
       return NextResponse.json({ success: true, cert });
     }

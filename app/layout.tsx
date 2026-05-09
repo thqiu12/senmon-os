@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import CsrfBootstrap from "./csrf-bootstrap";
 
 export const metadata: Metadata = {
   title: "専門学校 入学出願システム",
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="min-h-screen bg-gray-50">{children}</body>
+      <body className="min-h-screen bg-gray-50">
+        <CsrfBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

@@ -659,6 +659,16 @@ export default function ApplicationDetailPage() {
   const [docCheckSaving, setDocCheckSaving] = useState(false);
   const [docCheckSaved, setDocCheckSaved] = useState(false);
 
+  // 筆記試験成績
+  const [writtenExamDate, setWrittenExamDate] = useState("");
+  const [writtenExamScoreReading, setWrittenExamScoreReading] = useState<string>("");
+  const [writtenExamScoreGrammar, setWrittenExamScoreGrammar] = useState<string>("");
+  const [writtenExamScoreGeneral, setWrittenExamScoreGeneral] = useState<string>("");
+  const [writtenExamResult, setWrittenExamResult] = useState<string>("採点中");
+  const [writtenExamNotes, setWrittenExamNotes] = useState<string>("");
+  const [writtenExamSaving, setWrittenExamSaving] = useState(false);
+  const [writtenExamSaved, setWrittenExamSaved] = useState(false);
+
   const saveDocCheck = async () => {
     setDocCheckSaving(true);
     try {
@@ -733,6 +743,19 @@ export default function ApplicationDetailPage() {
         // DOC_CHECKLISTをadminNotesから復元
         const checkNote = (data.adminNotes||[]).find((n:{content:string})=>n.content.startsWith("[DOC_CHECKLIST]"));
         if (checkNote) { try { setDocCheckState(JSON.parse(checkNote.content.replace("[DOC_CHECKLIST]",""))); } catch {} }
+        // WRITTEN_EXAMをadminNotesから復元
+        const examNote = (data.adminNotes||[]).find((n:{content:string})=>n.content.startsWith("[WRITTEN_EXAM]"));
+        if (examNote) {
+          try {
+            const examData = JSON.parse(examNote.content.replace("[WRITTEN_EXAM]",""));
+            setWrittenExamDate(examData.date || "");
+            setWrittenExamScoreReading(examData.scoreReading != null ? String(examData.scoreReading) : "");
+            setWrittenExamScoreGrammar(examData.scoreGrammar != null ? String(examData.scoreGrammar) : "");
+            setWrittenExamScoreGeneral(examData.scoreGeneral != null ? String(examData.scoreGeneral) : "");
+            setWrittenExamResult(examData.result || "採点中");
+            setWrittenExamNotes(examData.notes || "");
+          } catch {}
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
       } finally {
@@ -1087,6 +1110,35 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  const handleWrittenExamSave = async () => {
+    setWrittenExamSaving(true);
+    try {
+      const examData = {
+        date: writtenExamDate,
+        scoreReading: writtenExamScoreReading !== "" ? Number(writtenExamScoreReading) : null,
+        scoreGrammar: writtenExamScoreGrammar !== "" ? Number(writtenExamScoreGrammar) : null,
+        scoreGeneral: writtenExamScoreGeneral !== "" ? Number(writtenExamScoreGeneral) : null,
+        result: writtenExamResult,
+        notes: writtenExamNotes,
+      };
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "[WRITTEN_EXAM]" + JSON.stringify(examData), isInternal: true }),
+      });
+      if (res.ok) {
+        // Reload notes to reflect the new/updated entry
+        const dataRes = await fetch(`/api/applications/${id}`);
+        const data = await dataRes.json();
+        setApplication(data);
+        setWrittenExamSaved(true);
+        setTimeout(() => setWrittenExamSaved(false), 2500);
+      }
+    } finally {
+      setWrittenExamSaving(false);
+    }
+  };
+
   const showSendResultEmail =
     (selectedStatus === "合格" || selectedStatus === "補欠合格" || selectedStatus === "不合格") &&
     selectedStatus !== application?.status;
@@ -1193,7 +1245,7 @@ export default function ApplicationDetailPage() {
             </div>
 
             {/* 個人情報 - 基本情報タブ */}
-            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
+            <div>
             <Section title="個人情報">
               <InfoRow label="生年月日" value={application.birthDate} />
               <InfoRow label="性別" value={application.gender} />
@@ -1216,7 +1268,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end basic tab */}
 
             {/* 選考区分・推薦 - 選考タブ */}
-            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
+            <div>
             <Section title="選考区分・推薦情報">
               <div className="space-y-3 py-1">
                 {/* 選考区分 */}
@@ -1286,7 +1338,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end screening left */}
 
             {/* 志望校情報 - 志望校タブ */}
-            <div style={{display: activeTab==="schools" ? undefined : "none"}}>
+            <div>
             <Section title="志望校情報">
               {(application.applicationSchools && application.applicationSchools.length > 0
                 ? application.applicationSchools
@@ -1364,7 +1416,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end schools tab */}
 
             {/* 選考費 - 選考タブ */}
-            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
+            <div>
             <Section title="選考費支払い状況">
               <div className="py-2">
                 <div className="flex items-center justify-between mb-4">
@@ -1446,8 +1498,66 @@ export default function ApplicationDetailPage() {
 
             </div>{/* end screening fee */}
 
+            {/* 筆記試験成績 - 選考タブ（一般選考のみ表示） */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
+            <Section title={`✏️ 筆記試験成績${application.examMode !== "一般" ? "（推薦・特待生は筆記免除）" : ""}`}>
+              {application.examMode !== "一般" ? (
+                <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">🎫 この出願者は筆記試験免除の選考区分です。</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">試験日</label>
+                      <input type="date" className="form-input text-sm" value={writtenExamDate} onChange={e=>setWrittenExamDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">合否判定</label>
+                      <div className="flex gap-2">
+                        {["採点中","合格","不合格"].map(r=>(
+                          <label key={r} className={`flex-1 cursor-pointer rounded-lg border-2 py-1.5 text-center text-xs font-bold transition-colors ${writtenExamResult===r ? r==="合格"?"border-green-500 bg-green-50 text-green-700":r==="不合格"?"border-red-500 bg-red-50 text-red-700":"border-navy-700 bg-navy-50 text-navy-800" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                            <input type="radio" className="hidden" checked={writtenExamResult===r} onChange={()=>setWrittenExamResult(r)} />
+                            {r==="合格"?"✓ "+r:r==="不合格"?"✗ "+r:"⏳ "+r}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 mb-2">科目別スコア（各100点満点）</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        {label:"日本語（読解）", val:writtenExamScoreReading, set:setWrittenExamScoreReading},
+                        {label:"日本語（文法）", val:writtenExamScoreGrammar, set:setWrittenExamScoreGrammar},
+                        {label:"一般教養", val:writtenExamScoreGeneral, set:setWrittenExamScoreGeneral},
+                      ].map(s=>(
+                        <div key={s.label}>
+                          <label className="block text-xs text-gray-500 mb-1">{s.label}</label>
+                          <input type="number" min="0" max="100" className="form-input text-sm text-center font-bold" placeholder="—" value={s.val} onChange={e=>s.set(e.target.value)} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                      <span className="text-xs text-gray-600">合計スコア</span>
+                      <span className="text-xl font-bold text-navy-800">
+                        {[writtenExamScoreReading,writtenExamScoreGrammar,writtenExamScoreGeneral].every(v=>v==="") ? "—" :
+                          `${[writtenExamScoreReading,writtenExamScoreGrammar,writtenExamScoreGeneral].reduce((acc,v)=>acc+(v===""?0:Number(v)),0)} / 300`}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">備考・特記事項</label>
+                    <textarea className="form-input text-sm min-h-[80px] resize-y" placeholder="試験時の特記事項など" value={writtenExamNotes} onChange={e=>setWrittenExamNotes(e.target.value)} />
+                  </div>
+                  <button onClick={handleWrittenExamSave} disabled={writtenExamSaving} className="btn-primary w-full text-sm">
+                    {writtenExamSaving?"保存中…":writtenExamSaved?"✓ 保存しました":"筆記試験成績を保存"}
+                  </button>
+                </div>
+              )}
+            </Section>
+            </div>
+
             {/* 学歴 - 基本情報タブ */}
-            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
+            <div>
             <Section title="最終学歴・職歴">
               <InfoRow label="最終学歴（学校名）" value={application.lastSchoolName} />
               <InfoRow label="最終学歴（国）" value={application.lastSchoolCountry} />
@@ -1465,7 +1575,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end basic education */}
 
             {/* 提出書類 + チェックリスト - 書類タブ */}
-            <div style={{display: activeTab==="documents" ? undefined : "none"}}>
+            <div>
             <Section title={`提出書類（${application.documents.length}件）`}>
               {application.documents.length === 0 ? (
                 <p className="text-gray-400 text-sm py-2">書類なし</p>

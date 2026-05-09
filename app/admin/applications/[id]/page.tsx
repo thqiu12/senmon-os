@@ -1245,7 +1245,7 @@ export default function ApplicationDetailPage() {
             </div>
 
             {/* 個人情報 - 基本情報タブ */}
-            <div>
+            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
             <Section title="個人情報">
               <InfoRow label="生年月日" value={application.birthDate} />
               <InfoRow label="性別" value={application.gender} />
@@ -1268,7 +1268,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end basic tab */}
 
             {/* 選考区分・推薦 - 選考タブ */}
-            <div>
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <Section title="選考区分・推薦情報">
               <div className="space-y-3 py-1">
                 {/* 選考区分 */}
@@ -1338,7 +1338,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end screening left */}
 
             {/* 志望校情報 - 志望校タブ */}
-            <div>
+            <div style={{display: activeTab==="schools" ? undefined : "none"}}>
             <Section title="志望校情報">
               {(application.applicationSchools && application.applicationSchools.length > 0
                 ? application.applicationSchools
@@ -1416,7 +1416,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end schools tab */}
 
             {/* 選考費 - 選考タブ */}
-            <div>
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <Section title="選考費支払い状況">
               <div className="py-2">
                 <div className="flex items-center justify-between mb-4">
@@ -1557,7 +1557,7 @@ export default function ApplicationDetailPage() {
             </div>
 
             {/* 学歴 - 基本情報タブ */}
-            <div>
+            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
             <Section title="最終学歴・職歴">
               <InfoRow label="最終学歴（学校名）" value={application.lastSchoolName} />
               <InfoRow label="最終学歴（国）" value={application.lastSchoolCountry} />
@@ -1575,7 +1575,7 @@ export default function ApplicationDetailPage() {
             </div>{/* end basic education */}
 
             {/* 提出書類 + チェックリスト - 書類タブ */}
-            <div>
+            <div style={{display: activeTab==="documents" ? undefined : "none"}}>
             <Section title={`提出書類（${application.documents.length}件）`}>
               {application.documents.length === 0 ? (
                 <p className="text-gray-400 text-sm py-2">書類なし</p>

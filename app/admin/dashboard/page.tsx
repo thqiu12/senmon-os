@@ -163,6 +163,19 @@ export default function AdminDashboard() {
   // 定員サマリー
   const [quotaSummary, setQuotaSummary] = useState<{ totalQuota: number; totalAccepted: number; totalRemaining: number; year: string } | null>(null);
 
+  // Cohortサマリー
+  interface CohortSummary {
+    total: number;
+    passedCount: number;
+    reviewedCount: number;
+    passRate: number | null;
+    withDocs: number;
+    docRate: number | null;
+    statusCounts: Record<string, number>;
+  }
+  const [cohortSummary, setCohortSummary] = useState<CohortSummary | null>(null);
+  const [cohortSummaryLoading, setCohortSummaryLoading] = useState(false);
+
   // 列表示設定
   const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(COLUMN_DEFS.map(c => [c.key, c.default]))
@@ -198,6 +211,20 @@ export default function AdminDashboard() {
     // グローバル統計（全量）
     fetch("/api/applications/stats").then(r => r.json()).then(d => setGlobalStats(d));
   }, []);
+
+  // Cohortフィルター選択時にサマリーを取得
+  useEffect(() => {
+    if (cohortFilter === "all") {
+      setCohortSummary(null);
+      return;
+    }
+    setCohortSummaryLoading(true);
+    fetch(`/api/applications/stats?cohortId=${encodeURIComponent(cohortFilter)}`)
+      .then(r => r.json())
+      .then(d => { if (d.cohortSummary) setCohortSummary(d.cohortSummary); })
+      .catch(() => {})
+      .finally(() => setCohortSummaryLoading(false));
+  }, [cohortFilter]);
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
@@ -372,6 +399,56 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ===== Cohortサマリーカード ===== */}
+        {cohortFilter !== "all" && (
+          <div className="card mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-navy-700">
+                {cohorts.find(c => c.id === cohortFilter)?.name ?? "選考"} サマリー
+              </h3>
+              {cohortSummaryLoading && (
+                <svg className="animate-spin w-4 h-4 text-navy-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+            </div>
+            {cohortSummary && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-navy-50 border border-navy-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-navy-500 mb-1">出願数</p>
+                  <p className="text-2xl font-bold text-navy-800">{cohortSummary.total}<span className="text-sm font-normal ml-0.5">件</span></p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-green-600 mb-1">合格率</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {cohortSummary.passRate !== null
+                      ? `${Math.round(cohortSummary.passRate * 100)}%`
+                      : "—"}
+                  </p>
+                  <p className="text-xs text-green-500">{cohortSummary.passedCount}名 / 審査済{cohortSummary.reviewedCount}名</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-blue-600 mb-1">書類提出率</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {cohortSummary.docRate !== null
+                      ? `${Math.round(cohortSummary.docRate * 100)}%`
+                      : "—"}
+                  </p>
+                  <p className="text-xs text-blue-500">{cohortSummary.withDocs}名 / 全{cohortSummary.total}名</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500 mb-1">審査済み</p>
+                  <p className="text-2xl font-bold text-gray-700">{cohortSummary.reviewedCount}<span className="text-sm font-normal ml-0.5">件</span></p>
+                  <p className="text-xs text-gray-400">
+                    {cohortSummary.total > 0 ? `${Math.round(cohortSummary.reviewedCount / cohortSummary.total * 100)}%` : "0%"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ===== 入学手続き進捗（全量） ===== */}
         {globalStats?.enrollmentStats && (() => {
           const es = globalStats.enrollmentStats;
@@ -534,7 +611,57 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            {/* ===== モバイルカードビュー (md未満) ===== */}
+            <div className="block md:hidden space-y-3 mb-4">
+              {data?.applications.length === 0 ? (
+                <div className="card text-center py-12 text-gray-400">
+                  <svg className="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  申請がありません
+                </div>
+              ) : (
+                data?.applications.map((app) => (
+                  <div
+                    key={app.id}
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push(`/admin/applications/${app.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900">{app.lastName} {app.firstName}</p>
+                          {app.examMode && app.examMode !== "一般" && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${app.examMode === "特待生" ? "bg-yellow-100 text-yellow-700" : "bg-purple-100 text-purple-700"}`}>
+                              {app.examMode === "特待生" ? "★特待" : "◆推薦"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">{app.lastNameKana} {app.firstNameKana}</p>
+                      </div>
+                      <span className={`status-badge shrink-0 ${getStatusStyle(app.status)}`}>{app.status}</span>
+                    </div>
+                    <p className="text-xs font-mono text-gray-500 mb-2">{app.applicationNo}</p>
+                    <div className="text-xs text-gray-600 space-y-0.5">
+                      <p className="truncate">{app.schoolName}{app.department ? ` / ${app.department}` : ""}</p>
+                      <p className="text-gray-400">{formatDateTimeJP(app.createdAt)}</p>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <Link
+                        href={`/admin/applications/${app.id}`}
+                        className="text-navy-700 hover:text-navy-900 font-medium text-xs"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        詳細 →
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* ===== デスクトップテーブルビュー (md以上) ===== */}
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-navy-800 text-white">

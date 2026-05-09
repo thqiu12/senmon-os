@@ -272,7 +272,48 @@ export default function EnrollmentManagementPage() {
             <p>該当する学生がいません</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <>
+            {/* ===== モバイルカードビュー (md未満) ===== */}
+            <div className="block md:hidden space-y-3 mb-4">
+              {rows.map(row => {
+                const stepStyle = STEP_STYLES[row.step] ?? { badge: "bg-gray-100 text-gray-600", row: "" };
+                return (
+                  <div key={row.id} className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 ${stepStyle.row}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900">{row.lastName} {row.firstName}</p>
+                          {row.status === "補欠合格" && (
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-semibold">補欠</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">{row.lastNameKana} {row.firstNameKana}</p>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${stepStyle.badge}`}>
+                        {STEP_LABELS[row.step] ?? row.step}
+                      </span>
+                    </div>
+                    <p className="text-xs font-mono text-gray-400 mb-2">{row.applicationNo}</p>
+                    <div className="text-xs text-gray-600 space-y-0.5 mb-3">
+                      <p className="truncate font-medium">{row.schoolName}</p>
+                      <p className="text-gray-400">{row.department}</p>
+                      <p className="text-gray-400">{row.enrollmentYear}年{row.enrollmentMonth}月入学</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Link
+                        href={`/admin/applications/${row.id}`}
+                        className="text-navy-700 hover:text-navy-900 font-medium text-xs"
+                      >
+                        詳細 →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ===== デスクトップテーブルビュー (md以上) ===== */}
+          <div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-navy-800 text-white">
@@ -453,6 +494,7 @@ export default function EnrollmentManagementPage() {
               </table>
             </div>
           </div>
+          </>
         )}
       </main>
 

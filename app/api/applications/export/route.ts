@@ -23,6 +23,21 @@ export async function GET(request: NextRequest) {
         documents: {
           select: { docType: true },
         },
+        interviewFeedbacks: {
+          select: { scoreOverall: true, recommendation: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
+        enrollmentProcedure: {
+          select: {
+            status: true,
+            tuitionPaidAt: true,
+            schoolConfirmed: true,
+            admitLetterIssued: true,
+          },
+        },
+        agent: {
+          select: { name: true },
+        },
       },
     });
 
@@ -60,10 +75,37 @@ export async function GET(request: NextRequest) {
       "卒業状況",
       "職務経歴",
       "提出書類",
+      "面接総合スコア",
+      "面接推薦",
+      "入学手続きステータス",
+      "学費振込",
+      "学校承認",
+      "許可書発行",
+      "エージェント名",
     ];
 
     const rows = applications.map((app) => {
       const docTypes = app.documents.map((d) => d.docType).join("／");
+
+      // 面接スコア平均
+      const feedbacks = app.interviewFeedbacks ?? [];
+      const scoresWithValue = feedbacks.filter(f => f.scoreOverall !== null);
+      const avgScore = scoresWithValue.length > 0
+        ? (scoresWithValue.reduce((s, f) => s + (f.scoreOverall ?? 0), 0) / scoresWithValue.length).toFixed(1)
+        : "";
+      // 最新の推薦
+      const latestRecommendation = feedbacks.length > 0 ? (feedbacks[0].recommendation ?? "") : "";
+
+      // 入学手続き
+      const ep = app.enrollmentProcedure;
+      const epStatus = ep?.status ?? "";
+      const tuitionPaid = ep ? (ep.tuitionPaidAt ? "振込済" : "未振込") : "";
+      const schoolConfirmed = ep ? (ep.schoolConfirmed ? "承認済" : "未") : "";
+      const admitLetterIssued = ep ? (ep.admitLetterIssued ? "発行済" : "未") : "";
+
+      // エージェント
+      const agentName = app.agent?.name ?? "";
+
       return [
         escapeCsv(app.applicationNo),
         escapeCsv(app.status),
@@ -97,6 +139,13 @@ export async function GET(request: NextRequest) {
         escapeCsv(app.lastSchoolGraduate),
         escapeCsv(app.workExperience || ""),
         escapeCsv(docTypes),
+        escapeCsv(avgScore),
+        escapeCsv(latestRecommendation),
+        escapeCsv(epStatus),
+        escapeCsv(tuitionPaid),
+        escapeCsv(schoolConfirmed),
+        escapeCsv(admitLetterIssued),
+        escapeCsv(agentName),
       ].join(",");
     });
 

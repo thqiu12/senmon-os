@@ -642,6 +642,35 @@ export default function ApplicationDetailPage() {
   const [ceremonyNotes, setCeremonyNotes] = useState("");
   const [visaGuideNotes, setVisaGuideNotes] = useState("");
 
+  // タブ
+  type TabKey = "basic"|"screening"|"schools"|"documents"|"enrollment";
+  const [activeTab, setActiveTab] = useState<TabKey>("basic");
+  const TABS: {key: TabKey; label: string}[] = [
+    {key:"basic", label:"📋 基本情報"},
+    {key:"screening", label:"🔍 選考・審査"},
+    {key:"schools", label:"🏫 志望校"},
+    {key:"documents", label:"📄 書類"},
+    {key:"enrollment", label:"🎓 入学手続き"},
+  ];
+
+  // 書類確認チェックリスト（提出前書類の事務チェック）
+  const DOC_CHECK_ITEMS = ["パスポートコピー","卒業証明書","成績証明書","日本語能力証明書","証明写真","在職証明書（社会人）","経費支弁書","残高証明書"];
+  const [docCheckState, setDocCheckState] = useState<Record<string,{checked:boolean;checkedAt?:string}>>({});
+  const [docCheckSaving, setDocCheckSaving] = useState(false);
+  const [docCheckSaved, setDocCheckSaved] = useState(false);
+
+  const saveDocCheck = async () => {
+    setDocCheckSaving(true);
+    try {
+      await fetch(`/api/applications/${id}`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({content: "[DOC_CHECKLIST]"+JSON.stringify(docCheckState), isInternal: true}),
+      });
+      setDocCheckSaved(true); setTimeout(()=>setDocCheckSaved(false),2000);
+    } finally { setDocCheckSaving(false); }
+  };
+
   useEffect(() => {
     fetch("/api/agents").then(r => r.json()).then(d => setAgents(Array.isArray(d) ? d : (d.agents || [])));
     fetch("/api/cohorts").then(r => r.json()).then(d => Array.isArray(d) && setCohorts(d));
@@ -701,6 +730,9 @@ export default function ApplicationDetailPage() {
           setCeremonyNotes(ep.ceremonyNotes || "");
           setVisaGuideNotes(ep.visaGuideNotes || "");
         }
+        // DOC_CHECKLISTをadminNotesから復元
+        const checkNote = (data.adminNotes||[]).find((n:{content:string})=>n.content.startsWith("[DOC_CHECKLIST]"));
+        if (checkNote) { try { setDocCheckState(JSON.parse(checkNote.content.replace("[DOC_CHECKLIST]",""))); } catch {} }
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
       } finally {
@@ -726,6 +758,8 @@ export default function ApplicationDetailPage() {
         setApplication((prev) => prev ? { ...prev, status: selectedStatus } : null);
         setStatusSaved(true);
         setTimeout(() => setStatusSaved(false), 3000);
+        // 操作ログ
+        fetch(`/api/applications/${id}`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:`[AUTO] ステータスを「${selectedStatus}」に変更しました`,isInternal:true})}).catch(()=>{});
 
         // 合否通知メール送信
         if (needsResultEmail) {
@@ -1107,6 +1141,16 @@ export default function ApplicationDetailPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* タブナビゲーション */}
+        <div className="flex gap-1 mb-5 bg-white rounded-xl shadow-sm border border-gray-200 p-1 overflow-x-auto">
+          {TABS.map(tab=>(
+            <button key={tab.key} onClick={()=>setActiveTab(tab.key)}
+              className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab===tab.key?"bg-navy-700 text-white shadow":"text-gray-600 hover:bg-gray-100"}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* 左カラム: 申請情報 */}
           <div className="lg:col-span-2 space-y-4">
@@ -1148,7 +1192,8 @@ export default function ApplicationDetailPage() {
               </div>
             </div>
 
-            {/* 個人情報 */}
+            {/* 個人情報 - 基本情報タブ */}
+            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
             <Section title="個人情報">
               <InfoRow label="生年月日" value={application.birthDate} />
               <InfoRow label="性別" value={application.gender} />
@@ -1161,7 +1206,6 @@ export default function ApplicationDetailPage() {
               />
             </Section>
 
-            {/* 在日情報 */}
             <Section title="在日情報・日本語能力">
               <InfoRow label="在留資格" value={application.residenceStatus} />
               <InfoRow label="在留期限" value={application.residenceExpiry} />
@@ -1169,7 +1213,10 @@ export default function ApplicationDetailPage() {
               <InfoRow label="JLPT証明書" value={application.jlptCertified} />
             </Section>
 
-            {/* 選考区分・推薦 */}
+            </div>{/* end basic tab */}
+
+            {/* 選考区分・推薦 - 選考タブ */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <Section title="選考区分・推薦情報">
               <div className="space-y-3 py-1">
                 {/* 選考区分 */}
@@ -1229,7 +1276,10 @@ export default function ApplicationDetailPage() {
               </div>
             </Section>
 
-            {/* 志望校情報 */}
+            </div>{/* end screening left */}
+
+            {/* 志望校情報 - 志望校タブ */}
+            <div style={{display: activeTab==="schools" ? undefined : "none"}}>
             <Section title="志望校情報">
               {(application.applicationSchools && application.applicationSchools.length > 0
                 ? application.applicationSchools
@@ -1304,7 +1354,10 @@ export default function ApplicationDetailPage() {
               </div>
             </Section>
 
-            {/* 選考費 */}
+            </div>{/* end schools tab */}
+
+            {/* 選考費 - 選考タブ */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <Section title="選考費支払い状況">
               <div className="py-2">
                 <div className="flex items-center justify-between mb-4">
@@ -1384,7 +1437,10 @@ export default function ApplicationDetailPage() {
               </div>
             </Section>
 
-            {/* 学歴 */}
+            </div>{/* end screening fee */}
+
+            {/* 学歴 - 基本情報タブ */}
+            <div style={{display: activeTab==="basic" ? undefined : "none"}}>
             <Section title="最終学歴・職歴">
               <InfoRow label="最終学歴（学校名）" value={application.lastSchoolName} />
               <InfoRow label="最終学歴（国）" value={application.lastSchoolCountry} />
@@ -1399,7 +1455,10 @@ export default function ApplicationDetailPage() {
               )}
             </Section>
 
-            {/* 提出書類 */}
+            </div>{/* end basic education */}
+
+            {/* 提出書類 + チェックリスト - 書類タブ */}
+            <div style={{display: activeTab==="documents" ? undefined : "none"}}>
             <Section title={`提出書類（${application.documents.length}件）`}>
               {application.documents.length === 0 ? (
                 <p className="text-gray-400 text-sm py-2">書類なし</p>
@@ -1446,11 +1505,47 @@ export default function ApplicationDetailPage() {
                 </div>
               )}
             </Section>
+
+            {/* 書類確認チェックリスト（事務用） */}
+            <Section title="書類確認チェックリスト（事務確認用）">
+              {(() => {
+                const checked = DOC_CHECK_ITEMS.filter(i=>docCheckState[i]?.checked).length;
+                const total = DOC_CHECK_ITEMS.length;
+                return (
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div className="bg-green-500 h-2 rounded-full transition-all" style={{width:`${(checked/total)*100}%`}}/>
+                      </div>
+                      <span className="text-sm text-gray-600 whitespace-nowrap">{checked}/{total} 確認済</span>
+                      {checked===total && <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full border border-green-300">✓ 完了</span>}
+                    </div>
+                    <div className="space-y-1.5 mb-4">
+                      {DOC_CHECK_ITEMS.map(item=>(
+                        <label key={item} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input type="checkbox" className="w-4 h-4 accent-navy-700"
+                            checked={!!docCheckState[item]?.checked}
+                            onChange={e=>setDocCheckState(prev=>({...prev,[item]:{checked:e.target.checked,checkedAt:e.target.checked?new Date().toISOString():undefined}}))}/>
+                          <span className={`text-sm flex-1 ${docCheckState[item]?.checked?"line-through text-gray-400":"text-gray-800"}`}>{item}</span>
+                          {docCheckState[item]?.checkedAt && <span className="text-xs text-gray-400">{new Date(docCheckState[item].checkedAt!).toLocaleDateString("ja-JP")}</span>}
+                        </label>
+                      ))}
+                    </div>
+                    <button onClick={saveDocCheck} disabled={docCheckSaving} className="btn-primary text-sm w-full">
+                      {docCheckSaving?"保存中…":docCheckSaved?"✓ 保存しました":"チェック状態を保存"}
+                    </button>
+                  </div>
+                );
+              })()}
+            </Section>
+            </div>{/* end documents tab */}
+
           </div>
 
           {/* 右カラム: 管理パネル */}
           <div className="space-y-4">
-            {/* 選考バッチ */}
+            {/* 選考バッチ - 選考タブ */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <div className="card">
               <h3 className="text-sm font-bold text-navy-700 uppercase tracking-wide mb-3">
                 選考バッチ
@@ -1486,8 +1581,10 @@ export default function ApplicationDetailPage() {
                 ) : cohortSaving ? "保存中..." : "バッチを設定"}
               </button>
             </div>
+            </div>{/* end cohort screening-tab */}
 
-            {/* エージェント */}
+            {/* エージェント - 選考タブ */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <div className="card">
               <h3 className="text-sm font-bold text-navy-700 uppercase tracking-wide mb-3">
                 紹介エージェント
@@ -1536,8 +1633,10 @@ export default function ApplicationDetailPage() {
                 </p>
               )}
             </div>
+            </div>{/* end agent screening-tab */}
 
-            {/* 状態管理 */}
+            {/* 状態管理 - 選考タブ */}
+            <div style={{display: activeTab==="screening" ? undefined : "none"}}>
             <div className="card">
               <h3 className="text-sm font-bold text-navy-700 uppercase tracking-wide mb-4">
                 審査状態の変更
@@ -1688,8 +1787,10 @@ export default function ApplicationDetailPage() {
             {(application.status === "面接待ち" || application.status === "合格" || application.status === "補欠合格" || application.status === "不合格" || application.status === "保留") && (
               <InterviewFeedbackCard applicationId={application.id} />
             )}
+            </div>{/* end screening right tab */}
 
-            {/* 入学手続き管理（合格後のみ表示） */}
+            {/* 入学手続き管理（合格後のみ・入学手続きタブ） */}
+            <div style={{display: activeTab==="enrollment" ? undefined : "none"}}>
             {(application.status === "合格" || application.status === "補欠合格") && (
               <div className="card">
                 {/* ヘッダー */}
@@ -2064,8 +2165,9 @@ export default function ApplicationDetailPage() {
                 )}
               </div>
             )}
+            </div>{/* end enrollment tab */}
 
-            {/* 管理メモ */}
+            {/* 管理メモ・メモ履歴 - 常時表示 */}
             <div className="card">
               <h3 className="text-sm font-bold text-navy-700 uppercase tracking-wide mb-3">
                 管理メモ

@@ -9,6 +9,48 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const cohortId = searchParams.get("cohortId");
+
+    // cohortId指定時はCohortサマリーを返す
+    if (cohortId) {
+      const cohortWhere = cohortId === "none"
+        ? { cohortId: null }
+        : { cohortId };
+
+      const allApps = await prisma.application.findMany({
+        where: cohortWhere,
+        include: {
+          documents: { select: { id: true } },
+        },
+      });
+
+      const total = allApps.length;
+      const passedCount = allApps.filter(a => a.status === "合格" || a.status === "補欠合格").length;
+      const reviewedCount = allApps.filter(a => ["合格", "補欠合格", "不合格", "保留"].includes(a.status)).length;
+      const passRate = reviewedCount > 0 ? passedCount / reviewedCount : null;
+      const withDocs = allApps.filter(a => a.documents.length > 0).length;
+      const docRate = total > 0 ? withDocs / total : null;
+
+      // ステータス別カウント
+      const statusCounts: Record<string, number> = {};
+      for (const app of allApps) {
+        statusCounts[app.status] = (statusCounts[app.status] || 0) + 1;
+      }
+
+      return NextResponse.json({
+        cohortSummary: {
+          total,
+          passedCount,
+          reviewedCount,
+          passRate,
+          withDocs,
+          docRate,
+          statusCounts,
+        },
+      });
+    }
+
     // 全申請のステータス別カウント（全量）
     const statusGroups = await prisma.application.groupBy({
       by: ["status"],

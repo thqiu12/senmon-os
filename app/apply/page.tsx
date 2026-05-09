@@ -1259,6 +1259,8 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
   );
 }
 
+const DRAFT_KEY = "application_draft";
+
 // ========== Main ==========
 function ApplyPageInner() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -1284,6 +1286,55 @@ function ApplyPageInner() {
   const schoolCount = 1 + form.additionalSchools.length;
   const [activeCohorts, setActiveCohorts] = useState<{ id: string; name: string; round: number; schoolKey: string | null; deadline: string | null; examDate: string | null }[] | null>(null);
   const [schoolClosed, setSchoolClosed] = useState(false); // 受付期間外フラグ
+
+  // ===== 下書き保存 =====
+  const [draftBanner, setDraftBanner] = useState<"ask" | "hidden" | null>(null); // null = not checked yet
+  const draftTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveDraftToStorage = useCallback((formData: FormData) => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: formData, savedAt: Date.now() }));
+    } catch { /* ignore */ }
+  }, []);
+
+  const clearDraft = useCallback(() => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  }, []);
+
+  // ページロード時にdraftチェック（resumeフローでなく出願前のみ）
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const isResumeFlow = sp.get("resume") === "1";
+    if (isResumeFlow) { setDraftBanner("hidden"); return; }
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.form) setDraftBanner("ask");
+        else setDraftBanner("hidden");
+      } else {
+        setDraftBanner("hidden");
+      }
+    } catch { setDraftBanner("hidden"); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 30秒ごと自動保存（Step1-2のみ、出願番号発行前）
+  useEffect(() => {
+    if (applicationId || isResumed || submitted) return; // 出願済みは保存しない
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraftToStorage(form);
+    }, 30000);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [form, applicationId, isResumed, submitted, saveDraftToStorage]);
+
+  // フォーカスアウト時に保存
+  const handleFormBlur = useCallback(() => {
+    if (!applicationId && !isResumed && !submitted) {
+      saveDraftToStorage(form);
+    }
+  }, [form, applicationId, isResumed, submitted, saveDraftToStorage]);
 
   // 受付中バッチを取得
   useEffect(() => {
@@ -1444,7 +1495,14 @@ function ApplyPageInner() {
   }, []);
 
   const handleChange = (field: keyof FormData, value: string | boolean) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    setForm(prev => {
+      const updated = { ...prev, [field]: value };
+      // ドラフトを即時保存（出願前のみ）
+      if (!applicationId && !isResumed && !submitted) {
+        saveDraftToStorage(updated);
+      }
+      return updated;
+    });
     setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
     if (field === "schoolId" && typeof value === "string") {
       fetchFormConfig(value || undefined);
@@ -1602,6 +1660,7 @@ function ApplyPageInner() {
         const d = await res.json();
         throw new Error(d.error || "提出に失敗しました");
       }
+      clearDraft(); // 提出成功時にdraftを削除
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "提出に失敗しました");
@@ -1693,7 +1752,7 @@ function ApplyPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" onBlur={handleFormBlur}>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -1709,6 +1768,42 @@ function ApplyPageInner() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* ===== 下書きバナー ===== */}
+        {draftBanner === "ask" && !applicationId && !isResumed && (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+            <span className="text-xl shrink-0">📝</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800 mb-1">下書きが保存されています。続きから入力しますか？</p>
+              <div className="flex gap-2 flex-wrap mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      const raw = localStorage.getItem(DRAFT_KEY);
+                      if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (parsed?.form) {
+                          setForm({ ...initialForm, ...parsed.form });
+                        }
+                      }
+                    } catch { /* ignore */ }
+                    setDraftBanner("hidden");
+                  }}
+                  className="px-4 py-2 text-sm font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
+                >
+                  続きから入力
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { clearDraft(); setDraftBanner("hidden"); }}
+                  className="px-4 py-2 text-sm font-semibold bg-white border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50 transition"
+                >
+                  新規入力
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Step Indicator */}
         <StepIndicator currentStep={showAppNoConfirm ? 3 : currentStep} />
 
@@ -1761,29 +1856,43 @@ function ApplyPageInner() {
 
         {/* Navigation — hide on AppNoConfirm screen (it has its own buttons) */}
         {!showAppNoConfirm && (
-          <div className="flex justify-between items-center">
-            {/* resumeフロー時はStep1/2に戻れないので前へボタン非表示 */}
-            {/* 通常フローでStep3以降かつ出願番号発行済みも同様 */}
-            {(isResumed || (currentStep >= 3 && !!applicationId)) ? (
-              <div />
-            ) : (
-              <button onClick={handleBack} disabled={currentStep === 1 || submitting}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed">
-                ← 前へ
-              </button>
-            )}
-            {currentStep < 5 ? (
-              <button onClick={handleNext} disabled={submitting}
-                className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-200">
-                {submitting ? (
-                  <><span className="animate-spin">⏳</span> 保存中...</>
-                ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
-              </button>
-            ) : (
-              <button onClick={handleSubmit} disabled={submitting}
-                className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
-                {submitting ? <><span className="animate-spin">⏳</span> 提出中...</> : "✅ 提出する"}
-              </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              {/* resumeフロー時はStep1/2に戻れないので前へボタン非表示 */}
+              {/* 通常フローでStep3以降かつ出願番号発行済みも同様 */}
+              {(isResumed || (currentStep >= 3 && !!applicationId)) ? (
+                <div />
+              ) : (
+                <button onClick={handleBack} disabled={currentStep === 1 || submitting}
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed">
+                  ← 前へ
+                </button>
+              )}
+              {currentStep < 5 ? (
+                <button onClick={handleNext} disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-200">
+                  {submitting ? (
+                    <><span className="animate-spin">⏳</span> 保存中...</>
+                  ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
+                </button>
+              ) : (
+                <button onClick={handleSubmit} disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
+                  {submitting ? <><span className="animate-spin">⏳</span> 提出中...</> : "✅ 提出する"}
+                </button>
+              )}
+            </div>
+            {/* 下書き保存ボタン（出願番号発行前のStep1-2のみ表示） */}
+            {!applicationId && !isResumed && (currentStep === 1 || currentStep === 2) && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => { saveDraftToStorage(form); alert("下書きを保存しました"); }}
+                  className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-4 py-2 rounded-lg bg-white transition flex items-center gap-1.5"
+                >
+                  💾 下書きを保存
+                </button>
+              </div>
             )}
           </div>
         )}

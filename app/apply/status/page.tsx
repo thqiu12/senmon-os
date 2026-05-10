@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { getStatusStyle } from "@/lib/utils";
+import { useUI } from "@/components/ui/toast";
 
 interface EnrollmentProcedure {
   instructions: string | null;
@@ -519,6 +520,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
 // ===== 在籍情報コンポーネント END =====
 
 function StatusPageInner() {
+  const { toast } = useUI();
 
   const [applicationNo, setApplicationNo] = useState("");
   const [email, setEmail] = useState("");
@@ -662,11 +664,11 @@ function StatusPageInner() {
             : null
         );
       } else {
-        const err = await res.json();
-        alert(err.error || "アップロードに失敗しました");
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || "アップロードに失敗しました", "error");
       }
     } catch {
-      alert("ネットワークエラーが発生しました");
+      toast("ネットワークエラーが発生しました", "error");
     } finally {
       setUploadingDocType(null);
     }

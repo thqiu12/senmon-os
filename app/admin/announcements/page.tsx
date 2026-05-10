@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateTimeJP } from "@/lib/utils";
+import { useUI } from "@/components/ui/toast";
 
 const TARGET_TYPES = [
   { value: "all", label: "全員" },
@@ -46,6 +47,7 @@ function getTargetLabel(a: Announcement, cohorts: Cohort[]): string {
 
 export default function AnnouncementsPage() {
   const router = useRouter();
+  const { toast, confirm } = useUI();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +174,12 @@ export default function AnnouncementsPage() {
 
   const handleSend = async (announcement: Announcement) => {
     const targetLabel = getTargetLabel(announcement, cohorts);
-    if (!confirm(`「${announcement.title}」を${targetLabel}に送信しますか？\n\nこの操作は取り消せません。`)) return;
+    const ok = await confirm({
+      title: "お知らせを送信",
+      message: `「${announcement.title}」を${targetLabel}に送信しますか？\n\nこの操作は取り消せません。`,
+      okLabel: "送信",
+    });
+    if (!ok) return;
     setSendingId(announcement.id);
     try {
       const res = await fetch(`/api/announcements?id=${announcement.id}&action=send`, {
@@ -181,13 +188,14 @@ export default function AnnouncementsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "送信に失敗しました");
       if (!data.smtpEnabled) {
-        alert(`対象: ${data.sentCount}件\n\n※ SMTP未設定のため実際のメール送信はスキップされました。`);
+        toast(`対象: ${data.targets ?? data.sentCount}件 / SMTP未設定のため実送信はスキップ`, "warn");
       } else {
-        alert(`送信完了: ${data.emailsSent}/${data.sentCount}件`);
+        const fail = data.failCount ?? 0;
+        toast(`送信完了: ${data.sentCount}/${data.targets} 件${fail > 0 ? ` (失敗 ${fail})` : ""}`, fail > 0 ? "warn" : "success");
       }
       await fetchData();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "送信に失敗しました");
+      toast(e instanceof Error ? e.message : "送信に失敗しました", "error");
     } finally {
       setSendingId(null);
     }

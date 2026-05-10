@@ -9,6 +9,7 @@ import {
   formatDateTimeJP,
   formatFileSize,
 } from "@/lib/utils";
+import { useUI } from "@/components/ui/toast";
 
 // ===== 面接フィードバックコンポーネント =====
 interface Interviewer { id: string; name: string; role: string | null; }
@@ -48,6 +49,7 @@ function ScoreBar({ score }: { score: number | null }) {
 }
 
 function InterviewFeedbackCard({ applicationId }: { applicationId: string }) {
+  const { confirm } = useUI();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,8 @@ function InterviewFeedbackCard({ applicationId }: { applicationId: string }) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("このフィードバックを削除しますか？")) return;
+    const ok = await confirm({ title: "フィードバック削除", message: "このフィードバックを削除しますか？", danger: true, okLabel: "削除" });
+    if (!ok) return;
     await fetch(`/api/interview-feedback?id=${id}`, { method: "DELETE" });
     setFeedbacks(prev => prev.filter(f => f.id !== id));
   };
@@ -545,6 +548,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function ApplicationDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useUI();
   const id = params.id as string;
 
   const [application, setApplication] = useState<Application | null>(null);
@@ -881,7 +885,7 @@ export default function ApplicationDetailPage() {
       setSchoolResultSaved(schoolId);
       setTimeout(() => setSchoolResultSaved(null), 2500);
     } catch {
-      alert("更新に失敗しました");
+      toast("更新に失敗しました", "error");
     } finally {
       setSchoolResultSaving(null);
     }

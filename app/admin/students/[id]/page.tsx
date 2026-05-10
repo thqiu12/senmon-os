@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useUI } from "@/components/ui/toast";
 
 interface Student {
   id: string; studentNo: string; lastName: string; firstName: string;
@@ -41,6 +42,7 @@ const CERT_TYPES = ["在籍証明書", "出席率証明書", "成績証明書", 
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { confirm } = useUI();
   const [student, setStudent] = useState<Student | null>(null);
   const [tab, setTab] = useState<"attendance" | "homework" | "leave" | "cert">("attendance");
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
@@ -109,7 +111,8 @@ export default function StudentDetailPage() {
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!confirm(`ステータスを「${newStatus}」に変更しますか？`)) return;
+    const ok = await confirm({ title: "ステータス変更", message: `ステータスを「${newStatus}」に変更しますか？`, okLabel: "変更" });
+    if (!ok) return;
     setSaving(true);
     await fetch(`/api/students/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useUI } from "@/components/ui/toast";
 
 interface QuotaRow {
   id: string;
@@ -25,6 +26,7 @@ const DEPARTMENTS: Record<string, string[]> = {
 
 export default function QuotaPage() {
   const router = useRouter();
+  const { confirm } = useUI();
   const [rows, setRows] = useState<QuotaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState("2027");
@@ -82,7 +84,8 @@ export default function QuotaPage() {
   };
 
   const handleDelete = async (id: string, label: string) => {
-    if (!confirm(`「${label}」の定員設定を削除しますか？`)) return;
+    const ok = await confirm({ title: "定員設定を削除", message: `「${label}」の定員設定を削除しますか？`, danger: true, okLabel: "削除" });
+    if (!ok) return;
     await fetch(`/api/admin/quota?id=${id}`, { method: "DELETE" });
     fetchData();
   };

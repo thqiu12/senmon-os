@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateTimeJP } from "@/lib/utils";
+import { useUI } from "@/components/ui/toast";
 
 const COHORT_STATUSES = ["受付中", "選考中", "完了"];
 
@@ -45,6 +46,7 @@ function getCohortStatusStyle(status: string): string {
 
 export default function CohortsPage() {
   const router = useRouter();
+  const { toast, confirm } = useUI();
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,19 +213,25 @@ export default function CohortsPage() {
       if (!res.ok) throw new Error("更新に失敗しました");
       await fetchCohorts();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "エラーが発生しました");
+      toast(e instanceof Error ? e.message : "エラーが発生しました", "error");
     }
   };
 
   const handleDelete = async (cohort: Cohort) => {
-    if (!confirm(`「${cohort.name}」を削除しますか？`)) return;
+    const ok = await confirm({
+      title: "選考を削除",
+      message: `「${cohort.name}」を削除しますか？`,
+      danger: true,
+      okLabel: "削除",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/cohorts?id=${cohort.id}`, { method: "DELETE" });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "削除に失敗しました");
       await fetchCohorts();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "削除に失敗しました");
+      toast(e instanceof Error ? e.message : "削除に失敗しました", "error");
     }
   };
 

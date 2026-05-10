@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUI } from "@/components/ui/toast";
 
 interface Agent {
   id: string;
@@ -31,6 +32,7 @@ const FLAG: Record<string, string> = {
 
 export default function AgentsPage() {
   const router = useRouter();
+  const { confirm } = useUI();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -98,7 +100,13 @@ export default function AgentsPage() {
   };
 
   const handleDelete = async (agent: Agent) => {
-    if (!confirm(`「${agent.name}」を削除しますか？\n紐づく申請のエージェント情報はクリアされます。`)) return;
+    const ok = await confirm({
+      title: "エージェントを削除",
+      message: `「${agent.name}」を削除しますか？\n紐づく申請のエージェント情報はクリアされます。`,
+      danger: true,
+      okLabel: "削除",
+    });
+    if (!ok) return;
     await fetch(`/api/agents/${agent.id}`, { method: "DELETE" });
     await fetchAgents();
   };

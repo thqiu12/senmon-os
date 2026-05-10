@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateTimeJP } from "@/lib/utils";
+import { useUI } from "@/components/ui/toast";
 
 type Role = "super_admin" | "admin" | "interviewer";
 
@@ -25,6 +26,7 @@ const ROLE_CONFIG: Record<Role, { label: string; color: string; desc: string }> 
 
 export default function AccountsPage() {
   const router = useRouter();
+  const { confirm } = useUI();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -102,7 +104,13 @@ export default function AccountsPage() {
   };
 
   const handleDelete = async (user: AdminUser) => {
-    if (!confirm(`「${user.displayName}」のアカウントを削除しますか？`)) return;
+    const ok = await confirm({
+      title: "アカウントを削除",
+      message: `「${user.displayName}」のアカウントを削除しますか？`,
+      danger: true,
+      okLabel: "削除",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin/accounts?id=${user.id}`, { method: "DELETE" });
     if (res.ok) setUsers(prev => prev.filter(u => u.id !== user.id));
   };

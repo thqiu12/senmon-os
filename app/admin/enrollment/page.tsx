@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useUI } from "@/components/ui/toast";
 
 // ─── 型定義 ───────────────────────────────────────────────
 interface EP {
@@ -85,6 +86,7 @@ function fmt(dt: string | null | undefined): string {
 // ─── メインコンポーネント ─────────────────────────────────
 export default function EnrollmentManagementPage() {
   const router = useRouter();
+  const { confirm } = useUI();
   const [adminRole, setAdminRole] = useState<string>("");
   useEffect(() => {
     fetch("/api/admin/me")
@@ -165,7 +167,8 @@ export default function EnrollmentManagementPage() {
 
   // 学校承認
   const confirmSchool = async (appId: string, appNo: string) => {
-    if (!confirm(`「${appNo}」の学校承認を記録しますか？`)) return;
+    const ok = await confirm({ title: "学校承認", message: `「${appNo}」の学校承認を記録しますか？`, okLabel: "記録" });
+    if (!ok) return;
     await fetch("/api/enrollment/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -176,7 +179,8 @@ export default function EnrollmentManagementPage() {
 
   // 許可書発行記録
   const issueAdmitLetter = async (appId: string, appNo: string) => {
-    if (!confirm(`「${appNo}」の入学許可書発行を記録しますか？`)) return;
+    const ok = await confirm({ title: "入学許可書発行", message: `「${appNo}」の入学許可書発行を記録しますか？`, okLabel: "発行" });
+    if (!ok) return;
     await fetch("/api/enrollment/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

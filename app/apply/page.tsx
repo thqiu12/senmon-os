@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useUI } from "@/components/ui/toast";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -1277,6 +1278,7 @@ const DRAFT_KEY = "application_draft";
 
 // ========== Main ==========
 function ApplyPageInner() {
+  const { toast } = useUI();
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1901,7 +1903,7 @@ function ApplyPageInner() {
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => { saveDraftToStorage(form); alert("下書きを保存しました"); }}
+                  onClick={() => { saveDraftToStorage(form); toast("下書きを保存しました", "success"); }}
                   className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-4 py-2 rounded-lg bg-white transition flex items-center gap-1.5"
                 >
                   💾 下書きを保存

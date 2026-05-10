@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SCHOOLS } from "@/lib/formFieldDefaults";
 import { SchoolsManager } from "@/app/admin/components/SchoolsManager";
+import { useUI } from "@/components/ui/toast";
 
 interface FormFieldConfig {
   id: string;
@@ -58,6 +59,7 @@ const emptyAddForm: AddFieldForm = {
 
 export default function FormConfigPage() {
   const router = useRouter();
+  const { confirm } = useUI();
   const [activeTab, setActiveTab] = useState<"form" | "schools">("form");
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
@@ -332,7 +334,13 @@ export default function FormConfigPage() {
             {selectedSchoolId && (
               <button
                 onClick={async () => {
-                  if (!confirm(`「${selectedSchoolId}」の学校固有設定をすべて削除してグローバル設定に戻しますか？`)) return;
+                  const ok = await confirm({
+                    title: "学校固有設定をリセット",
+                    message: `「${selectedSchoolId}」の学校固有設定をすべて削除してグローバル設定に戻しますか？`,
+                    danger: true,
+                    okLabel: "リセット",
+                  });
+                  if (!ok) return;
                   const res = await fetch(`/api/admin/form-config?resetSchoolId=${encodeURIComponent(selectedSchoolId)}`, { method: "PATCH" });
                   if (res.ok) { setSuccessMsg("グローバル設定に戻しました"); fetchConfigs(selectedSchoolId); }
                   else setError("リセットに失敗しました");

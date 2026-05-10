@@ -34,13 +34,26 @@ export async function POST(request: NextRequest) {
     }
 
     let updateData: Record<string, unknown> = {};
+    const operator = session?.userId ?? "管理者";
 
     if (action === "confirm") {
-      // 学校承認完了 → 入学許可書発行へ進む
+      // 一括: 学校承認 + 入学許可書発行（旧フロー互換）
       updateData = {
         schoolConfirmed: true,
         schoolConfirmedAt: new Date(),
-        schoolConfirmedBy: "管理者",
+        schoolConfirmedBy: operator,
+        admitLetterIssued: true,
+        admitLetterIssuedAt: new Date(),
+        status: "許可書発行済み",
+      };
+    } else if (action === "schoolConfirm") {
+      updateData = {
+        schoolConfirmed: true,
+        schoolConfirmedAt: new Date(),
+        schoolConfirmedBy: operator,
+      };
+    } else if (action === "admitLetter") {
+      updateData = {
         admitLetterIssued: true,
         admitLetterIssuedAt: new Date(),
         status: "許可書発行済み",

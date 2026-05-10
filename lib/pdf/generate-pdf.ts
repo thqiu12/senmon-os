@@ -317,9 +317,16 @@ export async function generateAdmissionPDF(data: AdmissionLetterData): Promise<B
     process.env.PUPPETEER_EXECUTABLE_PATH,
     "/usr/local/bin/chromium-browser",
     "/usr/bin/google-chrome",
-    "/usr/bin/chromium"
+    "/usr/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
   ].filter(Boolean) as string[];
-  const executablePath = possiblePaths.find(p => existsSync(p)) || "/usr/local/bin/chromium-browser";
+  const executablePath = possiblePaths.find((p) => existsSync(p));
+  if (!executablePath) {
+    throw new Error(
+      "Chromium/Chrome not found. Set PUPPETEER_EXECUTABLE_PATH to a Chrome binary.",
+    );
+  }
 
   const browser = await puppeteer.launch({
     executablePath,
@@ -335,7 +342,7 @@ export async function generateAdmissionPDF(data: AdmissionLetterData): Promise<B
   try {
     const page = await browser.newPage();
     const html = buildNoticeHTML(data);
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
 
     const pdfBuffer = await page.pdf({
       format: "A4",

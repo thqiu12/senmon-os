@@ -96,19 +96,21 @@ export async function PATCH(
     if (body.referrerName !== undefined) updateData.referrerName = body.referrerName;
     if (body.referrerType !== undefined) updateData.referrerType = body.referrerType;
 
+    const includeFull = {
+      documents: true,
+      adminNotes: { orderBy: { createdAt: "desc" } },
+      enrollmentProcedure: true,
+      enrollmentSignature: true,
+      agent: true,
+      cohort: { select: { id: true, name: true } },
+      applicationSchools: { orderBy: { priority: "asc" } },
+    } as const;
+
     const application = await prisma.$transaction(async (tx) => {
       const updated = await tx.application.update({
         where: { id: params.id },
         data: updateData,
-        include: {
-          documents: true,
-          adminNotes: { orderBy: { createdAt: "desc" } },
-          enrollmentProcedure: true,
-          enrollmentSignature: true,
-          agent: true,
-          cohort: { select: { id: true, name: true } },
-          applicationSchools: { orderBy: { priority: "asc" } },
-        },
+        include: includeFull,
       });
 
       if (body.status === "合格" || body.status === "補欠合格") {
@@ -163,7 +165,8 @@ export async function PATCH(
         });
       }
 
-      return updated;
+      // 副作用（procedure 作成・note 追加）後の最新状態を返す
+      return tx.application.findUnique({ where: { id: params.id }, include: includeFull });
     });
 
     return NextResponse.json(application);

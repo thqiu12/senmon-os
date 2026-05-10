@@ -17,19 +17,23 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-navy-800 hover:bg-navy-900 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-navy-800 hover:bg-navy-900 active:bg-navy-900 text-white font-semibold py-2.5 px-6 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-navy-600 focus:ring-offset-1;
   }
 
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-navy-800 font-semibold py-2.5 px-6 rounded-lg border border-navy-800 transition-colors duration-200;
+    @apply bg-white hover:bg-gray-50 text-navy-800 font-semibold py-2.5 px-6 rounded-lg border border-navy-800 transition-all duration-150 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-navy-600 focus:ring-offset-1;
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors duration-200;
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-6 rounded-lg shadow-sm hover:shadow transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1;
   }
 
   .form-input {
-    @apply w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-600 focus:border-transparent transition-all duration-200 bg-white;
+    @apply w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-600 focus:border-transparent transition-all duration-150 bg-white placeholder:text-gray-400;
+  }
+
+  .form-input-error {
+    @apply border-red-400 focus:ring-red-500;
   }
 
   .form-label {
@@ -40,16 +44,80 @@ body {
     @apply text-red-500 ml-1;
   }
 
+  .form-helper {
+    @apply text-xs text-gray-500 mt-1;
+  }
+
+  .form-error-text {
+    @apply text-xs text-red-600 mt-1 flex items-center gap-1;
+  }
+
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6 transition-shadow duration-150;
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer hover:shadow-md hover:border-gray-300;
   }
 
   .status-badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
   }
+
+  /* 横スクロールを保ちつつタッチ操作で滑らかに */
+  .table-scroll {
+    @apply overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
-/* Scrollbar styling */
+/* ─── Animations ─────────────────────────────────────────── */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-toast-in {
+  animation: toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 120ms ease-out;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.animate-pop-in {
+  animation: pop-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Reduced-motion: respect OS preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in,
+  .animate-fade-in,
+  .animate-pop-in {
+    animation: none;
+  }
+}
+
+/* ─── Scrollbar styling ──────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

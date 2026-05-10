@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { getStatusStyle } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EnrollmentProcedure {
   instructions: string | null;
@@ -782,12 +783,14 @@ function StatusPageInner() {
 
         {/* URLパラメータ自動ロード中 */}
         {autoLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <svg className="animate-spin w-10 h-10 text-navy-600 mb-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <p className="text-gray-500">読み込み中...</p>
+          <div className="card space-y-4">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-24 w-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/6" />
+            </div>
           </div>
         )}
 

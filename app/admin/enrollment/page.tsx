@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUI } from "@/components/ui/toast";
+import { SkeletonList } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ─── 型定義 ───────────────────────────────────────────────
 interface EP {
@@ -264,18 +266,13 @@ export default function EnrollmentManagementPage() {
 
         {/* ===== テーブル ===== */}
         {loading ? (
-          <div className="card text-center py-16">
-            <svg className="animate-spin w-8 h-8 text-navy-600 mx-auto" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <p className="text-gray-500 mt-3">読み込み中...</p>
-          </div>
+          <SkeletonList rows={6} cols={6} />
         ) : rows.length === 0 ? (
-          <div className="card text-center py-16 text-gray-400">
-            <p className="text-4xl mb-3">📭</p>
-            <p>該当する学生がいません</p>
-          </div>
+          <EmptyState
+            icon="📭"
+            title="該当する学生がいません"
+            description="フィルター条件を変更するか、合格者の入学手続きが開始されるまでお待ちください。"
+          />
         ) : (
           <>
             {/* ===== モバイルカードビュー (md未満) ===== */}

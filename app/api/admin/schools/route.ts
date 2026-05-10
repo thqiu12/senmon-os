@@ -94,8 +94,19 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    // フロントエンドは body の {id} で送ってくるが、後方互換のため
+    // ?id= クエリ文字列も許容する。
+    const fromQuery = new URL(request.url).searchParams.get("id");
+    let fromBody: string | null = null;
+    if (!fromQuery) {
+      try {
+        const body = await request.json();
+        if (typeof body?.id === "string") fromBody = body.id;
+      } catch {
+        /* no body */
+      }
+    }
+    const id = fromQuery || fromBody;
     if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 });
     await prisma.applySchool.delete({ where: { id } });
     return NextResponse.json({ success: true });

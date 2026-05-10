@@ -32,7 +32,15 @@ const KIND_STYLE: Record<ToastKind, string> = {
   error: "bg-red-600 text-white",
 };
 
+const KIND_ICON: Record<ToastKind, string> = {
+  info: "ℹ",
+  success: "✓",
+  warn: "⚠",
+  error: "✕",
+};
+
 let nextId = 1;
+const TOAST_TTL_MS = 4500;
 
 export function UIProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -41,11 +49,18 @@ export function UIProvider({ children }: { children: ReactNode }) {
     resolve: (ok: boolean) => void;
   } | null>(null);
 
-  const toast = useCallback((msg: string, kind: ToastKind = "info") => {
-    const id = nextId++;
-    setToasts((cur) => [...cur, { id, kind, msg }]);
-    setTimeout(() => setToasts((cur) => cur.filter((t) => t.id !== id)), 4500);
+  const dismissToast = useCallback((id: number) => {
+    setToasts((cur) => cur.filter((t) => t.id !== id));
   }, []);
+
+  const toast = useCallback(
+    (msg: string, kind: ToastKind = "info") => {
+      const id = nextId++;
+      setToasts((cur) => [...cur, { id, kind, msg }]);
+      setTimeout(() => dismissToast(id), TOAST_TTL_MS);
+    },
+    [dismissToast],
+  );
 
   const confirm = useCallback(
     (opts: ConfirmOptions) =>
@@ -55,15 +70,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const closeConfirm = useCallback(
-    (ok: boolean) => {
-      setConfirmReq((cur) => {
-        if (cur) cur.resolve(ok);
-        return null;
-      });
-    },
-    [],
-  );
+  const closeConfirm = useCallback((ok: boolean) => {
+    setConfirmReq((cur) => {
+      if (cur) cur.resolve(ok);
+      return null;
+    });
+  }, []);
 
   useEffect(() => {
     if (!confirmReq) return;
@@ -80,7 +92,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
       {children}
 
       <div
-        className="fixed top-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-none"
+        className="fixed top-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-2rem)]"
         role="region"
         aria-label="通知"
       >
@@ -88,9 +100,20 @@ export function UIProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className={`pointer-events-auto px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium max-w-sm break-words ${KIND_STYLE[t.kind]}`}
+            className={`pointer-events-auto flex items-start gap-2 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium max-w-sm break-words animate-toast-in ${KIND_STYLE[t.kind]}`}
           >
-            {t.msg}
+            <span aria-hidden="true" className="shrink-0 leading-5">
+              {KIND_ICON[t.kind]}
+            </span>
+            <span className="flex-1 leading-5">{t.msg}</span>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => dismissToast(t.id)}
+              className="shrink-0 -mr-1 -mt-0.5 px-1 py-0.5 text-base leading-5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/40 rounded"
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
@@ -100,12 +123,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="ui-confirm-title"
-          className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[1001] flex items-center justify-center bg-black/40 p-4 animate-fade-in"
           onClick={(e) => {
             if (e.target === e.currentTarget) closeConfirm(false);
           }}
         >
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-pop-in">
             {confirmReq.opts.title && (
               <h3 id="ui-confirm-title" className="text-lg font-bold text-gray-800 mb-2">
                 {confirmReq.opts.title}
@@ -118,7 +141,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => closeConfirm(false)}
-                className="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
               >
                 {confirmReq.opts.cancelLabel || "キャンセル"}
               </button>
@@ -126,10 +149,10 @@ export function UIProvider({ children }: { children: ReactNode }) {
                 type="button"
                 autoFocus
                 onClick={() => closeConfirm(true)}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg text-white ${
+                className={`px-4 py-2 text-sm font-semibold rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-offset-1 ${
                   confirmReq.opts.danger
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                    : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
                 }`}
               >
                 {confirmReq.opts.okLabel || "OK"}

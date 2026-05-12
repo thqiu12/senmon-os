@@ -978,8 +978,8 @@ interface PaymentConfig {
   bankName: string; accountType: string; accountNumber: string; accountHolder: string; deadline: string;
 }
 
-function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange }: {
-  applicationId: string | null; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void;
+function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeStatus, onFeeStatusChange }: {
+  applicationId: string | null; applicationNo: string | null; email: string; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void;
 }) {
   const fee = calcExamFee(schoolCount);
   const [uploading, setUploading] = useState(false);
@@ -1004,7 +1004,12 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
       setUploadedReceipt({ name: file.name });
       await fetch(`/api/applications/${applicationId}/fee`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examFeeStatus: "確認中", examFeeAmount: fee, examFeeReceiptUrl: data.document?.fileUrl }),
+        body: JSON.stringify({
+          examFeeStatus: "確認中",
+          examFeeAmount: fee,
+          examFeeReceiptUrl: data.document?.filePath ?? data.document?.fileUrl ?? null,
+          applicationNo, email,
+        }),
       });
       onFeeStatusChange("確認中");
     } catch (err) { setUploadError(err instanceof Error ? err.message : "エラー"); }
@@ -1675,7 +1680,10 @@ function ApplyPageInner() {
       if (applicationId) {
         await fetch(`/api/applications/${applicationId}/fee`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ examFeeAmount: calcExamFee(schoolCount) }),
+          body: JSON.stringify({
+            examFeeAmount: calcExamFee(schoolCount),
+            applicationNo, email: form.email,
+          }),
         });
       }
       setCurrentStep(4);
@@ -1877,7 +1885,7 @@ function ApplyPageInner() {
                   onDelete={id => setUploadedDocs(p => p.filter(d => d.id !== id))}
                   formConfig={formConfig} />
               </>}
-              {currentStep === 4 && <Step4Payment applicationId={applicationId} schoolCount={schoolCount}
+              {currentStep === 4 && <Step4Payment applicationId={applicationId} applicationNo={applicationNo} email={form.email} schoolCount={schoolCount}
                 feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
               {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} />}
             </>

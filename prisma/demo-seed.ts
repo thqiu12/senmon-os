@@ -70,13 +70,73 @@ async function main() {
     },
   ];
   for (const s of schools) {
-    await prisma.applySchool.upsert({
+    const saved = await prisma.applySchool.upsert({
       where: { schoolKey: s.schoolKey },
       update: { name: s.name, hojin: s.hojin, icon: s.icon, displayOrder: s.displayOrder, departments: s.departments, isActive: true },
       create: { ...s, isActive: true },
     });
+    // ApplyDepartment table も同期（admin/schools GET は ApplyDepartment.isActive=true を参照する）
+    const depts = JSON.parse(s.departments) as Array<{ name: string; duration?: string; courses?: string[] }>;
+    const incomingNames = new Set(depts.map((d) => d.name));
+    const existing = await prisma.applyDepartment.findMany({ where: { applySchoolId: saved.id } });
+    const stale = existing.filter((e) => e.isActive && !incomingNames.has(e.name));
+    if (stale.length > 0) {
+      await prisma.applyDepartment.updateMany({
+        where: { id: { in: stale.map((s) => s.id) } },
+        data: { isActive: false },
+      });
+    }
+    for (let i = 0; i < depts.length; i++) {
+      const d = depts[i];
+      await prisma.applyDepartment.upsert({
+        where: { applySchoolId_name: { applySchoolId: saved.id, name: d.name } },
+        create: {
+          applySchoolId: saved.id, name: d.name,
+          duration: d.duration || "2年制",
+          courses: JSON.stringify(d.courses ?? []),
+          displayOrder: i, isActive: true,
+        },
+        update: {
+          duration: d.duration || "2年制",
+          courses: JSON.stringify(d.courses ?? []),
+          displayOrder: i, isActive: true,
+        },
+      });
+    }
   }
-  console.log(`  applySchool: ${schools.length} 件`);
+  const deptCount = await prisma.applyDepartment.count({ where: { isActive: true } });
+  console.log(`  applySchool: ${schools.length} 件, applyDepartment: ${deptCount} 件 (active)`);
+
+  // ── 1.5) School (在籍管理用) + Course + Class + Subject ──────────
+  // 入学手続き完了後に学生を在籍登録する先。ApplySchool とは別概念。
+  const inSchoolDefs = [
+    { shortName: "chuo", name: "中央ゼミナール", description: "出願→入学後の在籍管理" },
+    { shortName: "kanagawa", name: "神奈川柔整鍼灸専門学校", description: "" },
+    { shortName: "tdb", name: "TDB東京ビジネス専門学校", description: "" },
+  ];
+  for (const s of inSchoolDefs) {
+    const existing = await prisma.school.findFirst({ where: { shortName: s.shortName } });
+    const saved = existing
+      ? await prisma.school.update({ where: { id: existing.id }, data: s })
+      : await prisma.school.create({ data: s });
+    // 課程・クラス・科目: 各校に最低 1 つずつ作っておく
+    const courseName = s.shortName === "tdb" ? "ビジネスマネジメント" : s.shortName === "kanagawa" ? "柔道整復" : "日本語";
+    const courseExisting = await prisma.course.findFirst({ where: { schoolId: saved.id, name: courseName } });
+    const course = courseExisting
+      ? courseExisting
+      : await prisma.course.create({ data: { schoolId: saved.id, name: courseName, code: s.shortName.toUpperCase() } });
+    const className = "2026年4月入学 A クラス";
+    const classExisting = await prisma.class.findFirst({ where: { courseId: course.id, name: className } });
+    if (!classExisting) {
+      await prisma.class.create({ data: { courseId: course.id, name: className, year: 2026, month: 4 } });
+    }
+    const subjectName = s.shortName === "tdb" ? "経営学" : s.shortName === "kanagawa" ? "解剖学" : "総合日本語";
+    const subjectExisting = await prisma.subject.findFirst({ where: { courseId: course.id, name: subjectName } });
+    if (!subjectExisting) {
+      await prisma.subject.create({ data: { courseId: course.id, name: subjectName, hoursPerWeek: 4 } });
+    }
+  }
+  console.log(`  school (在籍): ${inSchoolDefs.length} 件 + course/class/subject 各 1`);
 
   // ── 2) Cohort（選考バッチ） ──────────────────────────────────
   const cohortDefs = [

@@ -12,10 +12,12 @@ export interface SchoolOption {
   name: string;
 }
 
+// 注: フォーム設定の校別タブ用に使われるハードコード id。
+// 実データの schoolKey と一致させること（/admin/schools の一覧と整合する）。
 export const SCHOOLS: SchoolOption[] = [
-  { id: "chuo-seminar", name: "中央ゼミナール" },
-  { id: "tdb", name: "TDB東京デジタルビジネス専門学校" },
-  { id: "kanagawa-judo", name: "神奈川柔整鍼灸専門学校" },
+  { id: "chuo-seminar",      name: "中央ゼミナール" },
+  { id: "tdb-tokyo-business", name: "TDB東京ビジネス専門学校" },
+  { id: "kanagawa-judo",     name: "神奈川柔整鍼灸専門学校" },
 ];
 
 export const FORM_FIELD_DEFAULTS: FormFieldDefault[] = [

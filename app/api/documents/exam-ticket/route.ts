@@ -28,10 +28,8 @@ export async function GET(request: NextRequest) {
       where: { id: ownership.applicationId },
       include: {
         documents: {
-          where: { docType: "証明写真（3×3cm）" },
+          select: { docType: true, status: true, filePath: true, uploadedAt: true },
           orderBy: { uploadedAt: "desc" },
-          take: 1,
-          select: { filePath: true },
         },
       },
     });
@@ -39,14 +37,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
-    // 受験票は「受付中・書類確認中・面接待ち」の学生が対象
-    const eligible = ["受付中", "書類確認中", "面接待ち"];
-    if (!eligible.includes(app.status)) {
+    // 受験票発行条件:
+    //   ① ステータスが「面接待ち」（書類審査通過の管理者シグナル）
+    //   ② 試験日程 (interviewDate) が確定している
+    //   ③ 差し戻し中の書類がない
+    const isReady = app.status === "面接待ち";
+    const hasInterviewSlot = !!app.interviewDate;
+    const hasRejection = app.documents.some((d) => d.status === "差し戻し");
+
+    if (!isReady) {
       return NextResponse.json(
-        { error: "受験票は受付完了後にダウンロードできます" },
+        { error: "書類審査通過後にダウンロードできます。" },
         { status: 403 },
       );
     }
+    if (!hasInterviewSlot) {
+      return NextResponse.json(
+        { error: "試験日程が確定するまでお待ちください。" },
+        { status: 403 },
+      );
+    }
+    if (hasRejection) {
+      return NextResponse.json(
+        { error: "差し戻された書類があります。再提出後に発行可能になります。" },
+        { status: 403 },
+      );
+    }
+
+    // 写真: 最新の証明写真。優先順は 確認済 > 提出済 で、差し戻し済みは除外
+    const photoDocs = app.documents.filter(
+      (d) => d.docType === "証明写真（3×3cm）" && d.status !== "差し戻し",
+    );
+    const photoDoc =
+      photoDocs.find((d) => d.status === "確認済") ?? photoDocs[0] ?? null;
 
     const issueDate = new Date().toLocaleDateString("ja-JP", {
       year: "numeric", month: "long", day: "numeric",
@@ -69,7 +92,7 @@ export async function GET(request: NextRequest) {
       interviewTime: app.interviewTime,
       interviewPlace: app.interviewPlace,
       interviewNotes: app.interviewNotes,
-      photoFilePath: app.documents[0]?.filePath ?? null,
+      photoFilePath: photoDoc?.filePath ?? null,
       issueDate,
     });
 

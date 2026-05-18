@@ -240,9 +240,15 @@ MaxAuthTries 3
 ClientAliveInterval 300
 ClientAliveCountMax 2
 EOF
+
+# sshd -t は /run/sshd の存在を前提とする（Ubuntu 24.04 の挙動）。
+# 通常 systemd の RuntimeDirectory が作るが、初期セットアップ中はまだ無いことがあるので明示作成。
+mkdir -p /run/sshd
+chmod 0755 /run/sshd
+
 # 設定が正しいか検査
 if sshd -t; then
-  systemctl reload ssh || systemctl reload sshd
+  systemctl reload ssh || systemctl reload sshd || systemctl restart ssh
 else
   err "sshd_config に問題があります。$SSHD_CFG を確認してください。"
   exit 1

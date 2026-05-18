@@ -65,11 +65,51 @@ export default function AccountsPage() {
     setShowModal(true);
   };
 
+  /** zod の flatten() 形式から人間可読なメッセージ配列に整形 */
+  const formatZodIssues = (issues: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } | undefined): string[] => {
+    if (!issues) return [];
+    const fieldLabel: Record<string, string> = {
+      username: "ユーザー名",
+      password: "パスワード",
+      displayName: "表示名",
+      role: "権限",
+    };
+    const msgs: string[] = [];
+    for (const [field, errs] of Object.entries(issues.fieldErrors || {})) {
+      const label = fieldLabel[field] || field;
+      for (const e of errs) {
+        // よくある zod メッセージを和訳
+        let m = e;
+        if (/at least 8|min.*8/i.test(e)) m = "8文字以上で入力してください";
+        else if (/at least 3|min.*3/i.test(e)) m = "3文字以上で入力してください";
+        else if (/at most|max/i.test(e)) m = "文字数が長すぎます";
+        else if (/Invalid|invalid_string|regex/i.test(e)) m = "使える文字は半角英数字と _ . - のみです";
+        else if (/Required|required/i.test(e)) m = "必須項目です";
+        msgs.push(`${label}: ${m}`);
+      }
+    }
+    for (const e of issues.formErrors || []) msgs.push(e);
+    return msgs;
+  };
+
   const handleSave = async () => {
-    if (!fDisplayName || (!editUser && (!fUsername || !fPassword))) {
-      setFormError("必須項目を入力してください");
+    // クライアント側の事前チェック（API より前に止めて UX 改善）
+    const clientErrors: string[] = [];
+    if (!fDisplayName.trim()) clientErrors.push("表示名: 必須項目です");
+    if (!editUser) {
+      if (!fUsername.trim()) clientErrors.push("ユーザー名: 必須項目です");
+      else if (fUsername.length < 3) clientErrors.push("ユーザー名: 3文字以上で入力してください");
+      else if (!/^[a-zA-Z0-9_.-]+$/.test(fUsername)) clientErrors.push("ユーザー名: 使える文字は半角英数字と _ . - のみです");
+      if (!fPassword) clientErrors.push("パスワード: 必須項目です");
+      else if (fPassword.length < 8) clientErrors.push("パスワード: 8文字以上で入力してください");
+    } else if (fPassword && fPassword.length < 8) {
+      clientErrors.push("パスワード: 8文字以上で入力してください");
+    }
+    if (clientErrors.length > 0) {
+      setFormError(clientErrors.join("\n"));
       return;
     }
+
     setSaving(true);
     setFormError(null);
     try {
@@ -81,7 +121,16 @@ export default function AccountsPage() {
       const method = editUser ? "PATCH" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
-      if (!res.ok) { setFormError(data.error || "保存に失敗しました"); return; }
+      if (!res.ok) {
+        // API が zod の issues を返してきたら、具体的に展開して表示
+        const detailed = formatZodIssues(data.issues);
+        if (detailed.length > 0) {
+          setFormError(detailed.join("\n"));
+        } else {
+          setFormError(data.error || "保存に失敗しました");
+        }
+        return;
+      }
 
       if (editUser) {
         setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...data } : u));
@@ -221,12 +270,29 @@ export default function AccountsPage() {
               </h3>
             </div>
             <div className="px-6 py-5 space-y-4">
-              {formError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>}
+              {formError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 whitespace-pre-line">
+                  <p className="font-semibold mb-1">入力エラー</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {formError.split("\n").map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {!editUser && (
                 <div>
                   <label className="form-label">ユーザー名 <span className="form-required">*</span></label>
-                  <input type="text" className="form-input" placeholder="半角英数字" value={fUsername} onChange={e => setFUsername(e.target.value)} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="3文字以上、半角英数字と _ . -"
+                    value={fUsername}
+                    onChange={e => setFUsername(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">3〜50文字。使える文字: a-z A-Z 0-9 _ . -</p>
                 </div>
               )}
 
@@ -236,8 +302,24 @@ export default function AccountsPage() {
               </div>
 
               <div>
-                <label className="form-label">{editUser ? "新しいパスワード（変更する場合のみ）" : "パスワード *"}</label>
-                <input type="password" className="form-input" placeholder={editUser ? "変更しない場合は空欄" : "8文字以上推奨"} value={fPassword} onChange={e => setFPassword(e.target.value)} />
+                <label className="form-label">
+                  {editUser ? "新しいパスワード（変更する場合のみ）" : <>パスワード <span className="form-required">*</span></>}
+                </label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder={editUser ? "変更しない場合は空欄" : "8文字以上"}
+                  value={fPassword}
+                  onChange={e => setFPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  {fPassword
+                    ? fPassword.length < 8
+                      ? <span className="text-red-500">あと {8 - fPassword.length} 文字必要</span>
+                      : <span className="text-emerald-600">✓ 8文字以上</span>
+                    : "8文字以上で入力してください"}
+                </p>
               </div>
 
               <div>

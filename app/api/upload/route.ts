@@ -94,6 +94,32 @@ export async function POST(request: NextRequest) {
     const filePath = path.join(uploadDir, fileName);
     await writeFile(filePath, bytes);
 
+    // 差し戻された同 docType の書類があれば、再アップロード = 置き換えとみなして削除。
+    // （入学手続き_書類は別経路のため対象外）
+    const supersededIds: string[] = [];
+    if (!docType.startsWith("入学手続き_")) {
+      const rejected = await prisma.document.findMany({
+        where: {
+          applicationId: resolvedApplicationId,
+          docType,
+          status: "差し戻し",
+        },
+        select: { id: true, fileName: true },
+      });
+      for (const r of rejected) {
+        // 物理ファイル削除（失敗しても続行）
+        try {
+          await unlink(path.join(uploadDir, r.fileName));
+        } catch {
+          /* file might already be gone */
+        }
+        supersededIds.push(r.id);
+      }
+      if (supersededIds.length > 0) {
+        await prisma.document.deleteMany({ where: { id: { in: supersededIds } } });
+      }
+    }
+
     const document = await prisma.document.create({
       data: {
         applicationId: resolvedApplicationId,
@@ -103,6 +129,7 @@ export async function POST(request: NextRequest) {
         filePath: `/uploads/${resolvedApplicationId}/${fileName}`,
         fileSize: file.size,
         mimeType: sniffed.mime,
+        status: "提出済", // 再アップロード時は提出済に戻す（差し戻し解除）
       },
     });
 
@@ -115,7 +142,11 @@ export async function POST(request: NextRequest) {
         originalName: document.originalName,
         filePath: document.filePath,
         fileSize: document.fileSize,
+        status: document.status,
       },
+      // 再アップロードで差し戻し書類を置き換えた場合は、その ID を返す
+      // → クライアント側で documents 配列から該当エントリを削除できる
+      supersededDocumentIds: supersededIds,
     });
   } catch (error) {
     console.error("POST /api/upload error:", error);

@@ -650,6 +650,9 @@ function StatusPageInner() {
       formData.append("file", file);
       formData.append("applicationId", result.id);
       formData.append("docType", docType);
+      // 学生（非管理者）からの呼び出しに必須の所有権チェック用
+      formData.append("applicationNo", result.applicationNo);
+      formData.append("email", email);
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -658,25 +661,34 @@ function StatusPageInner() {
 
       if (res.ok) {
         setUploadedDocs((prev) => ({ ...prev, [docType]: true }));
-        // ドキュメントリストを更新
         const data = await res.json();
-        setResult((prev) =>
-          prev
-            ? {
-                ...prev,
-                documents: [
-                  ...prev.documents,
-                  {
-                    id: data.document.id,
-                    docType: data.document.docType,
-                    fileName: data.document.fileName,
-                    originalName: data.document.originalName,
-                    uploadedAt: new Date().toISOString(),
-                  },
-                ],
-              }
-            : null
-        );
+        const supersededIds: string[] = data.supersededDocumentIds || [];
+
+        setResult((prev) => {
+          if (!prev) return null;
+          // 差し戻し書類があれば削除（同 docType の古いものを除去）
+          const filtered = supersededIds.length > 0
+            ? prev.documents.filter((d) => !supersededIds.includes(d.id))
+            : prev.documents;
+          return {
+            ...prev,
+            documents: [
+              ...filtered,
+              {
+                id: data.document.id,
+                docType: data.document.docType,
+                fileName: data.document.fileName,
+                originalName: data.document.originalName,
+                uploadedAt: new Date().toISOString(),
+                status: data.document.status || "提出済",
+              },
+            ],
+          };
+        });
+
+        if (supersededIds.length > 0) {
+          toast("差し戻し書類を新しいファイルで置き換えました", "success");
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         toast(err.error || "アップロードに失敗しました", "error");
@@ -1144,17 +1156,49 @@ function StatusPageInner() {
                         "確認済": "bg-green-600 text-white",
                         "差し戻し": "bg-red-600 text-white",
                       };
+                      const isReuploading = uploadingDocType === doc.docType;
                       return (
                         <div key={doc.id} className={`border rounded-lg px-3 py-2 ${BAR[ds]}`}>
-                          <div className="flex items-center gap-2 text-sm">
+                          <div className="flex items-center gap-2 text-sm flex-wrap">
                             <span className={`status-badge ${BADGE[ds]}`}>{ds}</span>
                             <span className="font-medium text-gray-800">{doc.docType}</span>
-                            <span className="text-gray-400 text-xs truncate">— {doc.originalName}</span>
+                            <span className="text-gray-400 text-xs truncate flex-1 min-w-0">— {doc.originalName}</span>
                           </div>
-                          {ds === "差し戻し" && doc.rejectReason && (
-                            <div className="mt-1.5 text-xs text-red-800 bg-white rounded px-2 py-1.5">
-                              <span className="font-bold">差し戻し理由：</span>{doc.rejectReason}
-                              <p className="text-gray-500 mt-0.5">再度同じ書類を「続きをする」からアップロードし直してください。</p>
+                          {ds === "差し戻し" && (
+                            <div className="mt-2 space-y-2">
+                              {doc.rejectReason && (
+                                <div className="text-xs text-red-800 bg-white rounded px-2 py-1.5 border border-red-200">
+                                  <span className="font-bold">差し戻し理由：</span>{doc.rejectReason}
+                                </div>
+                              )}
+                              {/* 再アップロード UI */}
+                              <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-red-200">
+                                <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
+                                </svg>
+                                <span className="text-xs text-gray-700 flex-1 min-w-0">
+                                  <span className="font-semibold text-red-700">修正版をアップロード</span>
+                                  <span className="text-gray-400 ml-1 hidden sm:inline">(PDF / JPG / PNG, 最大 10MB)</span>
+                                </span>
+                                <label className={`shrink-0 cursor-pointer text-xs px-3 py-1.5 rounded-lg border font-bold transition-colors ${
+                                  isReuploading
+                                    ? "opacity-50 bg-gray-100 border-gray-200 text-gray-400 cursor-wait"
+                                    : "bg-red-600 border-red-600 text-white hover:bg-red-700"
+                                }`}>
+                                  {isReuploading ? "送信中..." : "再アップロード"}
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    disabled={isReuploading}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(doc.docType, f);
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
                             </div>
                           )}
                         </div>

@@ -145,6 +145,7 @@ export const ApplicationPatchSchema = z
     status: ApplicationStatusEnum.optional(),
     adminMemo: optStr(2000),
     addNote: optStr(2000),
+    noteVisibleToStudent: z.boolean().optional(),
     interviewDate: optStr(20),
     interviewTime: optStr(20),
     interviewPlace: optStr(200),

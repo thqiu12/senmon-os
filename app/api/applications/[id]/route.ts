@@ -173,6 +173,8 @@ export async function PATCH(
             applicationId: params.id,
             content: body.addNote,
             author: user?.displayName || user?.username || "管理者",
+            // フラグが明示的に true で来た時のみ学生公開。後方互換: 未指定は内部メモ。
+            visibleToStudent: body.noteVisibleToStudent === true,
           },
         });
       }

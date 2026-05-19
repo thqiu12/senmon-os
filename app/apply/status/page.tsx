@@ -72,6 +72,13 @@ interface ApplicationStatus {
   resultPublishedAt?: string | null;
   resultEmbargoed?: boolean;
   email: string;
+  /** 管理者から学生に公開されたコメント */
+  adminNotes?: {
+    id: string;
+    content: string;
+    author: string;
+    createdAt: string;
+  }[];
 }
 
 const PROGRESS_STEPS = [
@@ -1003,6 +1010,41 @@ function StatusPageInner() {
                       保留: "審査を保留しています。追加書類が必要な場合はご連絡します。",
                     } as Record<string, string>)[result.status] || "審査中です。"}
                   </p>
+                </div>
+              )}
+
+              {/* 管理者からのコメント（学生公開フラグ ON の AdminNote のみ） */}
+              {result.adminNotes && result.adminNotes.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white overflow-hidden">
+                  <div className="px-5 py-3 bg-emerald-50/80 border-b border-emerald-100 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.4-4 8-9 8a9.9 9.9 0 0 1-4.5-1L3 20l1-3.5A8 8 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8z" />
+                    </svg>
+                    <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                      事務局からのお知らせ
+                    </p>
+                    <span className="ml-auto text-[10px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded-full ring-1 ring-emerald-200">
+                      {result.adminNotes.length}件
+                    </span>
+                  </div>
+                  <ul className="divide-y divide-emerald-100">
+                    {result.adminNotes.map((note) => (
+                      <li key={note.id} className="px-5 py-4">
+                        <div className="flex items-center justify-between mb-1.5 gap-2 text-xs">
+                          <span className="font-semibold text-emerald-900">{note.author}</span>
+                          <time className="text-emerald-700/70" dateTime={note.createdAt}>
+                            {new Date(note.createdAt).toLocaleString("ja-JP", {
+                              year: "numeric", month: "2-digit", day: "2-digit",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </time>
+                        </div>
+                        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
+                          {note.content}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

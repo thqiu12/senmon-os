@@ -55,6 +55,12 @@ export async function GET(request: NextRequest) {
             result: true,
           },
         },
+        // 学生公開フラグ ON のものだけ取得
+        adminNotes: {
+          where: { visibleToStudent: true },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, content: true, author: true, createdAt: true },
+        },
         cohort: { select: { resultPublishedAt: true } },
       },
     });
@@ -118,6 +124,8 @@ export async function GET(request: NextRequest) {
       examFeeStatus: application.examFeeStatus,
       documents: application.documents,
       applicationSchools: application.applicationSchools,
+      // 管理者から学生へのコメント（visibleToStudent=true のみ）
+      adminNotes: application.adminNotes,
       // 面接情報（面接待ちの場合のみ公開）
       interviewDate: application.status === "面接待ち" ? application.interviewDate : null,
       interviewTime: application.status === "面接待ち" ? application.interviewTime : null,

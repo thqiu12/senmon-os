@@ -245,14 +245,18 @@ model Document {
 }
 
 model AdminNote {
-  id            String      @id @default(cuid())
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  content       String
-  createdAt     DateTime    @default(now())
-  author        String      @default("管理者")
+  id               String      @id @default(cuid())
+  applicationId    String
+  application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  content          String
+  createdAt        DateTime    @default(now())
+  author           String      @default("管理者")
+  // 学生のマイページ (/apply/status) に公開するか。
+  // デフォルト false = 内部メモ。チェックを入れたものだけ学生に表示。
+  visibleToStudent Boolean     @default(false)
 
   @@index([applicationId, createdAt])
+  @@index([applicationId, visibleToStudent])
 }
 
 model EnrollmentProcedure {

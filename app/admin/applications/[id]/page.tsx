@@ -405,6 +405,7 @@ interface AdminNote {
   content: string;
   createdAt: string;
   author: string;
+  visibleToStudent?: boolean;
 }
 
 interface EnrollmentProcedure {
@@ -769,6 +770,7 @@ export default function ApplicationDetailPage() {
   // Note
   const [newNote, setNewNote] = useState("");
   const [noteAdding, setNoteAdding] = useState(false);
+  const [noteVisibleToStudent, setNoteVisibleToStudent] = useState(false);
 
   // Interview settings
   const [interviewDate, setInterviewDate] = useState("");
@@ -1119,13 +1121,17 @@ export default function ApplicationDetailPage() {
       const res = await fetch(`/api/applications/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addNote: newNote.trim() }),
+        body: JSON.stringify({
+          addNote: newNote.trim(),
+          noteVisibleToStudent,
+        }),
       });
       if (res.ok) {
         const dataRes = await fetch(`/api/applications/${id}`);
         const data = await dataRes.json();
         setApplication(data);
         setNewNote("");
+        setNoteVisibleToStudent(false); // 次回投稿時は内部メモに戻す（事故防止）
       }
     } finally {
       setNoteAdding(false);
@@ -2114,16 +2120,51 @@ export default function ApplicationDetailPage() {
               <div className="mb-3 space-y-2">
                 <textarea
                   className="form-input text-sm min-h-[80px] resize-y"
-                  placeholder="コメントを追加..."
+                  placeholder={noteVisibleToStudent
+                    ? "学生に見せるコメントを記入..."
+                    : "内部メモを記入..."}
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                 />
+
+                {/* 学生公開フラグ切替 */}
+                <label className={`flex items-start gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${
+                  noteVisibleToStudent
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                }`}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={noteVisibleToStudent}
+                    onChange={(e) => setNoteVisibleToStudent(e.target.checked)}
+                  />
+                  <div className="text-xs leading-tight">
+                    <span className={`font-bold ${noteVisibleToStudent ? "text-emerald-700" : "text-gray-700"}`}>
+                      学生のマイページに表示する
+                    </span>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {noteVisibleToStudent
+                        ? "✓ このコメントは出願者の /apply/status で確認できます"
+                        : "未チェックの場合は内部メモ（学生には非表示）"}
+                    </p>
+                  </div>
+                </label>
+
                 <button
                   onClick={handleAddNote}
                   disabled={noteAdding || !newNote.trim()}
-                  className="btn-primary w-full text-sm"
+                  className={`w-full text-sm py-2 rounded-lg font-semibold transition-colors ${
+                    noteVisibleToStudent
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-emerald-300"
+                      : "btn-primary"
+                  }`}
                 >
-                  {noteAdding ? "追加中..." : "コメントを追加"}
+                  {noteAdding
+                    ? "追加中..."
+                    : noteVisibleToStudent
+                      ? "学生に公開して追加"
+                      : "内部メモとして追加"}
                 </button>
               </div>
 
@@ -2134,10 +2175,25 @@ export default function ApplicationDetailPage() {
                   </p>
                 ) : (
                   application.adminNotes.map((note) => (
-                    <div key={note.id} className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-navy-700">{note.author}</span>
-                        <span className="text-xs text-gray-400">{formatDateTimeJP(note.createdAt)}</span>
+                    <div
+                      key={note.id}
+                      className={`rounded-lg p-3 ${
+                        note.visibleToStudent
+                          ? "bg-emerald-50 border border-emerald-200"
+                          : "bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <span className="text-xs font-medium text-navy-700 flex items-center gap-1.5">
+                          {note.author}
+                          {note.visibleToStudent && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded-full ring-1 ring-emerald-200">
+                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+                              学生公開
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-gray-400 flex-shrink-0">{formatDateTimeJP(note.createdAt)}</span>
                       </div>
                       <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.content}</p>
                     </div>

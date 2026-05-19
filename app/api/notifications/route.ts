@@ -58,32 +58,66 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
         この度は弊校へのご出願ありがとうございます。<br>
         書類審査の結果、下記の日程にて${payload.schoolName ? "選考試験" : "面接"}を実施することになりました。
       </p>
-      <div style="background: #f8f9fa; border-left: 4px solid #1e3a5f; border-radius: 4px; padding: 20px 24px; margin: 24px 0;">
-        <h2 style="margin: 0 0 16px; font-size: 16px; color: #1e3a5f;">${payload.schoolName ? "試験詳細" : "面接詳細"}</h2>
+      ${payload.schoolName ? `
+      <div style="background: #f8f9fa; border-left: 4px solid #888; border-radius: 4px; padding: 12px 16px; margin: 16px 0; font-size: 14px;">
+        <strong>対象校:</strong> ${e(payload.schoolName)}${payload.department ? ` ／ ${e(payload.department)}` : ""}
+      </div>` : ""}
+
+      <!-- 筆記試験セクション -->
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 4px; padding: 16px 20px; margin: 16px 0;">
+        <h2 style="margin: 0 0 12px; font-size: 15px; color: #1d4ed8;">📝 筆記試験</h2>
+        ${payload.writtenExamExempted ? `
+        <div style="text-align: center; padding: 14px; background: #fff; border: 2px dashed #93c5fd; border-radius: 6px; color: #1d4ed8; font-weight: 700; font-size: 15px; letter-spacing: 4px;">
+          免　除
+        </div>
+        <p style="margin: 8px 0 0; font-size: 12px; color: #1e40af; text-align: center;">この出願では筆記試験が免除されます。</p>
+        ` : payload.writtenExamDate ? `
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          ${payload.schoolName ? `
           <tr>
-            <td style="padding: 6px 0; color: #666; width: 100px; vertical-align: top;">対象校</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.schoolName)}${payload.department ? ` ／ ${e(payload.department)}` : ""}</td>
+            <td style="padding: 4px 0; color: #1e40af; width: 80px;">日付</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.writtenExamDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #1e40af;">時間</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.writtenExamTime) || "—"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #1e40af;">試験会場</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.writtenExamPlace) || "—"}</td>
+          </tr>
+          ${payload.writtenExamNotes ? `
+          <tr>
+            <td style="padding: 4px 0; color: #1e40af; vertical-align: top;">注意事項</td>
+            <td style="padding: 4px 0; color: #111; white-space: pre-line;">${e(payload.writtenExamNotes)}</td>
           </tr>` : ""}
+        </table>
+        ` : `<p style="color: #6b7280; font-style: italic; font-size: 13px; margin: 0;">筆記試験日程は調整中です。</p>`}
+      </div>
+
+      <!-- 面接試験セクション -->
+      <div style="background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px; padding: 16px 20px; margin: 16px 0;">
+        <h2 style="margin: 0 0 12px; font-size: 15px; color: #92400e;">👤 面接試験</h2>
+        ${payload.interviewDate || payload.interviewTime || payload.interviewPlace ? `
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tr>
-            <td style="padding: 6px 0; color: #666; width: 100px; vertical-align: top;">日付</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewDate) || "—"}</td>
+            <td style="padding: 4px 0; color: #78350f; width: 80px;">日付</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.interviewDate) || "—"}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #666;">時間</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewTime) || "—"}</td>
+            <td style="padding: 4px 0; color: #78350f;">時間</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.interviewTime) || "—"}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #666;">${payload.schoolName ? "試験会場" : "場所"}</td>
-            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewPlace) || "—"}</td>
+            <td style="padding: 4px 0; color: #78350f;">面接会場</td>
+            <td style="padding: 4px 0; color: #111; font-weight: 600;">${e(payload.interviewPlace) || "—"}</td>
           </tr>
           ${payload.interviewNotes ? `
           <tr>
-            <td style="padding: 6px 0; color: #666; vertical-align: top;">注意事項</td>
-            <td style="padding: 6px 0; color: #333; white-space: pre-line;">${e(payload.interviewNotes)}</td>
+            <td style="padding: 4px 0; color: #78350f; vertical-align: top;">注意事項</td>
+            <td style="padding: 4px 0; color: #111; white-space: pre-line;">${e(payload.interviewNotes)}</td>
           </tr>` : ""}
         </table>
+        ` : `<p style="color: #6b7280; font-style: italic; font-size: 13px; margin: 0;">面接日程は調整中です。</p>`}
       </div>
       ${portalButton("出願状況を確認する →", "#1e3a5f")}
       <p style="color: #555; font-size: 13px; line-height: 1.7;">

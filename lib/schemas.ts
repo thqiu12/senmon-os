@@ -102,6 +102,12 @@ export const NotificationSchema = z.object({
   schoolName: optStr(100),
   department: optStr(100),
   priorityLabel: optStr(20),
+  // 筆記試験情報（一般課程の通知に含める。免除時は writtenExamExempted=true）
+  writtenExamDate: optStr(20),
+  writtenExamTime: optStr(20),
+  writtenExamPlace: optStr(200),
+  writtenExamNotes: optStr(1000),
+  writtenExamExempted: z.boolean().optional(),
 });
 
 export const AdminLoginSchema = z.object({

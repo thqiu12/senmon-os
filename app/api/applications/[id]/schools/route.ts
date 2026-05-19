@@ -49,13 +49,22 @@ export async function PATCH(
     const ALLOWED = new Set([
       "schoolName", "department", "course", "enrollmentYear", "enrollmentMonth",
       "result", "memo",
+      // 面接試験
       "interviewDate", "interviewTime", "interviewPlace", "interviewNotes",
+      // 筆記試験
+      "writtenExamDate", "writtenExamTime", "writtenExamPlace", "writtenExamNotes",
+      "writtenExamExempted",
     ]);
+    const BOOL_FIELDS = new Set(["writtenExamExempted"]);
     const updateData: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(body)) {
       if (k === "schoolId") continue;
       if (!ALLOWED.has(k)) continue;
-      updateData[k] = v === "" ? null : v;
+      if (BOOL_FIELDS.has(k)) {
+        updateData[k] = !!v;
+      } else {
+        updateData[k] = v === "" ? null : v;
+      }
     }
 
     // 所有チェック: 該当 schoolId が本当に params.id 申請のものか確認

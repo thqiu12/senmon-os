@@ -93,6 +93,11 @@ interface ApplicationStatus {
     interviewTime?: string | null;
     interviewPlace?: string | null;
     interviewNotes?: string | null;
+    writtenExamDate?: string | null;
+    writtenExamTime?: string | null;
+    writtenExamPlace?: string | null;
+    writtenExamNotes?: string | null;
+    writtenExamExempted?: boolean;
   }[];
 }
 
@@ -1574,40 +1579,106 @@ function StatusPageInner() {
               </div>
             </div>
 
-            {/* 面接詳細カード（併願対応：志望校ごとの日程を個別に表示） */}
+            {/* 試験詳細カード（併願対応：志望校ごと × 筆記/面接 2 サブセクション） */}
             {result.status === "面接待ち" && (() => {
-              // 各志望校に対する有効な日程（school 個別 → 無ければ Application 共通にフォールバック）
               const fallbackDate = result.interviewDate;
               const fallbackTime = result.interviewTime;
               const fallbackPlace = result.interviewPlace;
               const fallbackNotes = result.interviewNotes;
               const schools = result.applicationSchools || [];
 
-              // 表示対象（試験日が確定している志望校）を整理。複数校無い場合は単一カードのまま。
-              const usePerSchool = schools.length > 0 && schools.some((s) => s.interviewDate || s.interviewTime || s.interviewPlace);
-              const cardsData = usePerSchool
+              const hasAny = (s: NonNullable<typeof schools>[number]) =>
+                !!(s.interviewDate || s.interviewTime || s.interviewPlace ||
+                   s.writtenExamDate || s.writtenExamTime || s.writtenExamPlace || s.writtenExamExempted);
+
+              const usePerSchool = schools.length > 0 && schools.some(hasAny);
+              type SubData = { date: string | null; time: string | null; place: string | null; notes: string | null };
+              type Card = {
+                label: string | null;
+                schoolName: string;
+                department: string;
+                interview: SubData;
+                written:   SubData & { exempted: boolean };
+              };
+              const cardsData: Card[] = usePerSchool
                 ? schools.map((s) => ({
                     label: ["第1志望", "第2志望", "第3志望"][s.priority - 1] || `第${s.priority}志望`,
                     schoolName: s.schoolName,
                     department: s.department,
-                    date: s.interviewDate || (s.priority === 1 ? fallbackDate : null),
-                    time: s.interviewTime || (s.priority === 1 ? fallbackTime : null),
-                    place: s.interviewPlace || (s.priority === 1 ? fallbackPlace : null),
-                    notes: s.interviewNotes || (s.priority === 1 ? fallbackNotes : null),
+                    interview: {
+                      date:  s.interviewDate  || (s.priority === 1 ? fallbackDate  : null),
+                      time:  s.interviewTime  || (s.priority === 1 ? fallbackTime  : null),
+                      place: s.interviewPlace || (s.priority === 1 ? fallbackPlace : null),
+                      notes: s.interviewNotes || (s.priority === 1 ? fallbackNotes : null),
+                    },
+                    written: {
+                      date:  s.writtenExamDate  ?? null,
+                      time:  s.writtenExamTime  ?? null,
+                      place: s.writtenExamPlace ?? null,
+                      notes: s.writtenExamNotes ?? null,
+                      exempted: !!s.writtenExamExempted,
+                    },
                   }))
                 : fallbackDate
                   ? [{
                       label: null,
                       schoolName: result.schoolName,
                       department: result.department,
-                      date: fallbackDate,
-                      time: fallbackTime,
-                      place: fallbackPlace,
-                      notes: fallbackNotes,
+                      interview: { date: fallbackDate, time: fallbackTime, place: fallbackPlace, notes: fallbackNotes },
+                      written:   { date: null, time: null, place: null, notes: null, exempted: false },
                     }]
                   : [];
 
               if (cardsData.length === 0) return null;
+
+              const renderSub = (kind: "written" | "interview", data: SubData & { exempted?: boolean }) => {
+                const isWritten = kind === "written";
+                const title = isWritten ? "📝 筆記試験" : "👤 面接試験";
+                const titleColor = isWritten ? "text-blue-800" : "text-amber-800";
+                const subtleText = isWritten ? "text-blue-700" : "text-amber-700";
+                const bg = isWritten ? "bg-blue-50 border-blue-200" : "bg-amber-50 border-amber-200";
+                const isExempted = isWritten && data.exempted;
+                const hasData = !!(data.date || data.time || data.place);
+
+                return (
+                  <div className={`rounded-lg border ${bg} p-3`}>
+                    <p className={`text-xs font-bold ${titleColor} mb-2`}>{title}</p>
+                    {isExempted ? (
+                      <div className="text-center py-3 px-2 rounded-md border-2 border-dashed border-blue-300 bg-white">
+                        <p className="text-base font-bold text-blue-800 tracking-widest">免　除</p>
+                        <p className="text-[11px] text-blue-600 mt-1">この出願では筆記試験が免除されます</p>
+                      </div>
+                    ) : hasData ? (
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex gap-3">
+                          <span className={`${subtleText} w-14 flex-shrink-0`}>日付</span>
+                          <span className="text-gray-900 font-semibold">{data.date ? formatDateOnly(data.date) : "—"}</span>
+                        </div>
+                        {data.time && (
+                          <div className="flex gap-3">
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>時間</span>
+                            <span className="text-gray-900 font-semibold">{data.time}</span>
+                          </div>
+                        )}
+                        {data.place && (
+                          <div className="flex gap-3">
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>{isWritten ? "試験会場" : "面接会場"}</span>
+                            <span className="text-gray-900">{data.place}</span>
+                          </div>
+                        )}
+                        {data.notes && (
+                          <div className="flex gap-3 pt-1">
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>注意</span>
+                            <span className="text-gray-800 whitespace-pre-line">{data.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-gray-500 italic text-center py-2">日程未定</p>
+                    )}
+                  </div>
+                );
+              };
 
               return (
                 <div className="card border-l-4 border-blue-500">
@@ -1618,54 +1689,26 @@ function StatusPageInner() {
                       </svg>
                     </div>
                     <h3 className="font-bold text-blue-900">
-                      {usePerSchool ? "試験のご案内（志望校別）" : "面接のご案内"}
+                      {usePerSchool ? "試験のご案内（志望校別）" : "試験のご案内"}
                     </h3>
                   </div>
 
                   <div className="space-y-3">
                     {cardsData.map((c, idx) => (
-                      <div key={idx} className="bg-blue-50 rounded-lg p-4 space-y-3 border border-blue-100">
+                      <div key={idx} className="rounded-lg p-3 space-y-2 border border-gray-200 bg-gray-50/50">
                         {c.label && (
-                          <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+                          <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               idx === 0 ? "bg-navy-800 text-white" : idx === 1 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
                             }`}>{c.label}</span>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-blue-900 truncate">{c.schoolName}</p>
-                              <p className="text-[11px] text-blue-700 truncate">{c.department}</p>
+                              <p className="text-sm font-bold text-gray-900 truncate">{c.schoolName}</p>
+                              <p className="text-[11px] text-gray-600 truncate">{c.department}</p>
                             </div>
                           </div>
                         )}
-                        {c.date ? (
-                          <>
-                            <div className="flex gap-4">
-                              <div className="flex-1">
-                                <p className="text-xs text-blue-600 font-medium mb-0.5">日付</p>
-                                <p className="text-blue-900 font-semibold">{formatDateOnly(c.date)}</p>
-                              </div>
-                              {c.time && (
-                                <div className="flex-1">
-                                  <p className="text-xs text-blue-600 font-medium mb-0.5">時間</p>
-                                  <p className="text-blue-900 font-semibold">{c.time}</p>
-                                </div>
-                              )}
-                            </div>
-                            {c.place && (
-                              <div>
-                                <p className="text-xs text-blue-600 font-medium mb-0.5">会場</p>
-                                <p className="text-blue-900">{c.place}</p>
-                              </div>
-                            )}
-                            {c.notes && (
-                              <div>
-                                <p className="text-xs text-blue-600 font-medium mb-0.5">注意事項</p>
-                                <p className="text-blue-800 text-sm whitespace-pre-line">{c.notes}</p>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-xs text-gray-500">この校の試験日程は未確定です。決定次第このページに表示されます。</p>
-                        )}
+                        {renderSub("written", c.written)}
+                        {renderSub("interview", c.interview)}
                       </div>
                     ))}
                   </div>

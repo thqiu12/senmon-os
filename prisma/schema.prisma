@@ -670,12 +670,19 @@ model ApplicationSchool {
   result          String?     // 合格/不合格/保留/辞退/null(未確定)
   memo            String?
 
-  // 志望校ごとの試験日程（併願時にそれぞれ別日程を設定するため）
+  // 志望校ごとの面接試験日程（併願時にそれぞれ別日程を設定するため）
   // 未設定の場合は Application.interviewDate（第1志望共通の値）にフォールバック。
   interviewDate   String?     // YYYY-MM-DD
   interviewTime   String?     // HH:MM
   interviewPlace  String?
   interviewNotes  String?
+
+  // 志望校ごとの筆記試験日程（一般課程で利用。指定推薦・特待生等は writtenExamExempted=true）
+  writtenExamDate     String?     // YYYY-MM-DD
+  writtenExamTime     String?     // HH:MM
+  writtenExamPlace    String?
+  writtenExamNotes    String?
+  writtenExamExempted Boolean @default(false)
 
   // FK — 正規化された参照
   applySchoolId      String?

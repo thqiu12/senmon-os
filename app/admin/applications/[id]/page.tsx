@@ -541,11 +541,17 @@ interface ApplicationSchoolEntry {
   enrollmentMonth: string;
   result: string | null;
   memo: string | null;
-  // 志望校ごとの試験日程
+  // 志望校ごとの面接試験
   interviewDate?: string | null;
   interviewTime?: string | null;
   interviewPlace?: string | null;
   interviewNotes?: string | null;
+  // 志望校ごとの筆記試験
+  writtenExamDate?: string | null;
+  writtenExamTime?: string | null;
+  writtenExamPlace?: string | null;
+  writtenExamNotes?: string | null;
+  writtenExamExempted?: boolean;
 }
 
 function InfoRow({ label, value }: { label: string; value: string | boolean | null | undefined }) {
@@ -1112,10 +1118,15 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  /** 志望校ごとの試験日程を更新（partial。値が空文字なら null として送信） */
+  /** 志望校ごとの試験日程（面接 + 筆記）を更新。partial、空文字は null として送信 */
   const handleSchoolScheduleSave = async (
     schoolId: string,
-    patch: Partial<Pick<ApplicationSchoolEntry, "interviewDate" | "interviewTime" | "interviewPlace" | "interviewNotes">>,
+    patch: Partial<Pick<
+      ApplicationSchoolEntry,
+      | "interviewDate" | "interviewTime" | "interviewPlace" | "interviewNotes"
+      | "writtenExamDate" | "writtenExamTime" | "writtenExamPlace" | "writtenExamNotes"
+      | "writtenExamExempted"
+    >>,
   ) => {
     if (!application) return;
     setSchoolResultSaving(schoolId);
@@ -1196,9 +1207,22 @@ export default function ApplicationDetailPage() {
       return;
     }
 
+    // 筆記試験データ（per-school のみ）
+    const writtenExamDate     = school.writtenExamDate     || null;
+    const writtenExamTime     = school.writtenExamTime     || null;
+    const writtenExamPlace    = school.writtenExamPlace    || null;
+    const writtenExamNotes    = school.writtenExamNotes    || null;
+    const writtenExamExempted = !!school.writtenExamExempted;
+
+    const writtenSummary = writtenExamExempted
+      ? "筆記試験: 免除"
+      : writtenExamDate
+        ? `筆記: ${writtenExamDate}${writtenExamTime ? " " + writtenExamTime : ""}`
+        : "筆記: 未設定";
+
     const ok = await confirm({
       title: `${priorityLabel} のメールを送信しますか？`,
-      message: `宛先: ${application.email}\n対象: ${school.schoolName} ／ ${school.department}\n日付: ${interviewDate}${interviewTime ? " " + interviewTime : ""}`,
+      message: `宛先: ${application.email}\n対象: ${school.schoolName} ／ ${school.department}\n面接: ${interviewDate}${interviewTime ? " " + interviewTime : ""}\n${writtenSummary}`,
       okLabel: "送信する",
     });
     if (!ok) return;
@@ -1218,6 +1242,11 @@ export default function ApplicationDetailPage() {
           interviewTime,
           interviewPlace,
           interviewNotes,
+          writtenExamDate,
+          writtenExamTime,
+          writtenExamPlace,
+          writtenExamNotes,
+          writtenExamExempted,
           schoolName: school.schoolName,
           department: school.department,
           priorityLabel,
@@ -1748,7 +1777,7 @@ export default function ApplicationDetailPage() {
                       )}
                     </div>
 
-                    {/* 志望校ごとの試験日程設定（併願対応） */}
+                    {/* 志望校ごとの試験日程設定（併願対応／筆記＆面接） */}
                     {!isLegacy && (
                       <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
                         <div className="flex items-center justify-between mb-2">
@@ -1762,67 +1791,157 @@ export default function ApplicationDetailPage() {
                             <span className="text-[10px] text-green-600 font-semibold">✓ 保存しました</span>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">試験日</label>
-                            <input
-                              type="date"
-                              className="form-input text-xs py-1.5"
-                              defaultValue={s.interviewDate || ""}
-                              onBlur={(e) => {
-                                const v = e.target.value;
-                                if (v !== (s.interviewDate || "")) {
-                                  handleSchoolScheduleSave(s.id, { interviewDate: v || null });
-                                }
-                              }}
-                            />
+
+                        {/* 筆記試験 */}
+                        <div className="mb-3 rounded-lg bg-blue-50/60 border border-blue-200 p-2.5">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
+                              📝 筆記試験
+                            </p>
+                            <label className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                defaultChecked={!!s.writtenExamExempted}
+                                onChange={(e) => handleSchoolScheduleSave(s.id, { writtenExamExempted: e.target.checked })}
+                              />
+                              免除（筆記試験なし）
+                            </label>
                           </div>
-                          <div>
-                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">時刻</label>
-                            <input
-                              type="time"
-                              className="form-input text-xs py-1.5"
-                              defaultValue={s.interviewTime || ""}
-                              onBlur={(e) => {
-                                const v = e.target.value;
-                                if (v !== (s.interviewTime || "")) {
-                                  handleSchoolScheduleSave(s.id, { interviewTime: v || null });
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">試験会場</label>
-                            <input
-                              type="text"
-                              className="form-input text-xs py-1.5"
-                              placeholder="例：本館 3F 面接室 A"
-                              defaultValue={s.interviewPlace || ""}
-                              onBlur={(e) => {
-                                const v = e.target.value;
-                                if (v !== (s.interviewPlace || "")) {
-                                  handleSchoolScheduleSave(s.id, { interviewPlace: v || null });
-                                }
-                              }}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">備考（持ち物・服装等）</label>
-                            <textarea
-                              className="form-input text-xs py-1.5 resize-y min-h-[60px]"
-                              placeholder="例：履歴書・筆記用具持参 / スーツ着用"
-                              defaultValue={s.interviewNotes || ""}
-                              onBlur={(e) => {
-                                const v = e.target.value;
-                                if (v !== (s.interviewNotes || "")) {
-                                  handleSchoolScheduleSave(s.id, { interviewNotes: v || null });
-                                }
-                              }}
-                            />
+                          {s.writtenExamExempted ? (
+                            <p className="text-[11px] text-blue-700 italic py-2 text-center">
+                              この受験者は筆記試験を免除します。受験票に「免除」と記載されます。
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[10px] font-medium text-blue-700 mb-0.5">試験日</label>
+                                <input
+                                  type="date"
+                                  className="form-input text-xs py-1.5"
+                                  defaultValue={s.writtenExamDate || ""}
+                                  onBlur={(e) => {
+                                    const v = e.target.value;
+                                    if (v !== (s.writtenExamDate || "")) {
+                                      handleSchoolScheduleSave(s.id, { writtenExamDate: v || null });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-blue-700 mb-0.5">時刻</label>
+                                <input
+                                  type="time"
+                                  className="form-input text-xs py-1.5"
+                                  defaultValue={s.writtenExamTime || ""}
+                                  onBlur={(e) => {
+                                    const v = e.target.value;
+                                    if (v !== (s.writtenExamTime || "")) {
+                                      handleSchoolScheduleSave(s.id, { writtenExamTime: v || null });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-medium text-blue-700 mb-0.5">試験会場</label>
+                                <input
+                                  type="text"
+                                  className="form-input text-xs py-1.5"
+                                  placeholder="例：本館 2F 試験室 B"
+                                  defaultValue={s.writtenExamPlace || ""}
+                                  onBlur={(e) => {
+                                    const v = e.target.value;
+                                    if (v !== (s.writtenExamPlace || "")) {
+                                      handleSchoolScheduleSave(s.id, { writtenExamPlace: v || null });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-medium text-blue-700 mb-0.5">備考（持ち物等）</label>
+                                <textarea
+                                  className="form-input text-xs py-1.5 resize-y min-h-[40px]"
+                                  placeholder="例：筆記用具・受験票・身分証明書持参"
+                                  defaultValue={s.writtenExamNotes || ""}
+                                  onBlur={(e) => {
+                                    const v = e.target.value;
+                                    if (v !== (s.writtenExamNotes || "")) {
+                                      handleSchoolScheduleSave(s.id, { writtenExamNotes: v || null });
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 面接試験 */}
+                        <div className="rounded-lg bg-amber-50/60 border border-amber-200 p-2.5">
+                          <p className="text-[11px] font-bold text-amber-800 mb-2">
+                            👤 面接試験
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-medium text-amber-800 mb-0.5">面接日</label>
+                              <input
+                                type="date"
+                                className="form-input text-xs py-1.5"
+                                defaultValue={s.interviewDate || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== (s.interviewDate || "")) {
+                                    handleSchoolScheduleSave(s.id, { interviewDate: v || null });
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-medium text-amber-800 mb-0.5">時刻</label>
+                              <input
+                                type="time"
+                                className="form-input text-xs py-1.5"
+                                defaultValue={s.interviewTime || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== (s.interviewTime || "")) {
+                                    handleSchoolScheduleSave(s.id, { interviewTime: v || null });
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-[10px] font-medium text-amber-800 mb-0.5">面接会場</label>
+                              <input
+                                type="text"
+                                className="form-input text-xs py-1.5"
+                                placeholder="例：本館 3F 面接室 A"
+                                defaultValue={s.interviewPlace || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== (s.interviewPlace || "")) {
+                                    handleSchoolScheduleSave(s.id, { interviewPlace: v || null });
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-[10px] font-medium text-amber-800 mb-0.5">備考（服装等）</label>
+                              <textarea
+                                className="form-input text-xs py-1.5 resize-y min-h-[40px]"
+                                placeholder="例：履歴書持参 / スーツ着用"
+                                defaultValue={s.interviewNotes || ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== (s.interviewNotes || "")) {
+                                    handleSchoolScheduleSave(s.id, { interviewNotes: v || null });
+                                  }
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
+
                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                          ※ 各欄を入力 → 別の場所をクリックで自動保存。空欄の場合、学生側は申請全体の試験日程（第1志望共通）を表示します。
+                          ※ 各欄を入力 → 別の場所をクリックで自動保存。
                         </p>
 
                         {/* メール送信ボタン */}
@@ -1836,10 +1955,10 @@ export default function ApplicationDetailPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            この校の面接案内メールを送信
+                            この校の試験案内メールを送信
                           </button>
                           <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
-                            学生メールに「{priorityLabel}」明記の通知が送信されます。
+                            学生メールに「{priorityLabel}」明記の通知が送信されます（筆記＋面接両方含む）。
                           </p>
                         </div>
                       </div>

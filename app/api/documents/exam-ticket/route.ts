@@ -76,14 +76,22 @@ export async function GET(request: NextRequest) {
     const interviewTime    = targetSchool?.interviewTime    ?? (isPriority1 ? app.interviewTime    : null);
     const interviewPlace   = targetSchool?.interviewPlace   ?? (isPriority1 ? app.interviewPlace   : null);
     const interviewNotes   = targetSchool?.interviewNotes   ?? (isPriority1 ? app.interviewNotes   : null);
+    // 筆記試験は per-school のみ（Application-level に持たせない）
+    const writtenExamDate     = targetSchool?.writtenExamDate     ?? null;
+    const writtenExamTime     = targetSchool?.writtenExamTime     ?? null;
+    const writtenExamPlace    = targetSchool?.writtenExamPlace    ?? null;
+    const writtenExamNotes    = targetSchool?.writtenExamNotes    ?? null;
+    const writtenExamExempted = targetSchool?.writtenExamExempted ?? false;
     const priorityLabel    = targetSchool ? (["第1志望", "第2志望", "第3志望"][targetSchool.priority - 1] || `第${targetSchool.priority}志望`) : null;
 
     // 受験票発行条件:
     //   ① ステータスが「面接待ち」（書類審査通過の管理者シグナル）
-    //   ② この志望校の試験日程 (interviewDate) が確定している
+    //   ② 面接試験 OR 筆記試験のいずれか日程が確定している
     //   ③ 差し戻し中の書類がない
     const isReady = app.status === "面接待ち";
     const hasInterviewSlot = !!interviewDate;
+    const hasWrittenSlot   = writtenExamExempted || !!writtenExamDate;
+    const hasAnySlot       = hasInterviewSlot || hasWrittenSlot;
     const hasRejection = app.documents.some((d) => d.status === "差し戻し");
 
     if (!isReady) {
@@ -92,7 +100,7 @@ export async function GET(request: NextRequest) {
         { status: 403 },
       );
     }
-    if (!hasInterviewSlot) {
+    if (!hasAnySlot) {
       return NextResponse.json(
         { error: `${priorityLabel ? priorityLabel + "の" : ""}試験日程が確定するまでお待ちください。` },
         { status: 403 },
@@ -133,6 +141,11 @@ export async function GET(request: NextRequest) {
       interviewTime,
       interviewPlace,
       interviewNotes,
+      writtenExamDate,
+      writtenExamTime,
+      writtenExamPlace,
+      writtenExamNotes,
+      writtenExamExempted,
       photoFilePath: photoDoc?.filePath ?? null,
       issueDate,
       priorityLabel,

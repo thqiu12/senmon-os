@@ -17,10 +17,17 @@ export interface ExamTicketData {
   enrollmentYear: string;
   enrollmentMonth: string;
   examMode: string;
+  // 面接試験
   interviewDate: string | null;
   interviewTime: string | null;
   interviewPlace: string | null;
   interviewNotes: string | null;
+  // 筆記試験
+  writtenExamDate?: string | null;
+  writtenExamTime?: string | null;
+  writtenExamPlace?: string | null;
+  writtenExamNotes?: string | null;
+  writtenExamExempted?: boolean;
   // /uploads/<applicationId>/<filename>.png 等
   photoFilePath: string | null;
   issueDate: string;
@@ -101,15 +108,33 @@ function buildHTML(data: ExamTicketData): string {
     padding:3px 10px; border-radius:999px;
     margin-bottom:4px; letter-spacing:1px;
   }
-  .interview-card {
-    background:#fffbeb; border:2px solid #f59e0b;
-    padding:20px 24px; border-radius:8px;
-    margin-bottom:24px;
+  .exam-stack { display:flex; flex-direction:column; gap:14px; margin-bottom:24px; }
+  .exam-card {
+    padding:18px 22px; border-radius:8px;
+    border:2px solid; position:relative;
   }
-  .interview-card h2 { font-size:14px; color:#92400e; margin-bottom:12px; }
-  .interview-grid { display:grid; grid-template-columns:80px 1fr; gap:8px 16px; font-size:13px; }
-  .interview-grid .k { color:#78350f; }
-  .interview-grid .v { color:#111; font-weight:600; }
+  .exam-card.written  { background:#eff6ff; border-color:#3b82f6; }
+  .exam-card.interview { background:#fffbeb; border-color:#f59e0b; }
+  .exam-card h2 { font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .exam-card.written  h2 { color:#1d4ed8; }
+  .exam-card.interview h2 { color:#92400e; }
+  .exam-grid { display:grid; grid-template-columns:80px 1fr; gap:8px 16px; font-size:13px; }
+  .exam-grid .k { color:#666; }
+  .exam-card.written  .exam-grid .k { color:#1e40af; }
+  .exam-card.interview .exam-grid .k { color:#78350f; }
+  .exam-grid .v { color:#111; font-weight:600; }
+  .exam-exempt {
+    text-align:center; padding:14px;
+    color:#555; font-size:14px; font-weight:600;
+    border:2px dashed #cbd5e1; border-radius:6px;
+    background:#f8fafc;
+  }
+  .exam-empty {
+    text-align:center; padding:12px;
+    color:#888; font-size:12px;
+    border:1px dashed #d1d5db; border-radius:6px;
+    background:#fafafa;
+  }
   .notes {
     margin-top:24px; padding:16px 20px;
     background:#f8fafc; border-left:4px solid #1e3a5f;
@@ -163,16 +188,34 @@ function buildHTML(data: ExamTicketData): string {
     </div>
   </div>
 
-  ${data.interviewDate || data.interviewTime || data.interviewPlace ? `
-  <div class="interview-card">
-    <h2>📅 試験・面接日程</h2>
-    <div class="interview-grid">
-      <div class="k">日付</div><div class="v">${e(data.interviewDate) || "—"}</div>
-      <div class="k">時間</div><div class="v">${e(data.interviewTime) || "—"}</div>
-      <div class="k">場所</div><div class="v">${e(data.interviewPlace) || "—"}</div>
-      ${data.interviewNotes ? `<div class="k">注意</div><div class="v" style="white-space:pre-line;">${e(data.interviewNotes)}</div>` : ""}
+  <div class="exam-stack">
+    <!-- 筆記試験 -->
+    <div class="exam-card written">
+      <h2>📝 筆記試験</h2>
+      ${data.writtenExamExempted
+        ? `<div class="exam-exempt">免　除</div>`
+        : (data.writtenExamDate || data.writtenExamTime || data.writtenExamPlace) ? `
+      <div class="exam-grid">
+        <div class="k">日付</div><div class="v">${e(data.writtenExamDate) || "—"}</div>
+        <div class="k">時間</div><div class="v">${e(data.writtenExamTime) || "—"}</div>
+        <div class="k">会場</div><div class="v">${e(data.writtenExamPlace) || "—"}</div>
+        ${data.writtenExamNotes ? `<div class="k">注意</div><div class="v" style="white-space:pre-line;">${e(data.writtenExamNotes)}</div>` : ""}
+      </div>` : `<div class="exam-empty">日程未定</div>`
+      }
     </div>
-  </div>` : ""}
+
+    <!-- 面接試験 -->
+    <div class="exam-card interview">
+      <h2>👤 面接試験</h2>
+      ${data.interviewDate || data.interviewTime || data.interviewPlace ? `
+      <div class="exam-grid">
+        <div class="k">日付</div><div class="v">${e(data.interviewDate) || "—"}</div>
+        <div class="k">時間</div><div class="v">${e(data.interviewTime) || "—"}</div>
+        <div class="k">会場</div><div class="v">${e(data.interviewPlace) || "—"}</div>
+        ${data.interviewNotes ? `<div class="k">注意</div><div class="v" style="white-space:pre-line;">${e(data.interviewNotes)}</div>` : ""}
+      </div>` : `<div class="exam-empty">日程未定</div>`}
+    </div>
+  </div>
 
   <div class="notes">
     <strong>■ 受験当日の注意事項</strong><br>

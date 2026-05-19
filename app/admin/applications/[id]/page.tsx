@@ -526,6 +526,11 @@ interface ApplicationSchoolEntry {
   enrollmentMonth: string;
   result: string | null;
   memo: string | null;
+  // 志望校ごとの試験日程
+  interviewDate?: string | null;
+  interviewTime?: string | null;
+  interviewPlace?: string | null;
+  interviewNotes?: string | null;
 }
 
 function InfoRow({ label, value }: { label: string; value: string | boolean | null | undefined }) {
@@ -1092,6 +1097,40 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  /** 志望校ごとの試験日程を更新（partial。値が空文字なら null として送信） */
+  const handleSchoolScheduleSave = async (
+    schoolId: string,
+    patch: Partial<Pick<ApplicationSchoolEntry, "interviewDate" | "interviewTime" | "interviewPlace" | "interviewNotes">>,
+  ) => {
+    if (!application) return;
+    setSchoolResultSaving(schoolId);
+    try {
+      const res = await fetch(`/api/applications/${id}/schools`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolId, ...patch }),
+      });
+      if (!res.ok) throw new Error("更新失敗");
+
+      setApplication((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          applicationSchools: prev.applicationSchools.map((s) =>
+            s.id === schoolId ? { ...s, ...patch } : s,
+          ),
+        };
+      });
+
+      setSchoolResultSaved(schoolId);
+      setTimeout(() => setSchoolResultSaved(null), 2000);
+    } catch {
+      toast("試験日程の保存に失敗しました", "error");
+    } finally {
+      setSchoolResultSaving(null);
+    }
+  };
+
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
     setNoteAdding(true);
@@ -1594,6 +1633,85 @@ export default function ApplicationDetailPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* 志望校ごとの試験日程設定（併願対応） */}
+                    {!isLegacy && (
+                      <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            この校の試験日程
+                          </p>
+                          {schoolResultSaved === s.id && (
+                            <span className="text-[10px] text-green-600 font-semibold">✓ 保存しました</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">試験日</label>
+                            <input
+                              type="date"
+                              className="form-input text-xs py-1.5"
+                              defaultValue={s.interviewDate || ""}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v !== (s.interviewDate || "")) {
+                                  handleSchoolScheduleSave(s.id, { interviewDate: v || null });
+                                }
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">時刻</label>
+                            <input
+                              type="time"
+                              className="form-input text-xs py-1.5"
+                              defaultValue={s.interviewTime || ""}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v !== (s.interviewTime || "")) {
+                                  handleSchoolScheduleSave(s.id, { interviewTime: v || null });
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">試験会場</label>
+                            <input
+                              type="text"
+                              className="form-input text-xs py-1.5"
+                              placeholder="例：本館 3F 面接室 A"
+                              defaultValue={s.interviewPlace || ""}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v !== (s.interviewPlace || "")) {
+                                  handleSchoolScheduleSave(s.id, { interviewPlace: v || null });
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">備考（持ち物・服装等）</label>
+                            <textarea
+                              className="form-input text-xs py-1.5 resize-y min-h-[60px]"
+                              placeholder="例：履歴書・筆記用具持参 / スーツ着用"
+                              defaultValue={s.interviewNotes || ""}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v !== (s.interviewNotes || "")) {
+                                  handleSchoolScheduleSave(s.id, { interviewNotes: v || null });
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                          ※ 各欄を入力 → 別の場所をクリックで自動保存。空欄の場合、学生側は申請全体の試験日程（第1志望共通）を表示します。
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}

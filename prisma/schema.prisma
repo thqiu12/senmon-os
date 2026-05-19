@@ -638,6 +638,13 @@ model ApplicationSchool {
   result          String?     // 合格/不合格/保留/辞退/null(未確定)
   memo            String?
 
+  // 志望校ごとの試験日程（併願時にそれぞれ別日程を設定するため）
+  // 未設定の場合は Application.interviewDate（第1志望共通の値）にフォールバック。
+  interviewDate   String?     // YYYY-MM-DD
+  interviewTime   String?     // HH:MM
+  interviewPlace  String?
+  interviewNotes  String?
+
   // FK — 正規化された参照
   applySchoolId      String?
   applySchool        ApplySchool?     @relation("ApplicationSchoolApplySchool", fields: [applySchoolId], references: [id])

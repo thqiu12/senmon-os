@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
             enrollmentYear: true,
             enrollmentMonth: true,
             result: true,
+            // 志望校ごとの試験日程
+            interviewDate: true,
+            interviewTime: true,
+            interviewPlace: true,
+            interviewNotes: true,
           },
         },
         // 学生公開フラグ ON のものだけ取得

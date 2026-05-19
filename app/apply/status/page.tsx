@@ -79,6 +79,21 @@ interface ApplicationStatus {
     author: string;
     createdAt: string;
   }[];
+  /** 併願（第1〜第3志望）。各校に独立した試験日程・合否を持つ。 */
+  applicationSchools?: {
+    id: string;
+    priority: number;
+    schoolName: string;
+    department: string;
+    course?: string | null;
+    enrollmentYear: string;
+    enrollmentMonth: string;
+    result?: string | null;
+    interviewDate?: string | null;
+    interviewTime?: string | null;
+    interviewPlace?: string | null;
+    interviewNotes?: string | null;
+  }[];
 }
 
 const PROGRESS_STEPS = [
@@ -1354,45 +1369,104 @@ function StatusPageInner() {
               </div>
             </div>
 
-            {/* 面接詳細カード */}
-            {result.status === "面接待ち" && result.interviewDate && (
-              <div className="card border-l-4 border-blue-500">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-bold text-blue-900">面接のご案内</h3>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-4 space-y-3">
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <p className="text-xs text-blue-600 font-medium mb-0.5">日付</p>
-                      <p className="text-blue-900 font-semibold">{formatDateOnly(result.interviewDate)}</p>
+            {/* 面接詳細カード（併願対応：志望校ごとの日程を個別に表示） */}
+            {result.status === "面接待ち" && (() => {
+              // 各志望校に対する有効な日程（school 個別 → 無ければ Application 共通にフォールバック）
+              const fallbackDate = result.interviewDate;
+              const fallbackTime = result.interviewTime;
+              const fallbackPlace = result.interviewPlace;
+              const fallbackNotes = result.interviewNotes;
+              const schools = result.applicationSchools || [];
+
+              // 表示対象（試験日が確定している志望校）を整理。複数校無い場合は単一カードのまま。
+              const usePerSchool = schools.length > 0 && schools.some((s) => s.interviewDate || s.interviewTime || s.interviewPlace);
+              const cardsData = usePerSchool
+                ? schools.map((s) => ({
+                    label: ["第1志望", "第2志望", "第3志望"][s.priority - 1] || `第${s.priority}志望`,
+                    schoolName: s.schoolName,
+                    department: s.department,
+                    date: s.interviewDate || (s.priority === 1 ? fallbackDate : null),
+                    time: s.interviewTime || (s.priority === 1 ? fallbackTime : null),
+                    place: s.interviewPlace || (s.priority === 1 ? fallbackPlace : null),
+                    notes: s.interviewNotes || (s.priority === 1 ? fallbackNotes : null),
+                  }))
+                : fallbackDate
+                  ? [{
+                      label: null,
+                      schoolName: result.schoolName,
+                      department: result.department,
+                      date: fallbackDate,
+                      time: fallbackTime,
+                      place: fallbackPlace,
+                      notes: fallbackNotes,
+                    }]
+                  : [];
+
+              if (cardsData.length === 0) return null;
+
+              return (
+                <div className="card border-l-4 border-blue-500">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
                     </div>
-                    {result.interviewTime && (
-                      <div className="flex-1">
-                        <p className="text-xs text-blue-600 font-medium mb-0.5">時間</p>
-                        <p className="text-blue-900 font-semibold">{result.interviewTime}</p>
+                    <h3 className="font-bold text-blue-900">
+                      {usePerSchool ? "試験のご案内（志望校別）" : "面接のご案内"}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {cardsData.map((c, idx) => (
+                      <div key={idx} className="bg-blue-50 rounded-lg p-4 space-y-3 border border-blue-100">
+                        {c.label && (
+                          <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              idx === 0 ? "bg-navy-800 text-white" : idx === 1 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
+                            }`}>{c.label}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-blue-900 truncate">{c.schoolName}</p>
+                              <p className="text-[11px] text-blue-700 truncate">{c.department}</p>
+                            </div>
+                          </div>
+                        )}
+                        {c.date ? (
+                          <>
+                            <div className="flex gap-4">
+                              <div className="flex-1">
+                                <p className="text-xs text-blue-600 font-medium mb-0.5">日付</p>
+                                <p className="text-blue-900 font-semibold">{formatDateOnly(c.date)}</p>
+                              </div>
+                              {c.time && (
+                                <div className="flex-1">
+                                  <p className="text-xs text-blue-600 font-medium mb-0.5">時間</p>
+                                  <p className="text-blue-900 font-semibold">{c.time}</p>
+                                </div>
+                              )}
+                            </div>
+                            {c.place && (
+                              <div>
+                                <p className="text-xs text-blue-600 font-medium mb-0.5">会場</p>
+                                <p className="text-blue-900">{c.place}</p>
+                              </div>
+                            )}
+                            {c.notes && (
+                              <div>
+                                <p className="text-xs text-blue-600 font-medium mb-0.5">注意事項</p>
+                                <p className="text-blue-800 text-sm whitespace-pre-line">{c.notes}</p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-gray-500">この校の試験日程は未確定です。決定次第このページに表示されます。</p>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                  {result.interviewPlace && (
-                    <div>
-                      <p className="text-xs text-blue-600 font-medium mb-0.5">場所</p>
-                      <p className="text-blue-900">{result.interviewPlace}</p>
-                    </div>
-                  )}
-                  {result.interviewNotes && (
-                    <div>
-                      <p className="text-xs text-blue-600 font-medium mb-0.5">注意事項</p>
-                      <p className="text-blue-800 text-sm whitespace-pre-line">{result.interviewNotes}</p>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* 入学手続きカード */}
             {(result.status === "合格" || result.status === "補欠合格") && result.enrollmentProcedure && (

@@ -920,9 +920,25 @@ function StatusPageInner() {
                     {result.applicationNo}
                   </p>
                 </div>
-                <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(result.status)}`}>
-                  {result.status}
-                </span>
+                {(() => {
+                  const hasRejection = (result.documents || []).some((d) => d.status === "差し戻し" && !d.docType.startsWith("入学手続き_"));
+                  // 書類差し戻しがある時は本ステータスより「差し戻し中」を優先表示（学生視点で一番大事な情報）
+                  if (hasRejection) {
+                    return (
+                      <span className="status-badge text-sm px-3 py-1 bg-red-100 text-red-700 border-red-200 inline-flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                        </svg>
+                        差し戻し中
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(result.status)}`}>
+                      {result.status}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* 合格カード */}
@@ -1011,19 +1027,29 @@ function StatusPageInner() {
                 </div>
               )}
 
-              {/* その他ステータス説明 */}
-              {result.status !== "合格" && result.status !== "補欠合格" && result.status !== "不合格" && result.status !== "書類待ち" && (
-                <div className="rounded-xl p-4 mb-6 bg-blue-50 border border-blue-200">
-                  <p className="text-sm font-medium text-blue-800">
-                    {({
-                      受付中: "申請を受け付けました。書類の確認を行います。",
-                      書類確認中: "提出された書類を確認中です。",
-                      面接待ち: "書類審査が完了しました。面接の日程をご確認ください。",
-                      保留: "審査を保留しています。追加書類が必要な場合はご連絡します。",
-                    } as Record<string, string>)[result.status] || "審査中です。"}
-                  </p>
-                </div>
-              )}
+              {/* その他ステータス説明（書類差し戻し時は冗長になるので非表示） */}
+              {(() => {
+                const hasRejection = (result.documents || []).some((d) => d.status === "差し戻し" && !d.docType.startsWith("入学手続き_"));
+                const skipBox =
+                  result.status === "合格" ||
+                  result.status === "補欠合格" ||
+                  result.status === "不合格" ||
+                  result.status === "書類待ち" ||
+                  hasRejection;
+                if (skipBox) return null;
+                return (
+                  <div className="rounded-xl p-4 mb-6 bg-blue-50 border border-blue-200">
+                    <p className="text-sm font-medium text-blue-800">
+                      {({
+                        受付中: "申請を受け付けました。書類の確認を行います。",
+                        書類確認中: "提出された書類を確認中です。",
+                        面接待ち: "書類審査が完了しました。面接の日程をご確認ください。",
+                        保留: "審査を保留しています。追加書類が必要な場合はご連絡します。",
+                      } as Record<string, string>)[result.status] || "審査中です。"}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* 管理者からのコメント（学生公開フラグ ON の AdminNote のみ） */}
               {result.adminNotes && result.adminNotes.length > 0 && (
@@ -1061,60 +1087,111 @@ function StatusPageInner() {
               )}
 
               {/* 進捗バー */}
-              {result.status !== "不合格" && result.status !== "保留" && result.status !== "補欠合格" && (
-                <div className="mb-6">
-                  <p className="text-xs text-gray-500 mb-4 font-semibold uppercase tracking-wide">
-                    審査の進捗
-                  </p>
-                  <div className="relative">
-                    <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-200" />
-                    <div
-                      className="absolute top-4 left-4 h-0.5 bg-navy-700 transition-all duration-500"
-                      style={{
-                        width:
-                          progressIndex <= 0
-                            ? "0%"
-                            : `${(progressIndex / (PROGRESS_STEPS.length - 1)) * 100}%`,
-                      }}
-                    />
-                    <div className="relative flex justify-between">
-                      {PROGRESS_STEPS.map((step, i) => {
-                        const isCompleted = i < progressIndex;
-                        const isCurrent = i === progressIndex;
-                        return (
-                          <div key={step.key} className="flex flex-col items-center" style={{ width: `${100 / PROGRESS_STEPS.length}%` }}>
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 ${
-                                isCompleted
-                                  ? "bg-navy-800 border-navy-800 text-white"
-                                  : isCurrent
-                                  ? "bg-white border-navy-800 text-navy-800"
-                                  : "bg-white border-gray-300 text-gray-400"
-                              }`}
-                            >
-                              {isCompleted ? (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              ) : (
-                                i + 1
-                              )}
+              {result.status !== "不合格" && result.status !== "保留" && result.status !== "補欠合格" && (() => {
+                // 書類に差し戻しがある場合、書類確認中ステップを「差し戻し中」表示にする
+                const rejectedDocs = (result.documents || []).filter((d) => d.status === "差し戻し" && !d.docType.startsWith("入学手続き_"));
+                const hasRejection = rejectedDocs.length > 0;
+                // 差し戻し時は書類確認中（index=1）の手前で止まったように見せる
+                const effectiveProgress = hasRejection ? Math.min(progressIndex, 1) : progressIndex;
+
+                return (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4 gap-2">
+                      <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">
+                        審査の進捗
+                      </p>
+                      {hasRejection && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full ring-1 ring-red-200">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 4.5l9 15.5H3z" />
+                          </svg>
+                          差し戻し対応中
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 差し戻し警告バナー */}
+                    {hasRejection && (
+                      <div className="mb-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-red-900">書類が差し戻されました（{rejectedDocs.length}件）</p>
+                          <p className="text-xs text-red-700 mt-0.5">
+                            下の「提出書類」欄から修正版を再アップロードしてください。再提出されると審査が再開されます。
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-200" />
+                      <div
+                        className={`absolute top-4 left-4 h-0.5 transition-all duration-500 ${hasRejection ? "bg-red-500" : "bg-navy-700"}`}
+                        style={{
+                          width:
+                            effectiveProgress <= 0
+                              ? "0%"
+                              : `${(effectiveProgress / (PROGRESS_STEPS.length - 1)) * 100}%`,
+                        }}
+                      />
+                      <div className="relative flex justify-between">
+                        {PROGRESS_STEPS.map((step, i) => {
+                          const isCompleted = i < effectiveProgress;
+                          const isCurrent = i === effectiveProgress;
+                          // 書類確認中ステップ（index=1）が現在地で、差し戻しがある場合は赤くする
+                          const isRejectionStep = hasRejection && step.key === "書類確認中" && isCurrent;
+                          const label = isRejectionStep ? "差し戻し中" : step.label;
+                          return (
+                            <div key={step.key} className="flex flex-col items-center" style={{ width: `${100 / PROGRESS_STEPS.length}%` }}>
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 ${
+                                  isRejectionStep
+                                    ? "bg-red-600 border-red-600 text-white animate-pulse"
+                                    : isCompleted
+                                    ? "bg-navy-800 border-navy-800 text-white"
+                                    : isCurrent
+                                    ? "bg-white border-navy-800 text-navy-800"
+                                    : "bg-white border-gray-300 text-gray-400"
+                                }`}
+                              >
+                                {isRejectionStep ? (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                                  </svg>
+                                ) : isCompleted ? (
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  i + 1
+                                )}
+                              </div>
+                              <span
+                                className={`text-xs mt-1 text-center leading-tight ${
+                                  isRejectionStep
+                                    ? "text-red-700 font-bold"
+                                    : isCurrent
+                                    ? "text-navy-800 font-bold"
+                                    : isCompleted
+                                    ? "text-navy-600"
+                                    : "text-gray-400"
+                                }`}
+                                style={{ fontSize: "10px" }}
+                              >
+                                {label}
+                              </span>
                             </div>
-                            <span
-                              className={`text-xs mt-1 text-center leading-tight ${
-                                isCurrent ? "text-navy-800 font-bold" : isCompleted ? "text-navy-600" : "text-gray-400"
-                              }`}
-                              style={{ fontSize: "10px" }}
-                            >
-                              {step.label}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 申請者情報 */}
               <div className="grid grid-cols-2 gap-4 text-sm mb-4">

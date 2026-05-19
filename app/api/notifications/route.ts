@@ -38,7 +38,9 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
 
   // ===== 面接案内 =====
   if (payload.type === "interview") {
-    const subject = `【面接のご案内】${applicationNo} ${applicantName} 様`;
+    const priorityTag = payload.priorityLabel ? `【${payload.priorityLabel}】` : "";
+    const schoolTag = payload.schoolName ? ` ${payload.schoolName}` : "";
+    const subject = `【面接のご案内】${priorityTag}${applicationNo} ${applicantName} 様${schoolTag}`;
     const html = `
 <!DOCTYPE html>
 <html lang="ja">
@@ -46,18 +48,24 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
 <body style="font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
     <div style="background: #1e3a5f; color: #fff; padding: 24px 32px;">
-      <h1 style="margin: 0; font-size: 20px; font-weight: 700;">面接のご案内</h1>
+      ${payload.priorityLabel ? `<span style="display:inline-block; background:#fff; color:#1e3a5f; font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px; letter-spacing:1px; margin-bottom:6px;">${e(payload.priorityLabel)}</span>` : ""}
+      <h1 style="margin: 0; font-size: 20px; font-weight: 700;">${payload.schoolName ? "試験のご案内" : "面接のご案内"}</h1>
       <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
     </div>
     <div style="padding: 32px;">
       <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
       <p style="color: #333; font-size: 15px; line-height: 1.7;">
         この度は弊校へのご出願ありがとうございます。<br>
-        書類審査の結果、下記の日程にて面接を実施することになりました。
+        書類審査の結果、下記の日程にて${payload.schoolName ? "選考試験" : "面接"}を実施することになりました。
       </p>
       <div style="background: #f8f9fa; border-left: 4px solid #1e3a5f; border-radius: 4px; padding: 20px 24px; margin: 24px 0;">
-        <h2 style="margin: 0 0 16px; font-size: 16px; color: #1e3a5f;">面接詳細</h2>
+        <h2 style="margin: 0 0 16px; font-size: 16px; color: #1e3a5f;">${payload.schoolName ? "試験詳細" : "面接詳細"}</h2>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          ${payload.schoolName ? `
+          <tr>
+            <td style="padding: 6px 0; color: #666; width: 100px; vertical-align: top;">対象校</td>
+            <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.schoolName)}${payload.department ? ` ／ ${e(payload.department)}` : ""}</td>
+          </tr>` : ""}
           <tr>
             <td style="padding: 6px 0; color: #666; width: 100px; vertical-align: top;">日付</td>
             <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewDate) || "—"}</td>
@@ -67,7 +75,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
             <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewTime) || "—"}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #666;">場所</td>
+            <td style="padding: 6px 0; color: #666;">${payload.schoolName ? "試験会場" : "場所"}</td>
             <td style="padding: 6px 0; color: #333; font-weight: 600;">${e(payload.interviewPlace) || "—"}</td>
           </tr>
           ${payload.interviewNotes ? `
@@ -82,7 +90,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
         ご不明な点がございましたら、入学相談室（平日9:00〜17:00）までお問い合わせください。
       </p>
       <div style="background: #f0f4f8; border-radius: 4px; padding: 12px 16px; margin-top: 24px; font-size: 12px; color: #888;">
-        申請番号：${applicationNoSafe}
+        申請番号：${applicationNoSafe}${payload.priorityLabel ? `　／　志望順位：${e(payload.priorityLabel)}` : ""}
       </div>
     </div>
   </div>

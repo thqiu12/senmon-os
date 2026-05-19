@@ -755,7 +755,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function ApplicationDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useUI();
+  const { toast, confirm } = useUI();
   const id = params.id as string;
 
   const [application, setApplication] = useState<Application | null>(null);
@@ -1126,6 +1126,76 @@ export default function ApplicationDetailPage() {
       setTimeout(() => setSchoolResultSaved(null), 2000);
     } catch {
       toast("試験日程の保存に失敗しました", "error");
+    } finally {
+      setSchoolResultSaving(null);
+    }
+  };
+
+  /** 志望校ごとに面接案内メールを送信 */
+  const handleSchoolInterviewMail = async (school: ApplicationSchoolEntry) => {
+    if (!application) return;
+    if (!school.interviewDate && school.priority !== 1) {
+      toast("試験日が未設定です。先に日付を入力してください。", "error");
+      return;
+    }
+    const priorityLabel = ["第1志望", "第2志望", "第3志望"][school.priority - 1] || `第${school.priority}志望`;
+
+    // 第1志望は per-school 未設定なら Application-level にフォールバック
+    const isP1 = school.priority === 1;
+    const interviewDate  = school.interviewDate  || (isP1 ? application.interviewDate  : null);
+    const interviewTime  = school.interviewTime  || (isP1 ? application.interviewTime  : null);
+    const interviewPlace = school.interviewPlace || (isP1 ? application.interviewPlace : null);
+    const interviewNotes = school.interviewNotes || (isP1 ? application.interviewNotes : null);
+
+    if (!interviewDate) {
+      toast("試験日が未設定です。先に日付を入力してください。", "error");
+      return;
+    }
+
+    const ok = await confirm({
+      title: `${priorityLabel} のメールを送信しますか？`,
+      message: `宛先: ${application.email}\n対象: ${school.schoolName} ／ ${school.department}\n日付: ${interviewDate}${interviewTime ? " " + interviewTime : ""}`,
+      okLabel: "送信する",
+    });
+    if (!ok) return;
+
+    setSchoolResultSaving(school.id);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "interview",
+          to: application.email,
+          applicantEmail: application.email,
+          applicantName: `${application.lastName} ${application.firstName}`,
+          applicationNo: application.applicationNo,
+          interviewDate,
+          interviewTime,
+          interviewPlace,
+          interviewNotes,
+          schoolName: school.schoolName,
+          department: school.department,
+          priorityLabel,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || "送信に失敗しました", "error");
+      } else {
+        toast(`${priorityLabel} の面接案内メールを送信しました`, "success");
+        // 第1志望でメールを送ったら application 全体の interviewEmailSent フラグも立てる
+        if (school.priority === 1) {
+          await fetch(`/api/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ interviewEmailSent: true }),
+          });
+          setApplication((prev) => prev ? { ...prev, interviewEmailSent: true } : prev);
+        }
+      }
+    } catch {
+      toast("ネットワークエラー", "error");
     } finally {
       setSchoolResultSaving(null);
     }
@@ -1710,6 +1780,24 @@ export default function ApplicationDetailPage() {
                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
                           ※ 各欄を入力 → 別の場所をクリックで自動保存。空欄の場合、学生側は申請全体の試験日程（第1志望共通）を表示します。
                         </p>
+
+                        {/* メール送信ボタン */}
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => handleSchoolInterviewMail(s)}
+                            disabled={schoolResultSaving === s.id}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xs font-bold transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            この校の面接案内メールを送信
+                          </button>
+                          <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                            学生メールに「{priorityLabel}」明記の通知が送信されます。
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -98,6 +98,10 @@ export const NotificationSchema = z.object({
   resultStatus: z.enum(["合格", "補欠合格", "不合格"]).optional(),
   instructions: optStr(2000),
   deadline: optStr(50),
+  // 併願対応: 志望校別の試験通知用。priorityLabel が入っているとメールタイトル・本文に出る。
+  schoolName: optStr(100),
+  department: optStr(100),
+  priorityLabel: optStr(20),
 });
 
 export const AdminLoginSchema = z.object({

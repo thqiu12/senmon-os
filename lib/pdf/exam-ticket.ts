@@ -24,6 +24,8 @@ export interface ExamTicketData {
   // /uploads/<applicationId>/<filename>.png 等
   photoFilePath: string | null;
   issueDate: string;
+  /** 第1志望 / 第2志望 / 第3志望（併願時のみ）。null なら chip 非表示。 */
+  priorityLabel?: string | null;
 }
 
 function uploadRoot(): string {
@@ -92,6 +94,13 @@ function buildHTML(data: ExamTicketData): string {
   }
   .appno-box .label { font-size:12px; opacity:.8; }
   .appno-box .value { font-size:28px; font-weight:700; letter-spacing:3px; }
+  .priority-chip {
+    display:inline-block;
+    background:#fff; color:#1e3a5f;
+    font-size:12px; font-weight:700;
+    padding:3px 10px; border-radius:999px;
+    margin-bottom:4px; letter-spacing:1px;
+  }
   .interview-card {
     background:#fffbeb; border:2px solid #f59e0b;
     padding:20px 24px; border-radius:8px;
@@ -126,6 +135,7 @@ function buildHTML(data: ExamTicketData): string {
 
   <div class="appno-box">
     <div>
+      ${data.priorityLabel ? `<div class="priority-chip">${e(data.priorityLabel)}</div>` : ""}
       <div class="label">受験番号</div>
       <div class="value">${e(data.applicationNo)}</div>
     </div>

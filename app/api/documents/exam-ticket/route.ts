@@ -15,6 +15,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const applicationNo = searchParams.get("applicationNo");
     const email = searchParams.get("email");
+    // 併願対応: 志望校ごとに受験票発行できるよう priority (1/2/3) または schoolId を受け取る。
+    // 省略時は第1志望（priority=1）が選ばれる（後方互換）。
+    const schoolIdParam = searchParams.get("schoolId");
+    const priorityParamRaw = searchParams.get("priority");
+    const priorityParam = priorityParamRaw ? parseInt(priorityParamRaw, 10) : null;
+
     if (!applicationNo || !email) {
       return NextResponse.json({ error: "パラメータが不足しています" }, { status: 400 });
     }
@@ -31,18 +37,53 @@ export async function GET(request: NextRequest) {
           select: { docType: true, status: true, filePath: true, uploadedAt: true },
           orderBy: { uploadedAt: "desc" },
         },
+        applicationSchools: {
+          orderBy: { priority: "asc" },
+        },
       },
     });
     if (!app) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
+    // 対象 ApplicationSchool を決定
+    let targetSchool = null as (typeof app.applicationSchools)[number] | null;
+    if (schoolIdParam) {
+      targetSchool = app.applicationSchools.find((s) => s.id === schoolIdParam) ?? null;
+      if (!targetSchool) {
+        return NextResponse.json({ error: "指定された志望校が見つかりません" }, { status: 404 });
+      }
+    } else if (priorityParam) {
+      targetSchool = app.applicationSchools.find((s) => s.priority === priorityParam) ?? null;
+      // priority 指定で該当無し → 法的にエラー（ただし priority=1 で legacy 単一志望ならフォールバック）
+      if (!targetSchool && priorityParam !== 1) {
+        return NextResponse.json({ error: "指定された志望順位の志望校が見つかりません" }, { status: 404 });
+      }
+    } else {
+      // 省略時: 第1志望
+      targetSchool = app.applicationSchools.find((s) => s.priority === 1) ?? null;
+    }
+
+    // 表示用フィールドを志望校別 → Application-level の順にフォールバック
+    // 第1志望は Application-level の interviewDate を継承（共通設定）
+    const isPriority1 = !targetSchool || targetSchool.priority === 1;
+    const schoolName       = targetSchool?.schoolName       ?? app.schoolName;
+    const department       = targetSchool?.department       ?? app.department;
+    const course           = targetSchool?.course           ?? app.course ?? "";
+    const enrollmentYear   = targetSchool?.enrollmentYear   ?? app.enrollmentYear;
+    const enrollmentMonth  = targetSchool?.enrollmentMonth  ?? app.enrollmentMonth;
+    const interviewDate    = targetSchool?.interviewDate    ?? (isPriority1 ? app.interviewDate    : null);
+    const interviewTime    = targetSchool?.interviewTime    ?? (isPriority1 ? app.interviewTime    : null);
+    const interviewPlace   = targetSchool?.interviewPlace   ?? (isPriority1 ? app.interviewPlace   : null);
+    const interviewNotes   = targetSchool?.interviewNotes   ?? (isPriority1 ? app.interviewNotes   : null);
+    const priorityLabel    = targetSchool ? (["第1志望", "第2志望", "第3志望"][targetSchool.priority - 1] || `第${targetSchool.priority}志望`) : null;
+
     // 受験票発行条件:
     //   ① ステータスが「面接待ち」（書類審査通過の管理者シグナル）
-    //   ② 試験日程 (interviewDate) が確定している
+    //   ② この志望校の試験日程 (interviewDate) が確定している
     //   ③ 差し戻し中の書類がない
     const isReady = app.status === "面接待ち";
-    const hasInterviewSlot = !!app.interviewDate;
+    const hasInterviewSlot = !!interviewDate;
     const hasRejection = app.documents.some((d) => d.status === "差し戻し");
 
     if (!isReady) {
@@ -53,7 +94,7 @@ export async function GET(request: NextRequest) {
     }
     if (!hasInterviewSlot) {
       return NextResponse.json(
-        { error: "試験日程が確定するまでお待ちください。" },
+        { error: `${priorityLabel ? priorityLabel + "の" : ""}試験日程が確定するまでお待ちください。` },
         { status: 403 },
       );
     }
@@ -82,21 +123,24 @@ export async function GET(request: NextRequest) {
       nationality: app.nationality,
       birthDate: app.birthDate,
       gender: app.gender,
-      schoolName: app.schoolName,
-      department: app.department,
-      course: app.course || "",
-      enrollmentYear: app.enrollmentYear,
-      enrollmentMonth: app.enrollmentMonth,
+      schoolName,
+      department,
+      course,
+      enrollmentYear,
+      enrollmentMonth,
       examMode: app.examMode || "一般",
-      interviewDate: app.interviewDate,
-      interviewTime: app.interviewTime,
-      interviewPlace: app.interviewPlace,
-      interviewNotes: app.interviewNotes,
+      interviewDate,
+      interviewTime,
+      interviewPlace,
+      interviewNotes,
       photoFilePath: photoDoc?.filePath ?? null,
       issueDate,
+      priorityLabel,
     });
 
-    const fileName = `受験票_${applicationNo}.pdf`;
+    // ファイル名にも志望順位を入れて、複数 PDF を保存しても判別できるように
+    const priorityTag = priorityLabel ? `_${priorityLabel}` : "";
+    const fileName = `受験票_${applicationNo}${priorityTag}.pdf`;
     return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",

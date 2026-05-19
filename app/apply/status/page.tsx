@@ -1300,56 +1300,103 @@ function StatusPageInner() {
                 </div>
               )}
 
-              {/* 受験票ダウンロード — 書類審査通過 + 試験日程確定 が条件 */}
+              {/* 受験票ダウンロード — 書類審査通過 + 試験日程確定 が条件。併願時は志望校ごとに発行可。 */}
               {(() => {
-                // 受付中以前は何も表示しない（合否確定後も非表示）
                 if (!["受付中", "書類確認中", "面接待ち"].includes(result.status)) return null;
                 const isReady = result.status === "面接待ち";
-                const hasSlot = !!result.interviewDate;
                 const hasRejection = (result.documents || []).some((d) => d.status === "差し戻し");
-                const canDownload = isReady && hasSlot && !hasRejection;
+                const schools = result.applicationSchools || [];
+
+                // 各志望校に対する有効な試験日（第1志望は Application-level にフォールバック）
+                const tickets = schools.length > 0
+                  ? schools.map((s) => {
+                      const d = s.interviewDate || (s.priority === 1 ? result.interviewDate : null);
+                      const t = s.interviewTime || (s.priority === 1 ? result.interviewTime : null);
+                      return {
+                        id: s.id,
+                        priority: s.priority,
+                        label: ["第1志望", "第2志望", "第3志望"][s.priority - 1] || `第${s.priority}志望`,
+                        schoolName: s.schoolName,
+                        department: s.department,
+                        date: d,
+                        time: t,
+                        hasSlot: !!d,
+                      };
+                    })
+                  : [{
+                      id: null as string | null,
+                      priority: 1,
+                      label: null as string | null,
+                      schoolName: result.schoolName,
+                      department: result.department,
+                      date: result.interviewDate,
+                      time: result.interviewTime,
+                      hasSlot: !!result.interviewDate,
+                    }];
+
+                const someCanDownload = isReady && !hasRejection && tickets.some((t) => t.hasSlot);
+                const overallReady = isReady && !hasRejection;
+
                 return (
-                  <div className={`mt-4 p-4 border rounded-xl ${canDownload ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold ${canDownload ? "text-blue-900" : "text-gray-700"}`}>
-                          📋 受験票ダウンロード
-                        </p>
-                        {canDownload ? (
-                          <p className="text-xs text-blue-700 mt-0.5">
-                            写真と個人情報・試験会場を含む受験票 PDF を発行できます。試験当日は印刷してご持参ください。
-                          </p>
-                        ) : (
-                          <ul className="text-xs text-gray-600 mt-1 space-y-0.5">
-                            <li>
-                              <span className={isReady ? "text-green-600" : "text-gray-400"}>{isReady ? "✓" : "○"}</span>{" "}
-                              書類審査通過 <span className="text-gray-400">(現在: {result.status})</span>
-                            </li>
-                            <li>
-                              <span className={hasSlot ? "text-green-600" : "text-gray-400"}>{hasSlot ? "✓" : "○"}</span>{" "}
-                              試験日程の確定
-                              {result.interviewDate && <span className="text-gray-400 ml-1">({result.interviewDate}{result.interviewTime ? " " + result.interviewTime : ""})</span>}
-                            </li>
-                            <li>
-                              <span className={!hasRejection ? "text-green-600" : "text-red-600"}>{!hasRejection ? "✓" : "✗"}</span>{" "}
-                              差し戻し書類がない
-                              {hasRejection && <span className="text-red-500 ml-1">— 再提出が必要です</span>}
-                            </li>
-                            <li className="text-gray-500 pt-1">すべての条件が揃うとダウンロード可能になります。</li>
-                          </ul>
-                        )}
+                  <div className={`mt-4 p-4 border rounded-xl ${someCanDownload ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
+                    <p className={`text-sm font-bold mb-2 ${someCanDownload ? "text-blue-900" : "text-gray-700"}`}>
+                      📋 受験票ダウンロード
+                      {tickets.length > 1 && <span className="ml-1 text-xs font-normal text-gray-500">（志望校ごと）</span>}
+                    </p>
+
+                    {!overallReady ? (
+                      <ul className="text-xs text-gray-600 mt-1 space-y-0.5">
+                        <li>
+                          <span className={isReady ? "text-green-600" : "text-gray-400"}>{isReady ? "✓" : "○"}</span>{" "}
+                          書類審査通過 <span className="text-gray-400">(現在: {result.status})</span>
+                        </li>
+                        <li>
+                          <span className={!hasRejection ? "text-green-600" : "text-red-600"}>{!hasRejection ? "✓" : "✗"}</span>{" "}
+                          差し戻し書類がない
+                          {hasRejection && <span className="text-red-500 ml-1">— 再提出が必要です</span>}
+                        </li>
+                        <li className="text-gray-500 pt-1">条件が揃うとダウンロード可能になります。</li>
+                      </ul>
+                    ) : (
+                      <div className="space-y-2">
+                        {tickets.map((t) => {
+                          const can = t.hasSlot;
+                          const params = new URLSearchParams({
+                            applicationNo: result.applicationNo,
+                            email,
+                            ...(t.id ? { schoolId: t.id } : { priority: String(t.priority) }),
+                          });
+                          return (
+                            <div key={t.id || t.priority} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg ${can ? "bg-white border border-blue-200" : "bg-gray-50 border border-gray-200"}`}>
+                              <div className="min-w-0 flex-1">
+                                {t.label && (
+                                  <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded mb-0.5 ${
+                                    t.priority === 1 ? "bg-navy-800 text-white" : t.priority === 2 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
+                                  }`}>{t.label}</span>
+                                )}
+                                <p className="text-xs font-semibold text-gray-800 truncate">{t.schoolName}</p>
+                                <p className="text-[11px] text-gray-500 truncate">
+                                  {t.department}
+                                  {t.date && <span className="ml-1">／ {t.date}{t.time ? ` ${t.time}` : ""}</span>}
+                                </p>
+                              </div>
+                              {can ? (
+                                <a
+                                  href={`/api/documents/exam-ticket?${params.toString()}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg whitespace-nowrap"
+                                >
+                                  ⬇ 受験票
+                                </a>
+                              ) : (
+                                <span className="shrink-0 text-[11px] text-gray-400">日程未確定</span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                      {canDownload && (
-                        <a
-                          href={`/api/documents/exam-ticket?applicationNo=${encodeURIComponent(result.applicationNo)}&email=${encodeURIComponent(result.email)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap"
-                        >
-                          ⬇ ダウンロード
-                        </a>
-                      )}
-                    </div>
+                    )}
                   </div>
                 );
               })()}

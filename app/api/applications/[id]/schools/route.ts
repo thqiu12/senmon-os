@@ -133,13 +133,14 @@ export async function PATCH(
         }
 
         // (date,time) でグループ化、重複しているものを抽出
-        const groups = new Map<string, Slot[]>();
+        // Note: Map<>.entries() の for-of は target<ES2015 で不可なので Array.from で iterate
+        const groups: Record<string, Slot[]> = {};
         for (const slot of slots) {
           const key = `${slot.date}|${slot.time}`;
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key)!.push(slot);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(slot);
         }
-        for (const [, group] of groups) {
+        for (const group of Object.values(groups)) {
           if (group.length > 1) {
             // 全エントリを衝突として返す（admin UI が冒頭何件と表示）
             conflicts.push(...group);

@@ -180,8 +180,17 @@ export default function HomePage() {
               <p className="text-xs text-gray-400 mt-0.5">Online Application System</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/apply/status" className="text-sm text-gray-500 hover:text-gray-800 transition hidden sm:block">出願状況確認</Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/apply/status"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span className="hidden sm:inline">出願の続き・状況確認</span>
+              <span className="sm:hidden">続き / 状況</span>
+            </Link>
             <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg transition">管理者</Link>
           </div>
         </div>
@@ -383,12 +392,19 @@ export default function HomePage() {
 
           {/* サブリンク */}
           <section className="grid sm:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex items-start gap-4">
+            <div className="bg-white rounded-2xl border border-blue-200 shadow-sm p-6 flex items-start gap-4">
               <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">📋</div>
-              <div>
-                <h3 className="font-bold text-gray-800 mb-1">出願状況の確認</h3>
-                <p className="text-gray-500 text-sm mb-3">申請番号とメールアドレスで審査状況を確認できます。</p>
-                <Link href="/apply/status" className="text-sm text-blue-600 font-semibold hover:underline">状況を確認する →</Link>
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-800 mb-1">出願の続き・状況確認</h3>
+                <p className="text-gray-500 text-sm mb-3">
+                  既に出願番号をお持ちの方はこちらから続き（書類アップロード・選考料お支払い）や審査状況の確認ができます。
+                </p>
+                <Link
+                  href="/apply/status"
+                  className="inline-flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg transition"
+                >
+                  出願番号でログイン →
+                </Link>
               </div>
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex items-start gap-4">

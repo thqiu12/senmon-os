@@ -1211,7 +1211,21 @@ function ApplicationNoConfirm({
         <p className="font-semibold mb-1">💡 この番号でできること</p>
         <p className="text-xs text-blue-700">
           この番号でいつでもログインして書類アップロード・選考料のお支払いができます。
-          後から続ける場合は <strong>/apply/status</strong> にアクセスし、出願番号とメールアドレスで検索してください。
+          後から続ける場合は{" "}
+          <Link
+            href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
+            className="font-bold text-blue-700 underline hover:text-blue-900"
+          >
+            出願状況確認ページ
+          </Link>
+          {" "}（または{" "}
+          <Link
+            href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
+            className="font-mono underline hover:text-blue-900"
+          >
+            /apply/status
+          </Link>
+          ）にアクセスしてください。出願番号とメールアドレスは自動入力されます。
         </p>
       </div>
 
@@ -1266,11 +1280,21 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">1</span>
-                <p><strong>/apply/status</strong> にアクセスします</p>
+                <p>
+                  <Link
+                    href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
+                    className="font-bold text-blue-700 underline hover:text-blue-900"
+                  >
+                    出願状況確認ページ
+                  </Link>
+                  {" "}（<span className="font-mono text-xs">/apply/status</span>）にアクセスします
+                </p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">2</span>
-                <p>出願番号 <strong>{applicationNo}</strong> とメールアドレス <strong>{email}</strong> で検索します</p>
+                <p>出願番号 <strong>{applicationNo}</strong> とメールアドレス <strong>{email}</strong> で検索します<br />
+                  <span className="text-xs text-gray-400">（上のリンクから入ると自動入力されます）</span>
+                </p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">3</span>
@@ -1281,10 +1305,10 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
 
           <div className="flex flex-col gap-3">
             <Link
-              href="/apply/status"
+              href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
               className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition text-center"
             >
-              出願状況を確認する
+              📋 出願を再開する
             </Link>
             <Link
               href="/"

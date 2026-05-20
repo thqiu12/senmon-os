@@ -34,6 +34,7 @@ export const DocTypeEnum = z.enum([
   "成績証明書",
   "日本語能力証明",
   "その他",
+  "選考費振込証明書",
 ]);
 
 export const RoleEnum = z.enum(["super_admin", "admin", "interviewer"]);

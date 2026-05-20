@@ -791,8 +791,11 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
 }
 
 // ========== Step 3 ==========
-function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: {
-  applicationId: string | null; uploadedDocs: UploadedDoc[];
+function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, onDelete, formConfig }: {
+  applicationId: string | null;
+  applicationNo: string | null;
+  email: string;
+  uploadedDocs: UploadedDoc[];
   onUpload: (doc: UploadedDoc) => void; onDelete: (id: string) => void;
   formConfig: FormFieldConfig[] | null;
 }) {
@@ -800,7 +803,13 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
-    try { const r = await fetch(`/api/upload?id=${id}`, { method: "DELETE" }); if (r.ok) onDelete(id); } catch { /* ignore */ }
+    try {
+      const params = new URLSearchParams({ id });
+      if (applicationNo) params.set("applicationNo", applicationNo);
+      if (email) params.set("email", email);
+      const r = await fetch(`/api/upload?${params}`, { method: "DELETE" });
+      if (r.ok) onDelete(id);
+    } catch { /* ignore */ }
   };
 
   const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1024 / 1024).toFixed(1)}MB`;
@@ -852,9 +861,11 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
             onChange={e => {
               const file = e.target.files?.[0];
               if (!file || !applicationId) return;
+              if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
               setUploading(label); setUploadError(null);
               const fd = new FormData();
               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
+              fd.append("applicationNo", applicationNo); fd.append("email", email);
               fetch("/api/upload", { method: "POST", body: fd })
                 .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
                 .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
@@ -955,9 +966,11 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
                             onChange={e => {
                               const file = e.target.files?.[0];
                               if (!file || !applicationId) return;
+                              if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
                               setUploading(doc.type); setUploadError(null);
                               const fd = new FormData();
                               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
+                              fd.append("applicationNo", applicationNo); fd.append("email", email);
                               fetch("/api/upload", { method: "POST", body: fd })
                                 .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
                                 .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
@@ -999,9 +1012,11 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !applicationId) return;
+    if (!applicationNo || !email) { setUploadError("申請が確定していません。"); return; }
     setUploading(true); setUploadError(null);
     const fd = new FormData();
     fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", "選考費振込証明書");
+    fd.append("applicationNo", applicationNo); fd.append("email", email);
     try {
       const r = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await r.json();
@@ -1899,7 +1914,8 @@ function ApplyPageInner() {
                     <span>⚠️</span><span>{errors.step3}</span>
                   </div>
                 )}
-                <Step3 applicationId={applicationId} uploadedDocs={uploadedDocs}
+                <Step3 applicationId={applicationId} applicationNo={applicationNo} email={form.email}
+                  uploadedDocs={uploadedDocs}
                   onUpload={doc => { setUploadedDocs(p => [...p, doc]); setErrors(p => { const n={...p}; delete n.step3; return n; }); }}
                   onDelete={id => setUploadedDocs(p => p.filter(d => d.id !== id))}
                   formConfig={formConfig} />

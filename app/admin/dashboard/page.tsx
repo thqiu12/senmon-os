@@ -110,6 +110,14 @@ function AccountManagementLink() {
   );
 }
 
+function SettingsLink() {
+  return (
+    <Link href="/admin/settings" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
+      設定
+    </Link>
+  );
+}
+
 function UserBadge() {
   const role = useAdminRole();
   if (!role) return null;
@@ -324,6 +332,7 @@ export default function AdminDashboard() {
               <span className="text-navy-500 text-xs font-bold mr-1 whitespace-nowrap">⚙️ 管理</span>
               <Link href="/admin/quota" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">定員管理</Link>
               <Link href="/admin/form-config" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">フォーム管理</Link>
+              <SettingsLink />
               <AccountManagementLink />
             </div>
             <UserBadge />

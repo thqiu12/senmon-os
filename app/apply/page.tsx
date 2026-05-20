@@ -541,7 +541,7 @@ function SchoolDeptPicker({ school, department, course, onChange, errors, deptKe
   );
 }
 
-function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAdditional, errors, formConfig, schools, preselectedSchool }: {
+function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAdditional, errors, formConfig, schools, preselectedSchool, enrollmentYears }: {
   form: FormData;
   onChange: (f: keyof FormData, v: string | boolean) => void;
   onChangeAdditional: (index: number, field: string, value: string) => void;
@@ -551,6 +551,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   formConfig: FormFieldConfig[] | null;
   schools: SchoolData[];
   preselectedSchool?: boolean;
+  enrollmentYears: string[];
 }) {
   const isEnabled = (key: string) => {
     if (!formConfig || formConfig.length === 0) return true;
@@ -562,8 +563,12 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
     const cfg = formConfig.find(c => c.fieldKey === key);
     return cfg ? cfg.isRequired : defaultReq;
   };
+  // 入学希望年は /api/apply/settings から取得（管理画面で編集可能）。
+  // 取得失敗 / 未取得時は現年〜+2 をフォールバックとして使う。
   const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear + 1, currentYear + 2];
+  const years = enrollmentYears.length > 0
+    ? enrollmentYears
+    : [String(currentYear), String(currentYear + 1), String(currentYear + 2)];
   const selectedSchool = schools.find(s => s.id === form.schoolId);
 
   // 並願で選択済み学校ID一覧（メイン + 追加）
@@ -1296,6 +1301,8 @@ function ApplyPageInner() {
   const [examFeeStatus, setExamFeeStatus] = useState("未払い");
   const [formConfig, setFormConfig] = useState<FormFieldConfig[] | null>(null);
   const [schools, setSchools] = useState<SchoolData[]>(SCHOOLS_FALLBACK);
+  // 入学希望年候補（/api/apply/settings から取得、管理画面で編集可能）
+  const [enrollmentYears, setEnrollmentYears] = useState<string[]>([]);
   // showAppNoConfirm: after Step 2 save, before Step 3
   const [showAppNoConfirm, setShowAppNoConfirm] = useState(false);
   // saveAndExit: user chose to save and exit after seeing appNo
@@ -1435,6 +1442,18 @@ function ApplyPageInner() {
       })
       .catch(() => {});
   };
+
+  // 入学希望年候補を /api/apply/settings から取得
+  useEffect(() => {
+    fetch("/api/apply/settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d && Array.isArray(d.enrollmentYears) && d.enrollmentYears.length > 0) {
+          setEnrollmentYears(d.enrollmentYears);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // resume フロー: URL に ?resume=1&applicationNo=XXX&email=YYY がある場合
   // 既存の出願データを取得して Step3 から再開
@@ -1873,7 +1892,7 @@ function ApplyPageInner() {
             <>
               <h1 className="text-lg font-bold text-gray-800 mb-6">{STEPS[currentStep - 1].label}</h1>
               {currentStep === 1 && <Step1 form={form} onChange={handleChange} errors={errors} formConfig={formConfig} />}
-              {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} />}
+              {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} enrollmentYears={enrollmentYears} />}
               {currentStep === 3 && <>
                 {errors.step3 && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">

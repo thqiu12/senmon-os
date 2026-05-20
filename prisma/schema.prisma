@@ -755,6 +755,15 @@ model ApplyDepartment {
   @@index([applySchoolId])
 }
 
+// システム全体の設定（key-value、軽量）。
+// enrollmentYears 等、UI の選択肢をハードコードせず管理画面から変えるためのテーブル。
+model SystemSetting {
+  key       String   @id
+  value     String   // JSON-encoded
+  updatedAt DateTime @updatedAt
+  updatedBy String?  // 最後に変更した管理者ユーザー
+}
+
 // 定員管理（学校×学科×入学年度）
 model EnrollmentQuota {
   id                String   @id @default(cuid())

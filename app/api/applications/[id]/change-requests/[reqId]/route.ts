@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { ChangeRequestReviewSchema } from "@/lib/schemas";
-import { ALLOWED_FIELDS } from "../route";
+import { ALLOWED_FIELDS } from "@/lib/change-request-fields";
 import { logError } from "@/lib/logger";
 
 /**

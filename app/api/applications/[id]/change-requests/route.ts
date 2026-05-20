@@ -4,6 +4,7 @@ import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
 import { ChangeRequestCreateSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/security";
+import { ALLOWED_FIELDS } from "@/lib/change-request-fields";
 
 /**
  * 基本情報変更申請: 出願者が出願後に基本情報（住所・電話番号等）の変更を申請する。
@@ -13,27 +14,7 @@ import { checkRateLimit, getClientIp } from "@/lib/security";
  * 承認/却下は /api/applications/[id]/change-requests/[reqId] (PATCH) で行う。
  */
 
-// ChangeRequest で許可するフィールド一覧。
-// Application カラム名そのままで、機密または進行管理用フィールドは含めない。
-const ALLOWED_FIELDS: Record<string, { label: string; type: "text" | "date" | "tel" | "email" | "select"; options?: string[] }> = {
-  lastName:        { label: "姓",                type: "text" },
-  firstName:       { label: "名",                type: "text" },
-  lastNameKana:    { label: "姓（カナ）",         type: "text" },
-  firstNameKana:   { label: "名（カナ）",         type: "text" },
-  birthDate:       { label: "生年月日",          type: "date" },
-  gender:          { label: "性別",              type: "select", options: ["男性", "女性", "その他"] },
-  nationality:     { label: "国籍",              type: "text" },
-  phone:           { label: "電話番号",          type: "tel" },
-  email:           { label: "メールアドレス",     type: "email" },
-  postalCode:      { label: "郵便番号",          type: "text" },
-  prefecture:      { label: "都道府県",          type: "text" },
-  city:            { label: "市区町村",          type: "text" },
-  address:         { label: "番地",              type: "text" },
-  addressDetail:   { label: "建物名・部屋番号",   type: "text" },
-  residenceStatus: { label: "在留資格",          type: "text" },
-  residenceExpiry: { label: "在留期限",          type: "date" },
-  japaneseLevel:   { label: "日本語レベル",       type: "select", options: ["N1", "N2", "N3", "N4", "N5", "なし"] },
-};
+// ALLOWED_FIELDS は lib/change-request-fields.ts に切り出し済み（route.ts から export 不可のため）
 
 export async function GET(
   request: NextRequest,
@@ -171,6 +152,3 @@ export async function OPTIONS() {
     fields: Object.entries(ALLOWED_FIELDS).map(([key, def]) => ({ key, ...def })),
   });
 }
-
-// 同一モジュール内で使う ALLOWED_FIELDS を [reqId]/route.ts からも参照したいので export
-export { ALLOWED_FIELDS };

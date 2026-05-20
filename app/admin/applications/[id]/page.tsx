@@ -788,6 +788,9 @@ export default function ApplicationDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [statusSaved, setStatusSaved] = useState(false);
   const [sendResultEmail, setSendResultEmail] = useState(true);
+  // ストッパー: 書類未提出 / 受験料未払いで「面接待ち」以降に進めようとした時の確認モーダル
+  const [statusIssues, setStatusIssues] = useState<string[] | null>(null);
+  const [statusOverrideReason, setStatusOverrideReason] = useState("");
 
   // Note
   const [newNote, setNewNote] = useState("");
@@ -996,7 +999,65 @@ export default function ApplicationDetailPage() {
     fetchApplication();
   }, [id, router]);
 
+  /**
+   * 「面接待ち」以降に進める時にチェックすべき問題を返す。空配列なら問題なし。
+   * - 必須提出書類が 1 件もアップロードされていない
+   * - 差し戻し中の書類が残っている
+   * - 選考費が「確認済」ではない
+   *
+   * ※ 補欠合格・不合格・辞退・保留 など最終ステータスは含めない（既に審査終了状態）。
+   * ※ 合格は審査終了に近いが、書類・支払いを確認した上で出すべきなのでチェック対象。
+   */
+  const getStatusTransitionIssues = (newStatus: string): string[] => {
+    if (!application) return [];
+    const GATED = new Set(["面接待ち", "合格", "補欠合格"]);
+    if (!GATED.has(newStatus)) return [];
+
+    const issues: string[] = [];
+
+    // 書類: 入学手続き_ 以外で 提出済 or 確認済 のもの
+    const submittedDocs = (application.documents || []).filter(
+      (d) => !d.docType.startsWith("入学手続き_") && (d.status === "提出済" || d.status === "確認済" || !d.status),
+    );
+    if (submittedDocs.length === 0) {
+      issues.push("出願書類が 1 件もアップロードされていません");
+    }
+
+    // 差し戻し中の書類
+    const rejectedDocs = (application.documents || []).filter(
+      (d) => d.status === "差し戻し" && !d.docType.startsWith("入学手続き_"),
+    );
+    if (rejectedDocs.length > 0) {
+      const types = rejectedDocs.map((d) => d.docType).join("、");
+      issues.push(`書類が ${rejectedDocs.length} 件 差し戻し中: ${types}`);
+    }
+
+    // 選考費
+    if (application.examFeeStatus !== "確認済") {
+      issues.push(`選考費が「${application.examFeeStatus || "未払い"}」のままです（「確認済」になっていません）`);
+    }
+
+    return issues;
+  };
+
   const handleStatusUpdate = async () => {
+    if (!application) return;
+
+    // 進行ステータスへの遷移は事前チェック
+    if (selectedStatus !== application.status) {
+      const issues = getStatusTransitionIssues(selectedStatus);
+      if (issues.length > 0) {
+        // モーダルを開く（実際の保存は handleStatusUpdateConfirmed が担当）
+        setStatusIssues(issues);
+        setStatusOverrideReason("");
+        return;
+      }
+    }
+    await handleStatusUpdateConfirmed(null);
+  };
+
+  /** ストッパーを通過 or 強制承認した後の本処理 */
+  const handleStatusUpdateConfirmed = async (overrideReason: string | null) => {
     if (!application) return;
     setSaving(true);
     try {
@@ -1012,8 +1073,26 @@ export default function ApplicationDetailPage() {
         setApplication((prev) => prev ? { ...prev, status: selectedStatus } : null);
         setStatusSaved(true);
         setTimeout(() => setStatusSaved(false), 3000);
-        // 操作ログ
-        fetch(`/api/applications/${id}`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:`[AUTO] ステータスを「${selectedStatus}」に変更しました`,isInternal:true})}).catch(()=>{});
+        setStatusIssues(null);
+        setStatusOverrideReason("");
+
+        // 操作ログ（強制実行時は理由も AdminNote として保存し学生公開）
+        if (overrideReason) {
+          fetch(`/api/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              addNote: `[AUTO] ステータスを「${selectedStatus}」に変更しました\n⚠️ ストッパー警告を承知の上で強制実行\n理由: ${overrideReason}`,
+              noteVisibleToStudent: false,
+            }),
+          }).catch(() => {});
+        } else {
+          fetch(`/api/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ addNote: `[AUTO] ステータスを「${selectedStatus}」に変更しました` }),
+          }).catch(() => {});
+        }
 
         // 合否通知メール送信
         if (needsResultEmail) {
@@ -2330,6 +2409,28 @@ export default function ApplicationDetailPage() {
                 </p>
               )}
 
+              {/* 進行ステータスへの遷移時に表示する事前チェック */}
+              {selectedStatus !== application.status && (() => {
+                const issues = getStatusTransitionIssues(selectedStatus);
+                if (issues.length === 0) return null;
+                return (
+                  <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <p className="text-xs font-bold text-amber-900 mb-1.5 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                      </svg>
+                      未完了項目があります
+                    </p>
+                    <ul className="text-[11px] text-amber-800 space-y-0.5 list-disc list-inside">
+                      {issues.map((i, idx) => <li key={idx}>{i}</li>)}
+                    </ul>
+                    <p className="text-[11px] text-amber-700 mt-1.5">
+                      このまま「{selectedStatus}」に変更しようとすると確認モーダルが開きます。
+                    </p>
+                  </div>
+                );
+              })()}
+
               <button
                 onClick={handleStatusUpdate}
                 disabled={saving || selectedStatus === application.status}
@@ -3030,6 +3131,87 @@ export default function ApplicationDetailPage() {
         </div>{/* end enrollment tab */}
 
       </main>
+
+      {/* ストッパー確認モーダル: 書類未提出 / 受験料未払いで進行ステータスにする時 */}
+      {statusIssues && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-5 border-b border-gray-100 bg-amber-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-amber-900">
+                    「{selectedStatus}」に進めますか？
+                  </h3>
+                  <p className="text-xs text-amber-800 mt-0.5">下記の未完了項目があります</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <ul className="space-y-2">
+                {statusIssues.map((issue, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                    <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span className="text-red-900">{issue}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-700">
+                <p className="font-bold mb-1">通常の運用フロー</p>
+                <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+                  <li>出願書類のアップロード確認</li>
+                  <li>差し戻し書類があれば再提出依頼</li>
+                  <li>選考費の入金確認 →「確認済」に更新</li>
+                  <li>以上が揃ってから「面接待ち」に変更</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="form-label">
+                  上記を承知の上で進める理由 <span className="form-required">*</span>
+                </label>
+                <textarea
+                  className="form-input min-h-[80px] text-sm"
+                  placeholder="例：書類は別途メールで受領済み / 選考費は来週入金予定のため事前に進める など"
+                  value={statusOverrideReason}
+                  onChange={(e) => setStatusOverrideReason(e.target.value)}
+                  maxLength={500}
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  この理由は内部メモとして保存され、後から監査可能になります。
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
+              <button
+                onClick={() => { setStatusIssues(null); setStatusOverrideReason(""); }}
+                disabled={saving}
+                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+              >キャンセル</button>
+              <button
+                onClick={() => {
+                  if (!statusOverrideReason.trim()) {
+                    toast("理由を入力してください", "warn");
+                    return;
+                  }
+                  handleStatusUpdateConfirmed(statusOverrideReason.trim());
+                }}
+                disabled={saving || !statusOverrideReason.trim()}
+                className="px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-bold rounded-lg"
+              >
+                {saving ? "処理中..." : "承知の上で進める"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

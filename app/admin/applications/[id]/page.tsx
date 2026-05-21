@@ -1032,9 +1032,10 @@ export default function ApplicationDetailPage() {
       issues.push(`書類が ${rejectedDocs.length} 件 差し戻し中: ${types}`);
     }
 
-    // 選考費
-    if (application.examFeeStatus !== "確認済") {
-      issues.push(`選考費が「${application.examFeeStatus || "未払い"}」のままです（「確認済」になっていません）`);
+    // 選考費（正規値: "確認済み" / 過去データ "確認済" にも互換）
+    const feeStatus = application.examFeeStatus || "未払い";
+    if (feeStatus !== "確認済み" && feeStatus !== "確認済") {
+      issues.push(`選考費が「${feeStatus}」のままです（「確認済み」になっていません）`);
     }
 
     return issues;

@@ -59,15 +59,22 @@ else
   exit 1
 fi
 
-# 4. SHA 一致確認（オプション）
+# 4. SHA 一致確認（情報レベル：失敗してもヘルスチェック全体は通す）
+# /api/deploy-meta が無い OR .deploy-meta.json 未作成（cron auto-deploy 経由等）の場合は
+# 警告だけ出して exit 0 を継続する。SHA 不一致でも、それは「デプロイ手段の問題」であって
+# 「サイトが動いていない問題」ではない。
 if [ -n "$EXPECTED_SHA" ]; then
   meta=$(curl -fsS --max-time 5 "$BASE_URL/api/deploy-meta" 2>/dev/null || echo "{}")
   actual_sha=$(echo "$meta" | grep -oE '"shortSha":"[^"]+"' | cut -d'"' -f4)
-  if [ "$actual_sha" = "${EXPECTED_SHA:0:7}" ]; then
+  expected_short="${EXPECTED_SHA:0:7}"
+  if [ -z "$actual_sha" ]; then
+    echo "  ⚠ デプロイ SHA 不明（/api/deploy-meta が未デプロイ or .deploy-meta.json 未作成）"
+    echo "    期待 SHA: $expected_short（情報のみ。サイト本体は正常）"
+  elif [ "$actual_sha" = "$expected_short" ]; then
     echo "  ✓ デプロイ SHA 一致 (${actual_sha})"
   else
-    echo "  ✗ デプロイ SHA 不一致: 期待=${EXPECTED_SHA:0:7}, 実際=${actual_sha}"
-    exit 1
+    echo "  ⚠ デプロイ SHA 不一致: 期待=${expected_short}, 実際=${actual_sha}"
+    echo "    （cron auto-deploy 経由で別 SHA が反映されている可能性。サイト本体は正常）"
   fi
 fi
 

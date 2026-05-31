@@ -40,16 +40,21 @@ export default defineConfig({
     // { name: "mobile-safari", use: { ...devices["iPhone 13"] } },
   ],
 
-  // ローカルテスト時は dev サーバーを自動起動
+  // ローカルテスト時は dev サーバーを自動起動。db push → admin seed → demo seed の順。
+  // テストが依存する admin / DEMO-* のデータを確実に作る。
   webServer: useLocalServer
     ? {
-        command: "npx prisma db push --skip-generate --accept-data-loss && npm run dev -- -p 3070",
+        command:
+          "npx prisma db push --skip-generate --accept-data-loss && " +
+          "npx tsx prisma/seed.ts && " +
+          "SEED_DEMO=1 npx tsx prisma/demo-seed.ts && " +
+          "npm run dev -- -p 3070",
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 180_000,
         env: {
           NODE_ENV: "development",
-          DATABASE_URL: "file:./test.db",
+          DATABASE_URL: "file:/tmp/senmon-playwright.db",
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef",
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef",
           NEXT_PUBLIC_BASE_URL: BASE_URL,

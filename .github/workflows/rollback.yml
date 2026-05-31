@@ -1,0 +1,79 @@
+name: Rollback
+
+# 手動トリガーのみ。GitHub UI の Actions タブから実行する。
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "ロールバック先のコミット SHA（空欄なら直前デプロイ）"
+        required: false
+        type: string
+      reason:
+        description: "ロールバック理由（監査ログに残る）"
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: VPS ロールバック実行
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL || 'http://160.16.132.198' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH 鍵セットアップ
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 現在の SHA を取得（ロールバック前）
+        id: current
+        run: |
+          PREV_SHA=$(ssh -i ~/.ssh/id_ed25519 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /srv/senmon/app && git rev-parse HEAD")
+          echo "prev_sha=$PREV_SHA" >> $GITHUB_OUTPUT
+          echo "ロールバック前 SHA: $PREV_SHA"
+
+      - name: VPS でロールバック実行
+        id: rollback
+        run: |
+          TARGET="${{ inputs.target_sha }}"
+          ssh -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=10 \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              "bash /srv/senmon/app/scripts/deploy/rollback.sh $TARGET"
+
+      - name: 外部ヘルスチェック
+        if: success()
+        run: |
+          chmod +x scripts/deploy/healthcheck.sh
+          BASE_URL="${{ vars.PRODUCTION_URL || 'http://160.16.132.198' }}" \
+            bash scripts/deploy/healthcheck.sh
+
+      - name: ロールバック結果サマリ
+        if: always()
+        run: |
+          NEW_SHA=$(ssh -i ~/.ssh/id_ed25519 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /srv/senmon/app && git rev-parse --short HEAD" 2>/dev/null || echo "?")
+          echo "## ロールバック結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 項目 | 値 |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| 旧 SHA | \`${{ steps.current.outputs.prev_sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 新 SHA | \`$NEW_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 理由 | ${{ inputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 実行者 | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.rollback.outcome }}" = "success" ]; then
+            echo "| 結果 | ✅ 成功 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 結果 | ❌ 失敗（緊急手動対応必要） |" >> $GITHUB_STEP_SUMMARY
+          fi

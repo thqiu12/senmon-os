@@ -40,17 +40,12 @@ test.describe("出願状況確認・再ログイン（軽量シナリオ）", ()
     await expect(link.first()).toBeVisible();
   });
 
-  test("/apply/status?applicationNo=...&email=... で自動入力される", async ({ page }) => {
+  test("/apply/status?applicationNo=...&email=... でアプリケーションが表示される", async ({ page }) => {
+    // URL パラメータ付きで開くと: 検索フォームに値が埋まる → 自動検索 → 結果表示
+    // という流れ。最終的には「DEMO-0001」がページのどこかに見えていれば成功。
     await page.goto("/apply/status?applicationNo=DEMO-0001&email=demo-0001%40example.com");
-    // 検索フォームに値がセットされていれば成功（自動ログイン or 自動検索）
-    const inputs = await page.locator('input').all();
-    let prefilled = false;
-    for (const input of inputs) {
-      const v = await input.inputValue();
-      if (v === "DEMO-0001" || v === "demo-0001@example.com") {
-        prefilled = true; break;
-      }
-    }
-    expect(prefilled).toBe(true);
+
+    // 自動検索完了を待つ（最大 10 秒）
+    await expect(page.getByText("DEMO-0001").first()).toBeVisible({ timeout: 10_000 });
   });
 });

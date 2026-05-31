@@ -60,7 +60,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Secrets 設定済みか確認（未設定なら早期スキップ）
+        id: precheck
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
+            {
+              echo "## ⚠️ デプロイ Secrets が未設定のためスキップ"
+              echo ""
+              echo "GitHub Actions から SSH デプロイするには 3 つの Secret が必要です:"
+              echo ""
+              echo "| Secret | 状態 |"
+              echo "|---|---|"
+              [ -z "$SSH_PRIVATE_KEY" ] && echo "| \`SSH_PRIVATE_KEY\` | ❌ 未設定 |" || echo "| \`SSH_PRIVATE_KEY\` | ✅ 設定済み |"
+              [ -z "$SSH_HOST" ]        && echo "| \`SSH_HOST\` | ❌ 未設定 |"        || echo "| \`SSH_HOST\` | ✅ 設定済み |"
+              [ -z "$SSH_USER" ]        && echo "| \`SSH_USER\` | ❌ 未設定 |"        || echo "| \`SSH_USER\` | ✅ 設定済み |"
+              echo ""
+              echo "### 設定方法"
+              echo ""
+              echo "1. ローカル Mac で SSH 鍵生成:"
+              echo "   \`\`\`"
+              echo "   ssh-keygen -t ed25519 -f ~/.ssh/senmon_deploy -N \"\""
+              echo "   \`\`\`"
+              echo ""
+              echo "2. 公開鍵を VPS の deploy ユーザーに登録:"
+              echo "   \`\`\`"
+              echo "   cat ~/.ssh/senmon_deploy.pub | ssh ubuntu@160.16.132.198 \\\\"
+              echo "     'sudo tee -a /home/deploy/.ssh/authorized_keys'"
+              echo "   \`\`\`"
+              echo ""
+              echo "3. GitHub Secrets 登録: <https://github.com/${{ github.repository }}/settings/secrets/actions>"
+              echo "   - \`SSH_PRIVATE_KEY\`: \`cat ~/.ssh/senmon_deploy\` の出力全体"
+              echo "   - \`SSH_HOST\`: \`160.16.132.198\`"
+              echo "   - \`SSH_USER\`: \`deploy\`"
+              echo ""
+              echo "詳細: \`CICD.md\`"
+              echo ""
+              echo "🛡 並行して動いている cron auto-deploy.sh が 1〜2 分以内に最新コミットを反映しますので、デプロイ自体は実行されています。"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::SSH_PRIVATE_KEY/SSH_HOST/SSH_USER が未設定。デプロイをスキップ（cron 経由のフォールバックは継続稼働中）"
+            echo "deploy_skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "deploy_skipped=false" >> "$GITHUB_OUTPUT"
+          echo "✓ 全 Secrets 設定済み、デプロイ開始"
+
       - name: SSH 鍵セットアップ
+        if: steps.precheck.outputs.deploy_skipped == 'false'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
@@ -69,6 +118,7 @@ jobs:
 
       - name: VPS でデプロイ実行
         id: deploy
+        if: steps.precheck.outputs.deploy_skipped == 'false'
         run: |
           ssh -i ~/.ssh/id_ed25519 \
               -o StrictHostKeyChecking=accept-new \
@@ -80,7 +130,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: 外部ヘルスチェック
-        if: success()
+        if: steps.precheck.outputs.deploy_skipped == 'false' && steps.deploy.outcome == 'success'
         run: |
           chmod +x scripts/deploy/healthcheck.sh
           BASE_URL="${{ vars.PRODUCTION_URL || 'http://160.16.132.198' }}" \
@@ -88,29 +138,31 @@ jobs:
             bash scripts/deploy/healthcheck.sh
 
       - name: デプロイ結果サマリ
-        if: always()
+        if: always() && steps.precheck.outputs.deploy_skipped == 'false'
         run: |
-          echo "## デプロイ結果" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| 項目 | 値 |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| ブランチ | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| コミット | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 実行者 | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | ${{ vars.PRODUCTION_URL || 'http://160.16.132.198' }} |" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.deploy.outcome }}" = "success" ]; then
-            echo "| 結果 | ✅ 成功 |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| 結果 | ❌ 失敗（前バージョンで稼働継続 or 自動ロールバック済み）|" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "確認: \`ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} tail -60 /srv/senmon/backup/ci-deploy.log\`" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "## デプロイ結果"
+            echo ""
+            echo "| 項目 | 値 |"
+            echo "|---|---|"
+            echo "| ブランチ | \`${{ github.ref_name }}\` |"
+            echo "| コミット | \`${{ github.sha }}\` |"
+            echo "| 実行者 | ${{ github.actor }} |"
+            echo "| URL | ${{ vars.PRODUCTION_URL || 'http://160.16.132.198' }} |"
+            if [ "${{ steps.deploy.outcome }}" = "success" ]; then
+              echo "| 結果 | ✅ 成功 |"
+            else
+              echo "| 結果 | ❌ 失敗（前バージョンで稼働継続 or 自動ロールバック済み）|"
+              echo ""
+              echo "確認: \`ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} tail -60 /srv/senmon/backup/ci-deploy.log\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  # ---------------- デプロイ失敗時の通知（PR 等にコメント） ----------------
+  # ---------------- デプロイ失敗時の通知 ----------------
   notify-failure:
     name: 失敗通知
     needs: [test, deploy]
-    if: failure()
+    if: failure() && needs.test.result != 'skipped'
     runs-on: ubuntu-latest
     steps:
       - name: 失敗ステップを集約

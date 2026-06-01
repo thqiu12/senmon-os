@@ -91,6 +91,10 @@ if git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | grep -qE "^(package(-lock)?
   fi
 fi
 
+# ----- クリーンビルド (.next のキャッシュ起因の CSS 崩壊を防止) -----
+log "古い .next を削除"
+rm -rf .next 2>>"$LOG"
+
 # ----- ビルド -----
 log "Next.js ビルド中..."
 if ! NODE_OPTIONS="--max-old-space-size=1536" npm run build >> "$LOG" 2>&1; then
@@ -98,6 +102,17 @@ if ! NODE_OPTIONS="--max-old-space-size=1536" npm run build >> "$LOG" 2>&1; then
   exit 1
 fi
 log "✓ ビルド成功"
+
+# ----- ビルド成果物の検証 (CSS ファイルが正しく生成されているか) -----
+CSS_COUNT=$(find .next/static/css -name "*.css" 2>/dev/null | wc -l | tr -d ' ')
+if [ "${CSS_COUNT:-0}" -lt 1 ]; then
+  log "ERROR: .next/static/css に CSS ファイルが無い → ビルド破損とみなしリロード中止"
+  exit 1
+fi
+log "✓ CSS ファイル ${CSS_COUNT} 件を確認"
+
+# ファイルシステムの flush を待つ（NFSや遅延書き込み対策）
+sync
 
 # ----- PM2 reload（zero-downtime） -----
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
@@ -109,12 +124,24 @@ else
 fi
 pm2 save >> "$LOG" 2>&1
 
-# ----- ヘルスチェック -----
+# ----- ヘルスチェック (API + CSS 到達性の両方) -----
 sleep 3
+HEALTH_OK=0
+CSS_OK=0
 if curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok"'; then
-  log "✓ ヘルスチェック OK ($(curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | head -c 100))"
+  HEALTH_OK=1
+fi
+# トップページから CSS パスを抽出して実際に取得できるか確認
+CSS_PATH=$(curl -fsS http://127.0.0.1:3000/ 2>/dev/null | grep -oE '/_next/static/css/[^"]+\.css' | head -1)
+if [ -n "$CSS_PATH" ] && curl -fsS "http://127.0.0.1:3000${CSS_PATH}" >/dev/null 2>&1; then
+  CSS_OK=1
+fi
+
+if [ "$HEALTH_OK" = "1" ] && [ "$CSS_OK" = "1" ]; then
+  log "✓ ヘルスチェック OK (API + CSS 両方到達)"
 else
-  log "WARN: ヘルスチェック失敗。pm2 logs $APP_NAME を確認してください"
+  log "WARN: ヘルスチェック異常 — API=$HEALTH_OK CSS=$CSS_OK (パス: $CSS_PATH)"
+  log "      → ブラウザの hard reload (Cmd+Shift+R) を試すか、ログを確認してください"
 fi
 
 log "デプロイ完了 → $(git rev-parse --short HEAD)"

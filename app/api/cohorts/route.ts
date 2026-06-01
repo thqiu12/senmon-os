@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const cohort = await prisma.cohort.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         name: body.name,
         updatedAt: new Date(),
         description: body.description || null,

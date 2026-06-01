@@ -105,3 +105,16 @@ export function escapeCsv(value: string | number | boolean | null | undefined): 
   }
   return str;
 }
+
+/** メールアドレスの形式チェック */
+export function isValidEmail(email: string): boolean {
+  return typeof email === "string" && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/** 電話番号の形式チェック（記号を除いて6〜15桁の数字） */
+export function isValidPhone(phone: string): boolean {
+  if (typeof phone !== "string") return false;
+  const cleaned = phone.replace(/[\s\-()]/g, "");
+  return /^\+?\d{6,15}$/.test(cleaned);
+}
+

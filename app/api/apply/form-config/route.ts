@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
         const exists = await prisma.formFieldConfig.findFirst({ where: { fieldKey: f.fieldKey, schoolId: null } });
         if (!exists) {
           await prisma.formFieldConfig.create({
-            data: { id: require("crypto").randomUUID(), fieldKey: f.fieldKey, label: f.label, section: f.section, isEnabled: true, isRequired: f.isRequired, displayOrder: f.displayOrder, fieldType: f.fieldType, schoolId: null, updatedAt: new Date() },
+            data: { id: crypto.randomUUID(), fieldKey: f.fieldKey, label: f.label, section: f.section, isEnabled: true, isRequired: f.isRequired, displayOrder: f.displayOrder, fieldType: f.fieldType, schoolId: null, updatedAt: new Date() },
           });
         }
       }

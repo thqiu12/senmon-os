@@ -1,4 +1,5 @@
 import { getSession, isAdmin } from "@/lib/auth";
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const feedback = await prisma.interviewFeedback.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         applicationId: body.applicationId,
         updatedAt: new Date(),
         interviewerId: body.interviewerId || null,

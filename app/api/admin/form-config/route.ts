@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.formFieldConfig.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         fieldKey,
         label,
         section: section || "個人情報",
@@ -192,7 +193,7 @@ export async function PUT(request: NextRequest) {
             return prisma.formFieldConfig.update({ where: { id: existing.id }, data: updateData });
           }
           return prisma.formFieldConfig.create({
-            data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, updatedAt: new Date(), ...updateData },
+            data: { id: crypto.randomUUID(), fieldKey: item.fieldKey, schoolId, updatedAt: new Date(), ...updateData },
           });
         });
       })

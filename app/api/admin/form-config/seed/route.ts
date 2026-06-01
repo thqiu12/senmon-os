@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await prisma.formFieldConfig.createMany({
-      data: seedData.map(f => ({ id: require("crypto").randomUUID(), ...f, schoolId, updatedAt: new Date() })),
+      data: seedData.map(f => ({ id: crypto.randomUUID(), ...f, schoolId, updatedAt: new Date() })),
     });
 
     return NextResponse.json(

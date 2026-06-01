@@ -182,7 +182,7 @@ function MyPageContent({ studentNo, email, onLogout }: { studentNo: string; emai
       const res = await fetch("/api/student-portal/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: data.student.id, message: chatInput }),
+        body: JSON.stringify({ studentNo, email, message: chatInput }),
       });
       if (res.ok) {
         const newMsg = await res.json();
@@ -200,7 +200,7 @@ function MyPageContent({ studentNo, email, onLogout }: { studentNo: string; emai
     if (leaveFile) {
       const fd = new FormData();
       fd.append("file", leaveFile);
-      fd.append("applicationNo", studentNo); // 仮置き（後でstudentNo対応）
+      fd.append("studentNo", studentNo);
       fd.append("email", email);
       fd.append("docType", "欠席証明書");
       const upRes = await fetch("/api/upload", { method: "POST", body: fd });

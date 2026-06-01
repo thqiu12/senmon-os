@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
+import { generateApplicationNo, buildApplicationNo, isValidEmail, isValidPhone } from "@/lib/utils";
 import { getSession, isAdmin, checkRateLimit } from "@/lib/auth";
 
 // 学生へ出願番号確認メール送信
@@ -305,6 +306,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 形式チェック
+    if (!isValidEmail(body.email)) {
+      return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
+    }
+    if (!isValidPhone(body.phone)) {
+      return NextResponse.json({ error: "電話番号の形式が正しくありません" }, { status: 400 });
+    }
+
+    // 文字列フィールドの最大長を制限（巨大データの保存・濫用を防止）
+    const LIMITS: Record<string, number> = {
+      lastName: 100, firstName: 100, lastNameKana: 100, firstNameKana: 100,
+      nationality: 100, postalCode: 20, prefecture: 50, city: 100,
+      address: 200, addressDetail: 200, residenceStatus: 100, residenceExpiry: 50,
+      schoolName: 200, department: 200, course: 200, applicationReason: 5000,
+      lastSchoolName: 200, lastSchoolCountry: 100, lastSchoolGraduate: 100,
+      workExperience: 5000, referrerName: 100,
+    };
+    for (const [field, max] of Object.entries(LIMITS)) {
+      const v = body[field];
+      if (typeof v === "string" && v.length > max) {
+        return NextResponse.json(
+          { error: `${field} が長すぎます（最大${max}文字）` },
+          { status: 400 }
+        );
+      }
+    }
+
     // デフォルトバッチを取得して申請番号を採番
     let applicationNo: string;
     let cohortId: string | null = null;
@@ -331,7 +359,7 @@ export async function POST(request: NextRequest) {
 
     const application = await prisma.application.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         applicationNo,
         cohortId,
         status: submittedStatus,
@@ -372,7 +400,7 @@ export async function POST(request: NextRequest) {
         applicationSchools: {
           create: [
             {
-              id: require("crypto").randomUUID(),
+              id: crypto.randomUUID(),
               priority: 1,
               schoolName: body.schoolName,
               department: body.department,
@@ -385,7 +413,7 @@ export async function POST(request: NextRequest) {
             ...((body.additionalSchools ?? []) as Array<{
               schoolName: string; department: string; course?: string;
             }>).map((s, idx) => ({
-              id: require("crypto").randomUUID(),
+              id: crypto.randomUUID(),
               priority: idx + 2,
               schoolName: s.schoolName,
               department: s.department,

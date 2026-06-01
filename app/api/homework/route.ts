@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
     const hw = await prisma.homework.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         subjectId: body.subjectId,
         updatedAt: new Date(),
         title: body.title,

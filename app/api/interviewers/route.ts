@@ -1,4 +1,5 @@
 import { getSession, isAdmin } from "@/lib/auth";
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     if (!body.name) return NextResponse.json({ error: "氏名は必須です" }, { status: 400 });
     const interviewer = await prisma.interviewer.create({
-      data: { id: require("crypto").randomUUID(), name: body.name, role: body.role || null, email: body.email || null },
+      data: { id: crypto.randomUUID(), name: body.name, role: body.role || null, email: body.email || null },
     });
     return NextResponse.json(interviewer, { status: 201 });
   } catch (e) {

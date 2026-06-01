@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       if (!ownership.valid) return NextResponse.json({ error: "認証に失敗しました" }, { status: 401 });
     }
     const leave = await prisma.leaveRequest.create({
-      data: { id: require("crypto").randomUUID(), studentId, type, startDate, endDate, reason, status: "申請中", updatedAt: new Date() },
+      data: { id: crypto.randomUUID(), studentId, type, startDate, endDate, reason, status: "申請中", updatedAt: new Date() },
     });
     return NextResponse.json(leave, { status: 201 });
   } catch (e) {

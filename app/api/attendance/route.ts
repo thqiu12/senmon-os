@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
           },
         },
         create: {
-          id: require("crypto").randomUUID(),
+          id: crypto.randomUUID(),
           studentId: r.studentId,
           subjectId: r.subjectId,
           timetableSlotId: r.timetableSlotId || null,

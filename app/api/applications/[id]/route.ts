@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 
@@ -147,7 +148,7 @@ export async function PATCH(
         ]);
         await prisma.enrollmentProcedure.create({
           data: {
-            id: require("crypto").randomUUID(),
+            id: crypto.randomUUID(),
             applicationId: params.id,
             instructions: "おめでとうございます！入学手続きを以下の手順で完了してください。\n\n① 学費をお振込みください\n② 必要書類をアップロードしてください\n③ 入学誓約書に電子署名してください\n④ すべて完了したら「手続き完了を報告する」ボタンを押してください\n\nご不明な点は入学相談室（平日9:00〜17:00）までお問い合わせください。",
             status: "案内済み",
@@ -177,7 +178,7 @@ export async function PATCH(
     if (addNote) {
       await prisma.adminNote.create({
         data: {
-          id: require("crypto").randomUUID(),
+          id: crypto.randomUUID(),
           applicationId: params.id,
           content: addNote,
           author: "管理者",

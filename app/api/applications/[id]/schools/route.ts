@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 
@@ -22,7 +23,7 @@ export async function POST(
     const school = await prisma.applicationSchool.upsert({
       where: { applicationId_priority: { applicationId: params.id, priority: priority || 1 } },
       update: { schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null },
-      create: { id: require("crypto").randomUUID(), applicationId: params.id, priority: priority || 1, schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null, updatedAt: new Date() },
+      create: { id: crypto.randomUUID(), applicationId: params.id, priority: priority || 1, schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null, updatedAt: new Date() },
     });
 
     return NextResponse.json(school, { status: 201 });

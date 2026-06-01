@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
 
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const signature = await prisma.enrollmentSignature.upsert({
       where: { applicationId: ownership.applicationId! },
-      create: { id: require("crypto").randomUUID(), applicationId: ownership.applicationId!, signatureData, signerName: signerName.trim(), signedAt: new Date() },
+      create: { id: crypto.randomUUID(), applicationId: ownership.applicationId!, signatureData, signerName: signerName.trim(), signedAt: new Date() },
       update: { signatureData, signerName: signerName.trim(), signedAt: new Date() },
     });
 

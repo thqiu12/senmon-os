@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { verifyStudentOwnership, checkRateLimit } from "@/lib/auth";
 
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 });
       }
       const leave = await prisma.leaveRequest.create({
-        data: { id: require("crypto").randomUUID(), studentId: student.id, type, startDate, endDate, reason, status: "申請中",
+        data: { id: crypto.randomUUID(), studentId: student.id, type, startDate, endDate, reason, status: "申請中",
           proofFilePath: proofFilePath || null, updatedAt: new Date() },
       });
       return NextResponse.json({ success: true, leave });
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
       const { type, purpose, copies } = body;
       if (!type) return NextResponse.json({ error: "証明書種別が必要です" }, { status: 400 });
       const cert = await prisma.certificateRequest.create({
-        data: { id: require("crypto").randomUUID(), studentId: student.id, type, purpose: purpose || null, copies: copies || 1, status: "申請中", updatedAt: new Date() },
+        data: { id: crypto.randomUUID(), studentId: student.id, type, purpose: purpose || null, copies: copies || 1, status: "申請中", updatedAt: new Date() },
       });
       return NextResponse.json({ success: true, cert });
     }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
     const procedure = await prisma.enrollmentProcedure.upsert({
       where: { applicationId },
       create: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         applicationId,
         ...data,
         status: publish ? "案内済み" : "未開始",

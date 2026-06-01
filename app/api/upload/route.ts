@@ -9,6 +9,16 @@ import { docPhysicalPath, docDownloadUrl, STORAGE_ROOT } from "@/lib/storage";
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || "10") * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
+// マジックバイト（先頭シグネチャ）で実体を検証する。
+// Content-Type はクライアントが詐称できるため、これだけに依存しない。
+function sniffMime(buf: Buffer): string | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.length >= 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  if (buf.length >= 5 && buf.toString("ascii", 0, 5) === "%PDF-") return "application/pdf";
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   // レートリミット（IP単位: 1分20ファイルまで）
   const ip = request.headers.get("x-forwarded-for") || "unknown";
@@ -21,6 +31,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
     const applicationId = formData.get("applicationId") as string;
     const applicationNo = formData.get("applicationNo") as string;
+    const studentNo = formData.get("studentNo") as string;
     const email = formData.get("email") as string;
     const docType = formData.get("docType") as string;
 
@@ -42,8 +53,19 @@ export async function POST(request: NextRequest) {
     if (isAdmin(session)) {
       // 管理者：applicationId 直接指定
       if (!applicationId) return NextResponse.json({ error: "applicationIdが必要です" }, { status: 400 });
+    } else if (studentNo) {
+      // 在籍学生：studentNo + email で本人確認し、紐づく出願に保存
+      if (!email) return NextResponse.json({ error: "emailが必要です" }, { status: 400 });
+      const student = await prisma.student.findFirst({
+        where: { studentNo, email },
+        select: { applicationId: true },
+      });
+      if (!student?.applicationId) {
+        return NextResponse.json({ error: "在籍情報が見つかりません" }, { status: 404 });
+      }
+      resolvedApplicationId = student.applicationId;
     } else {
-      // 学生：applicationNo + email で本人確認
+      // 出願者：applicationNo + email で本人確認
       if (!applicationNo || !email) {
         return NextResponse.json({ error: "applicationNoとemailが必要です" }, { status: 400 });
       }
@@ -69,8 +91,18 @@ export async function POST(request: NextRequest) {
     const fileName = `${timestamp}_${safeName}`;
     const physicalPath = docPhysicalPath(resolvedApplicationId, fileName);
 
-    const bytes = await file.arrayBuffer();
-    await writeFile(physicalPath, Buffer.from(bytes));
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // マジックバイト検証：宣言された Content-Type と実体が一致しない場合は拒否
+    const sniffed = sniffMime(buffer);
+    if (!sniffed || sniffed !== file.type) {
+      return NextResponse.json(
+        { error: "ファイルの内容が不正です（JPEG/PNG/WebP/PDFのみ）" },
+        { status: 400 }
+      );
+    }
+
+    await writeFile(physicalPath, buffer);
 
     // filePath には公開静的パスではなく、認証付きダウンロードURLを保存する
     const docId = crypto.randomUUID();

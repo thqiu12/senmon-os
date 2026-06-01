@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession, isAdmin } from "@/lib/auth";
 
 // POST /api/applications/:id/submit
 // 学生が出願を最終提出（書類待ち → 受付中）するためのエンドポイント
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const body = await request.json().catch(() => ({} as { email?: string }));
+    const email = body?.email;
+
     const application = await prisma.application.findUnique({
       where: { id: params.id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, email: true },
     });
 
     if (!application) {
       return NextResponse.json({ error: "出願が見つかりません" }, { status: 404 });
+    }
+
+    // 本人確認：管理者、またはメールアドレス一致の本人のみ提出可能
+    const session = await getSession(request);
+    if (!isAdmin(session) && (!email || application.email !== email)) {
+      return NextResponse.json({ error: "アクセスが拒否されました" }, { status: 403 });
     }
 
     if (application.status !== "書類待ち") {

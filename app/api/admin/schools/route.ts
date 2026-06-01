@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
     const school = await prisma.applySchool.create({
       data: {
-        id: require("crypto").randomUUID(),
+        id: crypto.randomUUID(),
         schoolKey,
         name,
         hojin,

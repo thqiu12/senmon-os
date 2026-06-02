@@ -1693,7 +1693,7 @@ function ApplyPageInner() {
       const res = await fetch(`/api/applications/${applicationId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email }),
+        body: JSON.stringify({ email: form.email, consent }),
       });
       if (!res.ok) {
         const d = await res.json();

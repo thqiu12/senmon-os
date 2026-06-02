@@ -108,6 +108,7 @@ model Application {
   status          String   @default("受付中") // 受付中/書類確認中/面接待ち/合格/不合格/保留
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  consentAt       DateTime? // 個人情報取扱いへの同意日時（最終提出時に記録）
 
   // 選考バッチ
   cohortId        String?

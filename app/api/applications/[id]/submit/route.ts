@@ -9,12 +9,13 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json().catch(() => ({} as { email?: string }));
+    const body = await request.json().catch(() => ({} as { email?: string; consent?: boolean }));
     const email = body?.email;
+    const consent = body?.consent === true;
 
     const application = await prisma.application.findUnique({
       where: { id: params.id },
-      select: { id: true, status: true, email: true },
+      select: { id: true, status: true, email: true, consentAt: true },
     });
 
     if (!application) {
@@ -23,8 +24,17 @@ export async function POST(
 
     // 本人確認：管理者、またはメールアドレス一致の本人のみ提出可能
     const session = await getSession(request);
-    if (!isAdmin(session) && (!email || application.email !== email)) {
+    const admin = isAdmin(session);
+    if (!admin && (!email || application.email !== email)) {
       return NextResponse.json({ error: "アクセスが拒否されました" }, { status: 403 });
+    }
+
+    // 個人情報取扱いへの同意（申請者本人の提出時は必須）。サーバ側でも強制する。
+    if (!admin && !consent && !application.consentAt) {
+      return NextResponse.json(
+        { error: "個人情報の取扱いへの同意が必要です" },
+        { status: 400 }
+      );
     }
 
     if (application.status !== "書類待ち") {
@@ -36,7 +46,11 @@ export async function POST(
 
     const updated = await prisma.application.update({
       where: { id: params.id },
-      data: { status: "受付中" },
+      data: {
+        status: "受付中",
+        // 同意日時を記録（未記録かつ同意ありの場合）
+        ...(!application.consentAt && consent ? { consentAt: new Date() } : {}),
+      },
       select: { id: true, applicationNo: true, status: true },
     });
 

@@ -1,0 +1,21 @@
+# Caddy による HTTPS 終端（証明書を自動取得・更新する最も簡単な方法）
+# 使い方:
+#   1) DNS の A レコードを このサーバIP に向ける（例: nyuugaku.hirai-gakuen.ac.jp）
+#   2) 下のドメインを自分のものに変更
+#   3) caddy run --config ops/Caddyfile  （または systemd で常駐）
+#
+# Caddy が Let's Encrypt から証明書を自動取得し、:443 で待受、Next(:3000) へプロキシする。
+
+nyuugaku.hirai-gakuen.ac.jp {
+	encode zstd gzip
+
+	# アップロード上限（書類10MB想定 + 余裕）
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

@@ -1,0 +1,33 @@
+# Nginx + Let's Encrypt(certbot) で HTTPS 終端する場合の例。
+# 証明書取得:  certbot --nginx -d nyuugaku.hirai-gakuen.ac.jp
+# 取得後、certbot が 443 設定を自動で追記することも多い。以下は手動例。
+
+server {
+    listen 80;
+    server_name nyuugaku.hirai-gakuen.ac.jp;
+    # HTTP は HTTPS へリダイレクト
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name nyuugaku.hirai-gakuen.ac.jp;
+
+    ssl_certificate     /etc/letsencrypt/live/nyuugaku.hirai-gakuen.ac.jp/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/nyuugaku.hirai-gakuen.ac.jp/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # 書類アップロード上限
+    client_max_body_size 20m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+    }
+}

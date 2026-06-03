@@ -8,6 +8,9 @@ import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { ENV } from "@/lib/env";
 import { DocTypeEnum } from "@/lib/schemas";
+import { FILE_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
+
+const DEFAULT_FILE_LABELS = new Set(FILE_FIELD_DEFAULTS.map((f) => f.label));
 
 const MAX_FILE_SIZE = ENV.MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -36,23 +39,42 @@ export async function POST(request: NextRequest) {
     if (!file) return NextResponse.json({ error: "ファイルが選択されていません" }, { status: 400 });
     if (!docTypeRaw) return NextResponse.json({ error: "書類種別が必要です" }, { status: 400 });
 
-    // 入学手続きで使う書類は cohort 別チェックリストから動的に来るため、
-    // "入学手続き_" 接頭辞 + 0〜100 文字の表示名 を許可（白名單パターン）。
-    // 出願段階の書類は従来通り DocTypeEnum で厳密チェック。
+    // docType の許可判定:
+    //  1) DocTypeEnum (定型)            … 出願標準書類
+    //  2) "入学手続き_" 接頭辞 (動的)    … cohort 別チェックリスト
+    //  3) FormFieldConfig.fieldType=file の label と一致 (動的)
+    //     … admin が /admin/form-config で追加した任意の添付欄
+    //
+    // いずれにも該当しない場合は 400。
+    // 文字数・パストラバーサル等の安全チェックは共通で施す。
+    if (docTypeRaw.length === 0 || docTypeRaw.length > 100 || /[\/\\\x00-\x1F]/.test(docTypeRaw)) {
+      return NextResponse.json({ error: "書類種別の名称が不正です" }, { status: 400 });
+    }
+
     let docType: string;
-    if (docTypeRaw.startsWith("入学手続き_")) {
+    const docTypeParsed = DocTypeEnum.safeParse(docTypeRaw);
+    if (docTypeParsed.success) {
+      docType = docTypeParsed.data;
+    } else if (docTypeRaw.startsWith("入学手続き_")) {
       const suffix = docTypeRaw.slice("入学手続き_".length);
-      // 空文字や過剰に長いものは弾く + パストラバーサル等の危険文字を拒否
-      if (suffix.length === 0 || suffix.length > 100 || /[\/\\\x00-\x1F]/.test(suffix)) {
+      if (suffix.length === 0) {
         return NextResponse.json({ error: "書類種別の名称が不正です" }, { status: 400 });
       }
       docType = docTypeRaw;
+    } else if (DEFAULT_FILE_LABELS.has(docTypeRaw)) {
+      // 既定の添付欄（証明写真・出席証明書 等）
+      docType = docTypeRaw;
     } else {
-      const docTypeParsed = DocTypeEnum.safeParse(docTypeRaw);
-      if (!docTypeParsed.success) {
+      // 動的フォーム設定の file 欄ラベルを許可するか判定
+      // ※ DB に該当 label のファイル欄が無ければ拒否（オープン許可ではない）
+      const configured = await prisma.formFieldConfig.findFirst({
+        where: { fieldType: "file", label: docTypeRaw, isEnabled: true },
+        select: { id: true },
+      });
+      if (!configured) {
         return NextResponse.json({ error: "書類種別が不正です" }, { status: 400 });
       }
-      docType = docTypeParsed.data;
+      docType = docTypeRaw;
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -133,18 +155,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // filePath は認証付きダウンロードルートを指す。
+    // UPLOAD_DIR が public/ の外にあっても到達可能。
+    // ※ doc.id を埋め込むため一度作って即 update する（2 ステップ）。
     const document = await prisma.document.create({
       data: {
         applicationId: resolvedApplicationId,
         docType,
         fileName,
         originalName: file.name.slice(0, 255),
-        filePath: `/uploads/${resolvedApplicationId}/${fileName}`,
+        filePath: "", // 直後に確定
         fileSize: file.size,
         mimeType: sniffed.mime,
         status: "提出済", // 再アップロード時は提出済に戻す（差し戻し解除）
       },
     });
+    const downloadUrl = `/api/documents/${document.id}/file`;
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { filePath: downloadUrl },
+    });
+    document.filePath = downloadUrl;
 
     return NextResponse.json({
       success: true,

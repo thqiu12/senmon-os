@@ -91,6 +91,13 @@ if git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | grep -qE "^(package(-lock)?
   fi
 fi
 
+# ----- 一回限りのデータ移行（冪等） -----
+# Document.filePath を新フォーマット (/api/documents/<id>/file) に揃える
+if [ -f scripts/migrate-document-filePath.ts ]; then
+  log "Document.filePath 移行スクリプト実行（冪等）"
+  npx ts-node scripts/migrate-document-filePath.ts >> "$LOG" 2>&1 || log "WARN: 移行スクリプトでエラー（手動確認推奨）"
+fi
+
 # ロールバック用に直前のコミットを記録（CSS 失敗時に戻す）
 ROLLBACK_SHA="$LOCAL_SHA"
 

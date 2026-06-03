@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: ["chore/security-hardening", "main"]
+    branches: ["chore/security-hardening", "main", "master"]
   workflow_dispatch:
     inputs:
       skip_tests:

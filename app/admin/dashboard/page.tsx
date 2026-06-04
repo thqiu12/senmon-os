@@ -308,38 +308,80 @@ export default function AdminDashboard() {
 
       <div className="max-w-screen-2xl">
 
-        {/* ===== Stats カード（全量データ） ===== */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3 mb-6">
-          {/* 全申請 */}
+        {/* ===== Hero スタッツ（4枚、wsdb 風） ===== */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div
-            className={`card cursor-pointer transition-all hover:shadow-md ${statusFilter === "all" && !todayOnly ? "ring-2 ring-navy-600" : ""}`}
+            className={`wsdb-stat ${statusFilter === "all" && !todayOnly ? "active" : ""}`}
             onClick={() => { setStatusFilter("all"); setTodayOnly(false); setPage(1); }}
           >
-            <p className="text-xs text-gray-500 mb-1">全申請</p>
-            <p className="text-2xl font-bold text-navy-800">{globalStats?.total ?? "—"}</p>
+            <div className="wsdb-stat-body">
+              <div className="wsdb-stat-label">全申請</div>
+              <div className="wsdb-stat-value">{globalStats?.total ?? "—"}</div>
+              <div className="wsdb-stat-sub">累計</div>
+            </div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-blue">📋</div>
           </div>
-          {/* 今日 */}
           <div
-            className={`card cursor-pointer transition-all hover:shadow-md ${todayOnly ? "ring-2 ring-orange-400" : ""}`}
+            className={`wsdb-stat ${todayOnly ? "active" : ""}`}
             onClick={() => { setTodayOnly(v => !v); setPage(1); }}
           >
-            <p className="text-xs text-gray-500 mb-1">📅 今日</p>
-            <p className="text-2xl font-bold text-orange-500">{globalStats?.todayCount ?? "—"}</p>
-          </div>
-          {/* ステータス別 */}
-          {STATUSES.slice(1).map((s) => (
-            <div
-              key={s}
-              className={`card cursor-pointer transition-all hover:shadow-md ${statusFilter === s && !todayOnly ? "ring-2 ring-navy-600" : ""}`}
-              onClick={() => { setStatusFilter(s); setTodayOnly(false); setPage(1); }}
-            >
-              <p className="text-xs text-gray-500 mb-1">{s}</p>
-              <p className="text-2xl font-bold text-navy-800">
-                {globalStats?.statusCounts[s] ?? 0}
-              </p>
-              <span className={`status-badge mt-1 ${getStatusStyle(s)}`}>{s}</span>
+            <div className="wsdb-stat-body">
+              <div className="wsdb-stat-label">今日の申請</div>
+              <div className="wsdb-stat-value">{globalStats?.todayCount ?? "—"}</div>
+              <div className="wsdb-stat-sub">直近24時間</div>
             </div>
-          ))}
+            <div className="wsdb-stat-icon wsdb-stat-icon-amber">📅</div>
+          </div>
+          <div
+            className={`wsdb-stat ${["受付中", "書類確認中", "面接待ち"].includes(statusFilter) ? "active" : ""}`}
+            onClick={() => { setStatusFilter("面接待ち"); setTodayOnly(false); setPage(1); }}
+          >
+            <div className="wsdb-stat-body">
+              <div className="wsdb-stat-label">進行中</div>
+              <div className="wsdb-stat-value">
+                {(globalStats?.statusCounts["受付中"] ?? 0) +
+                 (globalStats?.statusCounts["書類確認中"] ?? 0) +
+                 (globalStats?.statusCounts["面接待ち"] ?? 0)}
+              </div>
+              <div className="wsdb-stat-sub">受付 + 書類 + 面接</div>
+            </div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-purple">🗣</div>
+          </div>
+          <div
+            className={`wsdb-stat ${statusFilter === "合格" ? "active" : ""}`}
+            onClick={() => { setStatusFilter("合格"); setTodayOnly(false); setPage(1); }}
+          >
+            <div className="wsdb-stat-body">
+              <div className="wsdb-stat-label">合格</div>
+              <div className="wsdb-stat-value">{globalStats?.statusCounts["合格"] ?? 0}</div>
+              <div className="wsdb-stat-sub">合格確定</div>
+            </div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-green">✓</div>
+          </div>
+        </div>
+
+        {/* ===== ステータス別フィルター（ピル） ===== */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          {STATUSES.slice(1).map((s) => {
+            const count = globalStats?.statusCounts[s] ?? 0;
+            const isActive = statusFilter === s && !todayOnly;
+            return (
+              <button
+                key={s}
+                onClick={() => { setStatusFilter(isActive ? "all" : s); setTodayOnly(false); setPage(1); }}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                  isActive
+                    ? "bg-accent text-white border-accent"
+                    : "bg-white text-ink border-line hover:bg-soft"
+                }`}
+              >
+                {s}
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  isActive ? "bg-white/20" : "bg-soft"
+                }`}>{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ===== 定員サマリー ===== */}

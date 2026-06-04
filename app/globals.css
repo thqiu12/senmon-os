@@ -139,23 +139,49 @@ body {
   /* ─── wsdb 風カード ─────────────────────────────────────── */
   .wsdb-card {
     @apply bg-white rounded-wsdb p-5;
-    border: 1px solid var(--tw-color-line, #dde6eb);
+    border: 1px solid #dde6eb;
     box-shadow: 0 1px 2px rgba(12, 22, 30, .04);
   }
-  .wsdb-stat-card {
-    @apply wsdb-card flex items-center justify-between gap-3;
+
+  /* スタッツカード：左ラベル+大数値 / 右にアイコン丸 (wsdb 入管報告の見た目) */
+  .wsdb-stat {
+    @apply bg-white rounded-wsdb px-5 py-4 cursor-pointer transition-all;
+    border: 1px solid #dde6eb;
+    box-shadow: 0 1px 2px rgba(12, 22, 30, .04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .wsdb-stat:hover {
+    box-shadow: 0 6px 18px rgba(12, 22, 30, .08);
+    transform: translateY(-1px);
+  }
+  .wsdb-stat.active {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  }
+  .wsdb-stat-body {
+    @apply min-w-0 flex-1;
   }
   .wsdb-stat-label {
-    @apply text-xs text-muted font-semibold;
+    @apply text-[11px] text-muted font-bold uppercase tracking-wide;
   }
   .wsdb-stat-value {
-    @apply text-3xl font-extrabold text-ink mt-1;
+    @apply text-[28px] font-extrabold text-ink leading-none mt-1.5;
+  }
+  .wsdb-stat-sub {
+    @apply text-[11px] text-muted mt-1.5;
   }
   .wsdb-stat-icon {
-    @apply w-10 h-10 rounded-wsdb flex items-center justify-center text-base;
-    background: #eef4f7;
-    color: #2563eb;
+    @apply w-11 h-11 rounded-full flex items-center justify-center text-base shrink-0;
   }
+  .wsdb-stat-icon-blue   { background: #dbeafe; color: #2563eb; }
+  .wsdb-stat-icon-green  { background: #d1fae5; color: #16493c; }
+  .wsdb-stat-icon-amber  { background: #fef3c7; color: #b7791f; }
+  .wsdb-stat-icon-red    { background: #fee2e2; color: #b42318; }
+  .wsdb-stat-icon-purple { background: #ede9fe; color: #6d28d9; }
+  .wsdb-stat-icon-gray   { background: #f1f5f9; color: #6b7785; }
 
   /* ─── wsdb 風タブ（border-bottom） ───────────────────────── */
   .wsdb-tabs {

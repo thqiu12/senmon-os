@@ -28,7 +28,7 @@ const NAV: NavSection[] = [
     items: [{ href: "/admin/dashboard", label: "ダッシュボード", icon: "🏠" }],
   },
   {
-    label: "Admissions",
+    label: "入学管理",
     items: [
       { href: "/admin/cohorts",       label: "選考管理",     icon: "📋" },
       { href: "/admin/announcements", label: "お知らせ",     icon: "📢" },
@@ -37,7 +37,7 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    label: "Enrollment",
+    label: "在籍管理",
     items: [
       { href: "/admin/enrollment", label: "入学手続き", icon: "🎓" },
       {
@@ -49,7 +49,7 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    label: "Settings",
+    label: "報告・設定",
     items: [
       { href: "/admin/quota",       label: "定員管理",   icon: "📊" },
       { href: "/admin/form-config", label: "フォーム管理", icon: "🛠" },

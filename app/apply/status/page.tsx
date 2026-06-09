@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getStatusStyle } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Icon } from "@/components/ui/Icon";
 
 interface EnrollmentProcedure {
   instructions: string | null;
@@ -1522,21 +1523,32 @@ function StatusPageInner() {
 
                 return (
                   <div className={`mt-4 p-4 border rounded-xl ${someCanDownload ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
-                    <p className={`text-sm font-bold mb-2 ${someCanDownload ? "text-blue-900" : "text-gray-700"}`}>
-                      📋 受験票ダウンロード
+                    <p className={`text-sm font-bold mb-2 flex items-center gap-1.5 ${someCanDownload ? "text-blue-900" : "text-gray-700"}`}>
+                      <Icon name="ticket" className="w-4 h-4" /> 受験票ダウンロード
                       {tickets.length > 1 && <span className="ml-1 text-xs font-normal text-gray-500">（志望校ごと）</span>}
                     </p>
 
                     {!overallReady ? (
-                      <ul className="text-xs text-gray-600 mt-1 space-y-0.5">
-                        <li>
-                          <span className={isReady ? "text-green-600" : "text-gray-400"}>{isReady ? "✓" : "○"}</span>{" "}
-                          書類審査通過 <span className="text-gray-400">(現在: {result.status})</span>
+                      <ul className="text-xs text-gray-600 mt-1 space-y-1">
+                        <li className="flex items-center gap-1.5">
+                          <span className={isReady ? "text-green-600" : "text-gray-400"} aria-hidden="true">
+                            <Icon name={isReady ? "check" : "info"} className="w-3.5 h-3.5" />
+                          </span>
+                          書類審査通過
+                          <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isReady ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            {isReady ? "完了" : "未完了"}
+                          </span>
+                          <span className="text-gray-400">(現在: {result.status})</span>
                         </li>
-                        <li>
-                          <span className={!hasRejection ? "text-green-600" : "text-red-600"}>{!hasRejection ? "✓" : "✗"}</span>{" "}
+                        <li className="flex items-center gap-1.5">
+                          <span className={!hasRejection ? "text-green-600" : "text-red-600"} aria-hidden="true">
+                            <Icon name={!hasRejection ? "check" : "info"} className="w-3.5 h-3.5" />
+                          </span>
                           差し戻し書類がない
-                          {hasRejection && <span className="text-red-500 ml-1">— 再提出が必要です</span>}
+                          <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${!hasRejection ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                            {!hasRejection ? "完了" : "未完了"}
+                          </span>
+                          {hasRejection && <span className="text-red-600 ml-1">— 再提出が必要です</span>}
                         </li>
                         <li className="text-gray-500 pt-1">条件が揃うとダウンロード可能になります。</li>
                       </ul>
@@ -1568,9 +1580,9 @@ function StatusPageInner() {
                                   href={`/api/documents/exam-ticket?${params.toString()}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg whitespace-nowrap"
+                                  className="shrink-0 px-3 min-h-[36px] inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold rounded-lg whitespace-nowrap transition-all"
                                 >
-                                  ⬇ 受験票
+                                  <Icon name="ticket" className="w-3.5 h-3.5" /> 受験票
                                 </a>
                               ) : (
                                 <span className="shrink-0 text-[11px] text-gray-400">日程未確定</span>
@@ -1653,7 +1665,7 @@ function StatusPageInner() {
 
               const renderSub = (kind: "written" | "interview", data: SubData & { exempted?: boolean }) => {
                 const isWritten = kind === "written";
-                const title = isWritten ? "📝 筆記試験" : "👤 面接試験";
+                const title = isWritten ? "筆記試験" : "面接試験";
                 const titleColor = isWritten ? "text-blue-800" : "text-amber-800";
                 const subtleText = isWritten ? "text-blue-700" : "text-amber-700";
                 const bg = isWritten ? "bg-blue-50 border-blue-200" : "bg-amber-50 border-amber-200";
@@ -1795,14 +1807,14 @@ function StatusPageInner() {
                           {/* 振込先 */}
                           {ep.tuitionBankInfo && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                              <p className="text-xs font-bold text-blue-800 mb-1">💳 振込先情報</p>
+                              <p className="text-xs font-bold text-blue-800 mb-1">振込先情報</p>
                               <p className="text-xs text-blue-900 whitespace-pre-line font-mono leading-relaxed">{ep.tuitionBankInfo}</p>
                             </div>
                           )}
                           {/* 金額 */}
                           <div className={`rounded-lg p-3 mb-3 ${ep.tuitionPlan === "分割（2期）" ? "bg-purple-50 border border-purple-200" : "bg-gray-50 border border-gray-200"}`}>
                             <p className="text-xs font-bold text-gray-700 mb-2">
-                              {ep.tuitionPlan === "分割（2期）" ? "💴 分割払い（2期）" : "💴 全額一括払い"}
+                              {ep.tuitionPlan === "分割（2期）" ? "分割払い（2期）" : "全額一括払い"}
                             </p>
                             {ep.tuitionAmount && (
                               <div className="flex justify-between items-center text-sm mb-1">
@@ -2043,7 +2055,7 @@ function StatusPageInner() {
               {result.enrollmentProcedure.ceremonyNotified && (
                 <div className="card border-l-4 border-blue-500">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">🎌</span>
+                    <span className="text-xl" aria-hidden="true">🎌</span>
                     <p className="font-bold text-blue-800">入学式のご案内</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-4 space-y-2 text-sm">
@@ -2074,7 +2086,7 @@ function StatusPageInner() {
               {result.enrollmentProcedure.visaGuideNotified && (
                 <div className="card border-l-4 border-purple-500">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">🛂</span>
+                    <span className="text-xl" aria-hidden="true">🛂</span>
                     <p className="font-bold text-purple-800">ビザ・在留資格 更新手続きのご案内</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
@@ -2112,7 +2124,7 @@ function StatusPageInner() {
             href="/student"
             className="inline-block mt-2 text-green-700 hover:text-green-900 text-sm font-medium underline"
           >
-            🎓 在籍学生の方はこちら（学生My Page）
+            在籍学生の方はこちら（学生My Page）
           </Link>
         </div>
           </>

@@ -268,7 +268,7 @@ export default function CohortsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">📋 選考管理</h1>
+          <h1 className="wsdb-topbar-title">選考管理</h1>
           <p className="wsdb-topbar-meta">入学選考バッチ・面接ラウンド管理</p>
         </div>
       </div>

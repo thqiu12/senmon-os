@@ -205,7 +205,7 @@ export default function AnnouncementsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">📢 お知らせ・一括通知</h1>
+          <h1 className="wsdb-topbar-title">お知らせ・一括通知</h1>
           <p className="wsdb-topbar-meta">出願者・在校生への通知管理</p>
         </div>
       </div>

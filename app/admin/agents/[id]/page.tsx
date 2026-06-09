@@ -172,7 +172,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
         <div className="flex items-center gap-3">
           <Link href="/admin/agents" className="text-muted hover:text-ink text-sm">← 一覧</Link>
           <div>
-            <h1 className="wsdb-topbar-title">🤝 {agent.name}</h1>
+            <h1 className="wsdb-topbar-title">{agent.name}</h1>
             <p className="wsdb-topbar-meta">渠道詳細・URL 発行・希望者一覧</p>
           </div>
           {!agent.isActive && <span className="wsdb-badge wsdb-badge-danger">無効</span>}

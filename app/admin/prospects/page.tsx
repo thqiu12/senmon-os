@@ -133,7 +133,7 @@ export default function AdminProspectsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">📝 希望者リスト</h1>
+          <h1 className="wsdb-topbar-title">希望者リスト</h1>
           <p className="wsdb-topbar-meta">渠道経由の出願候補者管理 + 重複検出</p>
         </div>
         <div className="flex items-center gap-2 text-xs">

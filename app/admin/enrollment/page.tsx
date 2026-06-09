@@ -197,7 +197,7 @@ export default function EnrollmentManagementPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">🎓 入学手続き管理</h1>
+          <h1 className="wsdb-topbar-title">入学手続き管理</h1>
           <p className="wsdb-topbar-meta">合格者の手続き進捗一覧</p>
         </div>
       </div>

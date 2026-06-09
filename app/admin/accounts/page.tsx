@@ -168,7 +168,7 @@ export default function AccountsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">👥 アカウント管理</h1>
+          <h1 className="wsdb-topbar-title">アカウント管理</h1>
           <p className="wsdb-topbar-meta">スタッフ・面接官のアカウントと権限</p>
         </div>
         <button onClick={openCreate} className="btn-primary text-sm">＋ 新規アカウント</button>

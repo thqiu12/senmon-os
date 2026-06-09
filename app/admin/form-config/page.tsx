@@ -239,7 +239,7 @@ export default function FormConfigPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">🛠 フォーム管理</h1>
+          <h1 className="wsdb-topbar-title">フォーム管理</h1>
           <p className="wsdb-topbar-meta">出願フォームの項目・全体設定</p>
         </div>
       </div>

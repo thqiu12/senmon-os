@@ -165,7 +165,7 @@ export default function AgentsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">🤝 エージェント管理</h1>
+          <h1 className="wsdb-topbar-title">エージェント管理</h1>
           <p className="wsdb-topbar-meta">紹介元・中介機関の管理</p>
         </div>
         <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5">

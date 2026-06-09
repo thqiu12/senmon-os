@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 
 export default function ProspectNewPage() {
   return (
@@ -187,14 +188,15 @@ function ProspectNewInner() {
       <header className="bg-navy-800 text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-bold text-lg">📝 希望者リスト 登録</h1>
+            <h1 className="font-bold text-lg flex items-center gap-2"><Icon name="clipboard" className="w-5 h-5" /> 希望者リスト 登録</h1>
             <p className="text-sm text-navy-200">渠道: <strong>{agent?.name}</strong></p>
           </div>
           <button
             onClick={() => setShowHistory((v) => !v)}
-            className="text-sm bg-navy-700 hover:bg-navy-600 px-3 py-2 rounded-lg whitespace-nowrap"
+            className="text-sm bg-navy-700 hover:bg-navy-600 px-3 py-2 rounded-lg whitespace-nowrap inline-flex items-center gap-1.5"
           >
-            {showHistory ? "✏️ 登録フォームへ" : `📋 登録履歴 (${myProspects.length})`}
+            <Icon name={showHistory ? "pencil" : "book"} className="w-4 h-4" />
+            {showHistory ? "登録フォームへ" : `登録履歴 (${myProspects.length})`}
           </button>
         </div>
       </header>

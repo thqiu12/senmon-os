@@ -96,7 +96,7 @@ export default function QuotaPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">📊 定員管理</h1>
+          <h1 className="wsdb-topbar-title">定員管理</h1>
           <p className="wsdb-topbar-meta">学校×学科×入学年度 別 留学生定員</p>
         </div>
       </div>

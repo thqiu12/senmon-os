@@ -1,8 +1,9 @@
 name: Deploy
 
+# 本番デプロイは VPS 上の cron + scripts/deploy/auto-deploy.sh が担当（atomic swap + 自動ロールバック）。
+# GitHub Actions からの SSH デプロイは重複経路のため push 自動トリガーを無効化し、
+# 必要時のみ手動実行(workflow_dispatch)できるよう残す。
 on:
-  push:
-    branches: ["chore/security-hardening", "main", "master"]
   workflow_dispatch:
     inputs:
       skip_tests:

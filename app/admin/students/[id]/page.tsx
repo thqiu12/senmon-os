@@ -135,7 +135,7 @@ export default function StudentDetailPage() {
       <header className="bg-navy-800 text-white py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/admin/students" className="text-navy-300 hover:text-white text-sm">← 在籍管理</Link>
+            <Link href="/admin/students" className="text-navy-300 hover:text-white text-sm">在籍管理</Link>
             <span className="text-navy-600">/</span>
             <h1 className="font-bold">{student.lastName} {student.firstName}</h1>
           </div>
@@ -185,7 +185,7 @@ export default function StudentDetailPage() {
 
             {/* 出席率サマリー */}
             <div className="card">
-              <p className="text-xs font-bold text-navy-700 mb-3">📊 出席率（{month}）</p>
+              <p className="text-xs font-bold text-navy-700 mb-3">出席率（{month}）</p>
               <div className="text-center mb-3">
                 <p className={`text-4xl font-bold ${attendanceRate >= 80 ? "text-green-600" : attendanceRate >= 70 ? "text-yellow-600" : "text-red-600"}`}>
                   {attendanceRate}%
@@ -211,10 +211,10 @@ export default function StudentDetailPage() {
             {/* タブ */}
             <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
               {[
-                { key: "attendance", label: "📅 出席記録" },
-                { key: "leave", label: "📝 欠席届" },
-                { key: "cert", label: "📜 証明書申請" },
-                { key: "homework", label: "📚 課題" },
+                { key: "attendance", label: "出席記録" },
+                { key: "leave", label: "欠席届" },
+                { key: "cert", label: "証明書申請" },
+                { key: "homework", label: "課題" },
               ].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
                   className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-colors ${tab === t.key ? "bg-white shadow text-navy-800" : "text-gray-500 hover:text-gray-700"}`}>
@@ -278,7 +278,7 @@ export default function StudentDetailPage() {
                           <p className="text-xs text-gray-700 mb-2">{r.reason}</p>
                           {r.proofFilePath && (
                             <a href={r.proofFilePath} target="_blank" rel="noopener noreferrer"
-                              className="text-xs text-navy-600 hover:underline">📎 証明書を見る</a>
+                              className="text-xs text-navy-600 hover:underline">証明書を見る</a>
                           )}
                           {r.status === "申請中" && (
                             <div className="flex gap-2 mt-2">
@@ -361,7 +361,7 @@ export default function StudentDetailPage() {
                                 </span>
                               </p>
                             )}
-                            {sub.feedback && <p className="text-xs text-gray-700">💬 {sub.feedback}</p>}
+                            {sub.feedback && <p className="text-xs text-gray-700">{sub.feedback}</p>}
                           </div>
                         )}
                       </div>

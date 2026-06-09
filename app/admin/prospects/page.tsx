@@ -152,7 +152,7 @@ export default function AdminProspectsPage() {
               activeTab === "all" ? "border-navy-700 text-navy-800 bg-white" : "border-transparent text-gray-500"
             }`}
           >
-            📋 全希望者 ({prospects.length})
+            全希望者 ({prospects.length})
           </button>
           <button
             onClick={() => setActiveTab("duplicates")}
@@ -160,7 +160,7 @@ export default function AdminProspectsPage() {
               activeTab === "duplicates" ? "border-amber-500 text-amber-800 bg-white" : "border-transparent text-gray-500"
             }`}
           >
-            ⚠️ 重複検出 ({duplicates.length})
+            重複検出 ({duplicates.length})
           </button>
         </div>
 
@@ -253,7 +253,7 @@ export default function AdminProspectsPage() {
                           {p.matchedApplicationId ? (
                             <Link href={`/admin/applications/${p.matchedApplicationId}`}
                               className="text-green-600 hover:underline">
-                              ✓ 紐付け済
+                              紐付け済
                             </Link>
                           ) : (
                             <span className="text-gray-400">—</span>
@@ -329,7 +329,7 @@ export default function AdminProspectsPage() {
                         </tbody>
                       </table>
                       <p className="text-[10px] text-gray-500 mt-2 italic">
-                        💡 推奨：先に登録された渠道を「候補」のまま残し、後発を「重複（他渠道優先）」に変更してください。
+                        推奨：先に登録された渠道を「候補」のまま残し、後発を「重複（他渠道優先）」に変更してください。
                       </p>
                     </div>
                   );

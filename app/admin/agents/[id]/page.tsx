@@ -159,7 +159,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
     return (
       <div className="p-10 text-center">
         <p className="text-gray-500 mb-4">エージェントが見つかりません</p>
-        <Link href="/admin/agents" className="text-blue-600 hover:underline">← 一覧へ戻る</Link>
+        <Link href="/admin/agents" className="text-blue-600 hover:underline">一覧へ戻る</Link>
       </div>
     );
   }
@@ -170,7 +170,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
     <>
       <div className="wsdb-topbar">
         <div className="flex items-center gap-3">
-          <Link href="/admin/agents" className="text-muted hover:text-ink text-sm">← 一覧</Link>
+          <Link href="/admin/agents" className="text-muted hover:text-ink text-sm">一覧</Link>
           <div>
             <h1 className="wsdb-topbar-title">{agent.name}</h1>
             <p className="wsdb-topbar-meta">渠道詳細・URL 発行・希望者一覧</p>
@@ -188,7 +188,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
             <p className="text-xs text-gray-600">{agent.country}</p>
             {agent.contactName && <p className="text-xs text-gray-600">担当: {agent.contactName}</p>}
             {agent.contactEmail && <p className="text-xs text-gray-600 break-all">{agent.contactEmail}</p>}
-            {agent.notes && <p className="text-xs text-gray-400 mt-1">📝 {agent.notes}</p>}
+            {agent.notes && <p className="text-xs text-gray-400 mt-1">{agent.notes}</p>}
           </div>
 
           <div>
@@ -223,7 +223,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={copyUrl} className="text-xs bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full hover:bg-green-100">
-                    📋 URL コピー
+                    URL コピー
                   </button>
                   <button onClick={generateToken} className="text-xs text-blue-600 hover:underline">再発行</button>
                   <button onClick={revokeToken} className="text-xs text-red-500 hover:underline">無効化</button>
@@ -231,7 +231,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
               </>
             ) : (
               <button onClick={generateToken} className="text-xs bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full hover:bg-blue-50 hover:text-blue-700">
-                🔗 URL を発行
+                URL を発行
               </button>
             )}
           </div>
@@ -284,7 +284,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
                       <p className="font-semibold">{p.lastName} {p.firstName}</p>
                       {p.lastNameKana && <p className="text-xs text-gray-500">{p.lastNameKana} {p.firstNameKana}</p>}
                       {p.birthDate && <p className="text-xs text-gray-400">{p.birthDate}</p>}
-                      {p.nationality && <p className="text-xs text-gray-400">🌐 {p.nationality}</p>}
+                      {p.nationality && <p className="text-xs text-gray-400">{p.nationality}</p>}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-700">
                       {p.email && <p className="break-all">{p.email}</p>}
@@ -294,7 +294,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
                       {p.intendedSchool && <p>{p.intendedSchool}</p>}
                       {p.intendedDepartment && <p className="text-gray-500">{p.intendedDepartment}</p>}
                       {p.enrollmentYear && <p className="text-gray-400">{p.enrollmentYear}年4月</p>}
-                      {p.agentNotes && <p className="text-gray-400 italic mt-1">💬 {p.agentNotes}</p>}
+                      {p.agentNotes && <p className="text-gray-400 italic mt-1">{p.agentNotes}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <select
@@ -313,7 +313,7 @@ export default function AgentDetailPage({ params }: { params: { id: string } }) 
                           href={`/admin/applications/${p.matchedApplicationId}`}
                           className="text-green-600 hover:underline"
                         >
-                          ✓ 紐付け済
+                          紐付け済
                         </Link>
                       ) : (
                         <span className="text-gray-400">—</span>

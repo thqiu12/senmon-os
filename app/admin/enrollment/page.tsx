@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useUI } from "@/components/ui/toast";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 // ─── 型定義 ───────────────────────────────────────────────
 interface EP {
@@ -48,14 +49,14 @@ interface EnrollmentRow {
 }
 
 // ─── ステップ定義 ─────────────────────────────────────────
-const STEPS = [
-  { key: "all",          label: "全員",         icon: "👥", color: "gray" },
-  { key: "not_started",  label: "手続き未案内", icon: "📭", color: "slate" },
-  { key: "step1",        label: "学費振込待ち", icon: "💴", color: "blue" },
-  { key: "step2",        label: "書類提出待ち", icon: "📄", color: "cyan" },
-  { key: "step3",        label: "署名完了",     icon: "✍️",  color: "teal" },
-  { key: "schoolConfirm",label: "学校承認待ち", icon: "🏫", color: "indigo" },
-  { key: "admitLetter",  label: "許可書発行済", icon: "📜", color: "purple" },
+const STEPS: { key: string; label: string; icon: IconName; color: string }[] = [
+  { key: "all",          label: "全員",         icon: "users",     color: "gray" },
+  { key: "not_started",  label: "手続き未案内", icon: "inbox",     color: "slate" },
+  { key: "step1",        label: "学費振込待ち", icon: "yen",       color: "blue" },
+  { key: "step2",        label: "書類提出待ち", icon: "doc",       color: "cyan" },
+  { key: "step3",        label: "署名完了",     icon: "signature", color: "teal" },
+  { key: "schoolConfirm",label: "学校承認待ち", icon: "school",    color: "indigo" },
+  { key: "admitLetter",  label: "許可書発行済", icon: "award",     color: "purple" },
 ];
 
 const STEP_STYLES: Record<string, { badge: string; row: string }> = {
@@ -70,14 +71,14 @@ const STEP_STYLES: Record<string, { badge: string; row: string }> = {
 };
 
 const STEP_LABELS: Record<string, string> = {
-  not_started:   "📭 未案内",
-  announced:     "📨 案内済み",
-  step1:         "💴 振込待ち",
-  step2:         "📄 書類待ち",
-  step2done:     "📋 書類提出済",
-  step3done:     "✍️ 署名完了",
-  schoolConfirm: "🏫 学校承認待ち",
-  admitLetter:   "📜 許可書発行済",
+  not_started:   "未案内",
+  announced:     "案内済み",
+  step1:         "振込待ち",
+  step2:         "書類待ち",
+  step2done:     "書類提出済",
+  step3done:     "署名完了",
+  schoolConfirm: "学校承認待ち",
+  admitLetter:   "許可書発行済",
 };
 
 function fmt(dt: string | null | undefined): string {
@@ -217,7 +218,7 @@ export default function EnrollmentManagementPage() {
                   className={`flex flex-col items-center px-5 py-3 border-b-2 transition whitespace-nowrap min-w-fit
                     ${active ? "border-navy-700 bg-navy-50 text-navy-800" : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}
                 >
-                  <span className="text-lg mb-0.5">{s.icon}</span>
+                  <span className="mb-0.5"><Icon name={s.icon} className="w-5 h-5" /></span>
                   <span className="text-xs font-semibold">{s.label}</span>
                   <span className={`text-lg font-bold mt-0.5 ${active ? "text-navy-700" : "text-gray-600"}`}>
                     {count}
@@ -246,7 +247,7 @@ export default function EnrollmentManagementPage() {
             onClick={() => { fetchRows(); fetchCounts(); }}
             className="px-4 py-2 text-sm font-semibold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
           >
-            🔄 更新
+            更新
           </button>
           <span className="text-sm text-gray-400">{rows.length}件表示</span>
         </div>
@@ -293,8 +294,7 @@ export default function EnrollmentManagementPage() {
                         href={`/admin/applications/${row.id}`}
                         className="text-navy-700 hover:text-navy-900 font-medium text-xs"
                       >
-                        詳細 →
-                      </Link>
+                        詳細                       </Link>
                     </div>
                   </div>
                 );
@@ -312,11 +312,11 @@ export default function EnrollmentManagementPage() {
                     <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">志望校</th>
                     <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">入学</th>
                     <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">現在のステップ</th>
-                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">💴 学費</th>
-                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">📄 書類</th>
-                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">✍️ 署名</th>
-                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">🏫 学校承認</th>
-                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">📜 許可書</th>
+                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">学費</th>
+                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">書類</th>
+                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">署名</th>
+                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">学校承認</th>
+                    <th className="text-center px-3 py-3 font-semibold whitespace-nowrap">許可書</th>
                     <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">メモ</th>
                     <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">更新日</th>
                     <th className="px-4 py-3"></th>
@@ -457,8 +457,7 @@ export default function EnrollmentManagementPage() {
                               className="text-gray-400 hover:text-navy-700 shrink-0"
                               title="メモを編集"
                             >
-                              ✏️
-                            </button>
+                                                          </button>
                           </div>
                         </td>
 
@@ -473,8 +472,7 @@ export default function EnrollmentManagementPage() {
                             href={`/admin/applications/${row.id}`}
                             className="text-navy-700 hover:text-navy-900 font-medium text-xs"
                           >
-                            詳細 →
-                          </Link>
+                            詳細                           </Link>
                         </td>
                       </tr>
                     );

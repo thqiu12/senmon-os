@@ -125,11 +125,11 @@ export default function AttendancePage() {
       <header className="bg-navy-800 text-white py-4 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/admin/dashboard" className="text-navy-300 hover:text-white text-sm">← ダッシュボード</Link>
+            <Link href="/admin/dashboard" className="text-navy-300 hover:text-white text-sm">ダッシュボード</Link>
             <span className="text-navy-600">/</span>
             <h1 className="font-bold">出席入力</h1>
           </div>
-          {saved && <span className="text-green-300 text-sm font-medium">✅ 保存しました</span>}
+          {saved && <span className="text-green-300 text-sm font-medium">保存しました</span>}
         </div>
       </header>
 
@@ -219,7 +219,7 @@ export default function AttendancePage() {
             <div className="flex justify-end">
               <button onClick={handleSave} disabled={saving || !selectedSubject}
                 className="btn-primary px-8 disabled:opacity-50">
-                {saving ? "保存中..." : "💾 出席を保存する"}
+                {saving ? "保存中..." : "出席を保存する"}
               </button>
             </div>
           </>

@@ -312,7 +312,7 @@ export default function AccountsPage() {
                   {fPassword
                     ? fPassword.length < 8
                       ? <span className="text-red-500">あと {8 - fPassword.length} 文字必要</span>
-                      : <span className="text-emerald-600">✓ 8文字以上</span>
+                      : <span className="text-emerald-600">8文字以上</span>
                     : "8文字以上で入力してください"}
                 </p>
               </div>

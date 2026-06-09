@@ -156,7 +156,7 @@ function InterviewFeedbackCard({ applicationId }: { applicationId: string }) {
     <div className="card">
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
         <h3 className="text-sm font-bold text-navy-700 uppercase tracking-wide">
-          📝 面接フィードバック
+          面接フィードバック
         </h3>
         {!showForm && (
           <button onClick={() => { resetForm(); setShowForm(true); }}
@@ -207,7 +207,7 @@ function InterviewFeedbackCard({ applicationId }: { applicationId: string }) {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${RECOMMENDATION_STYLES[fb.recommendation] || RECOMMENDATION_STYLES["保留"]}`}>
-                  {fb.recommendation === "合格推薦" ? "✓ 合格推薦" : fb.recommendation === "不合格推薦" ? "✗ 不合格" : "△ 保留"}
+                  {fb.recommendation === "合格推薦" ? "合格推薦" : fb.recommendation === "不合格推薦" ? "不合格" : "△ 保留"}
                 </span>
                 <button onClick={() => openEdit(fb)} className="text-xs text-gray-400 hover:text-navy-600 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors">編集</button>
                 <button onClick={() => handleDelete(fb.id)} className="text-xs text-red-400 hover:text-red-600 px-1.5 py-1 rounded hover:bg-red-50 transition-colors">削除</button>
@@ -327,17 +327,17 @@ function InterviewFeedbackCard({ applicationId }: { applicationId: string }) {
             {/* コメント */}
             <div className="grid grid-cols-1 gap-2">
               <div>
-                <label className="block text-xs text-gray-600 mb-0.5">👍 良い点</label>
+                <label className="block text-xs text-gray-600 mb-0.5">良い点</label>
                 <textarea className="form-input text-sm min-h-[50px] resize-y" placeholder="アピールポイント・強み"
                   value={fStrengths} onChange={(e) => setFStrengths(e.target.value)} />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-0.5">⚠️ 懸念点</label>
+                <label className="block text-xs text-gray-600 mb-0.5">懸念点</label>
                 <textarea className="form-input text-sm min-h-[50px] resize-y" placeholder="気になる点・課題"
                   value={fConcerns} onChange={(e) => setFConcerns(e.target.value)} />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-0.5">📌 備考</label>
+                <label className="block text-xs text-gray-600 mb-0.5">備考</label>
                 <textarea className="form-input text-sm min-h-[40px] resize-y" placeholder="その他メモ"
                   value={fNotes} onChange={(e) => setFNotes(e.target.value)} />
               </div>
@@ -646,14 +646,14 @@ function DocumentReviewRow({ doc, onReviewed }: { doc: Document; onReviewed: () 
               onClick={() => setPreviewOpen(true)}
               className="text-navy-700 hover:text-navy-900 text-xs font-medium bg-white border border-gray-300 hover:border-navy-400 px-2.5 py-1.5 rounded-lg"
             >
-              👁 プレビュー
+              プレビュー
             </button>
           )}
           <a
             href={`/api/documents/${doc.id}/file`}
             className="text-navy-700 hover:text-navy-900 text-xs font-medium bg-white border border-gray-300 hover:border-navy-400 px-2.5 py-1.5 rounded-lg"
           >
-            ⬇ DL
+            DL
           </a>
           {status !== "確認済" && (
             <button
@@ -666,7 +666,7 @@ function DocumentReviewRow({ doc, onReviewed }: { doc: Document; onReviewed: () 
               }}
               className="text-xs font-medium bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50"
             >
-              ✓ 確認済
+              確認済
             </button>
           )}
           {status !== "差し戻し" && (
@@ -676,7 +676,7 @@ function DocumentReviewRow({ doc, onReviewed }: { doc: Document; onReviewed: () 
               onClick={() => setRejecting(true)}
               className="text-xs font-medium bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50"
             >
-              ✗ 差し戻し
+              差し戻し
             </button>
           )}
         </div>
@@ -727,7 +727,7 @@ function DocumentReviewRow({ doc, onReviewed }: { doc: Document; onReviewed: () 
                   href={`/api/documents/${doc.id}/file`}
                   className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
                 >
-                  ⬇ ダウンロード
+                  ダウンロード
                 </a>
                 <button
                   type="button"
@@ -878,11 +878,11 @@ export default function ApplicationDetailPage() {
   type TabKey = "basic"|"screening"|"schools"|"documents"|"enrollment";
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
   const TABS: {key: TabKey; label: string}[] = [
-    {key:"basic", label:"📋 基本情報"},
-    {key:"screening", label:"🔍 選考・審査"},
-    {key:"schools", label:"🏫 志望校"},
-    {key:"documents", label:"📄 書類"},
-    {key:"enrollment", label:"🎓 入学手続き"},
+    {key:"basic", label:"基本情報"},
+    {key:"screening", label:"選考・審査"},
+    {key:"schools", label:"志望校"},
+    {key:"documents", label:"書類"},
+    {key:"enrollment", label:"入学手続き"},
   ];
 
   // 書類確認チェックリスト（提出前書類の事務チェック）
@@ -1083,7 +1083,7 @@ export default function ApplicationDetailPage() {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              addNote: `[AUTO] ステータスを「${selectedStatus}」に変更しました\n⚠️ ストッパー警告を承知の上で強制実行\n理由: ${overrideReason}`,
+              addNote: `[AUTO] ステータスを「${selectedStatus}」に変更しました\nストッパー警告を承知の上で強制実行\n理由: ${overrideReason}`,
               noteVisibleToStudent: false,
             }),
           }).catch(() => {});
@@ -1137,15 +1137,15 @@ export default function ApplicationDetailPage() {
     );
     const results = updated.map(s => s.result);
 
-    // 1. いずれかが合格 → 合格（辞退より優先：他校辞退でも合格校に入学できる）
+    // 1. いずれかが合格 合格（辞退より優先：他校辞退でも合格校に入学できる）
     if (results.some(r => r === "合格")) return "合格";
-    // 2. 全校が辞退 → 辞退（全部断った＝入学しない意思）
+    // 2. 全校が辞退 辞退（全部断った＝入学しない意思）
     if (results.every(r => r === "辞退")) return "辞退";
-    // 3. 合格なし・全校が不合格or辞退 → 不合格
+    // 3. 合格なし・全校が不合格or辞退 不合格
     if (results.every(r => r === "不合格" || r === "辞退")) return "不合格";
-    // 4. 全て保留 → 保留
+    // 4. 全て保留 保留
     if (results.every(r => r === "保留")) return "保留";
-    // 5. 未確定が含まれる → 変更しない
+    // 5. 未確定が含まれる 変更しない
     return null;
   };
 
@@ -1239,7 +1239,7 @@ export default function ApplicationDetailPage() {
           const p = ["第1志望", "第2志望", "第3志望"][c.priority - 1] || `第${c.priority}志望`;
           return `${p} ${c.examType} (${c.date} ${c.time})`;
         });
-        toast(`⚠️ 日程重複: ${labels.join(" / ")}`, "warn");
+        toast(`日程重複: ${labels.join(" / ")}`, "warn");
       }
     } catch {
       toast("試験日程の保存に失敗しました", "error");
@@ -1741,9 +1741,9 @@ export default function ApplicationDetailPage() {
                   <p className="text-xs text-gray-500 mb-1.5">選考区分</p>
                   <div className="grid grid-cols-3 gap-2">
                     {([
-                      {value:"一般", label:"一般選考", sub:"✏️ 筆記あり"},
-                      {value:"指定推薦", label:"◆ 指定推薦", sub:"🎫 筆記免除"},
-                      {value:"特待生", label:"★ 特待生", sub:"🎫 筆記免除"},
+                      {value:"一般", label:"一般選考", sub:"筆記あり"},
+                      {value:"指定推薦", label:"◆ 指定推薦", sub:"筆記免除"},
+                      {value:"特待生", label:"特待生", sub:"筆記免除"},
                     ]).map((mode) => (
                       <label key={mode.value} className={`cursor-pointer rounded-lg border-2 p-2.5 text-center transition-colors ${examModeEdit === mode.value ? "border-navy-700 bg-navy-50" : "border-gray-200 hover:border-navy-300"}`}>
                         <input type="radio" name="examModeEdit" value={mode.value} className="hidden"
@@ -1795,7 +1795,7 @@ export default function ApplicationDetailPage() {
                   >
                     {examModeSaving ? "保存中..." : "変更を保存"}
                   </button>
-                  {examModeSaved && <span className="text-green-600 text-xs font-medium">✓ 保存しました</span>}
+                  {examModeSaved && <span className="text-green-600 text-xs font-medium">保存しました</span>}
                 </div>
               </div>
             </Section>
@@ -1834,8 +1834,8 @@ export default function ApplicationDetailPage() {
                             const derived = deriveOverallStatus(application.applicationSchools, s.id, s.result || "");
                             return (
                               <span className="text-xs text-green-600 font-medium">
-                                ✓ 保存
-                                {derived && <span className="ml-1 text-navy-600">→ 申請全体も「{derived}」に自動更新</span>}
+                                保存
+                                {derived && <span className="ml-1 text-navy-600">申請全体も「{derived}」に自動更新</span>}
                               </span>
                             );
                           })()}
@@ -1879,7 +1879,7 @@ export default function ApplicationDetailPage() {
                             この校の試験日程
                           </p>
                           {schoolResultSaved === s.id && (
-                            <span className="text-[10px] text-green-600 font-semibold">✓ 保存しました</span>
+                            <span className="text-[10px] text-green-600 font-semibold">保存しました</span>
                           )}
                         </div>
 
@@ -1887,7 +1887,7 @@ export default function ApplicationDetailPage() {
                         <div className="mb-3 rounded-lg bg-blue-50/60 border border-blue-200 p-2.5">
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
-                              📝 筆記試験
+                              筆記試験
                             </p>
                             <label className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 cursor-pointer">
                               <input
@@ -1968,7 +1968,7 @@ export default function ApplicationDetailPage() {
                         {/* 面接試験 */}
                         <div className="rounded-lg bg-amber-50/60 border border-amber-200 p-2.5">
                           <p className="text-[11px] font-bold text-amber-800 mb-2">
-                            👤 面接試験
+                            面接試験
                           </p>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
@@ -2032,7 +2032,7 @@ export default function ApplicationDetailPage() {
                         </div>
 
                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                          ※ 各欄を入力 → 別の場所をクリックで自動保存。
+                          ※ 各欄を入力 別の場所をクリックで自動保存。
                         </p>
 
                         {/* メール送信ボタン */}
@@ -2152,9 +2152,9 @@ export default function ApplicationDetailPage() {
 
             {/* 筆記試験成績 - 選考タブ（一般選考のみ表示） */}
             <div style={{display: activeTab==="screening" ? undefined : "none"}}>
-            <Section title={`✏️ 筆記試験成績${application.examMode !== "一般" ? "（推薦・特待生は筆記免除）" : ""}`}>
+            <Section title={`筆記試験成績${application.examMode !== "一般" ? "（推薦・特待生は筆記免除）" : ""}`}>
               {application.examMode !== "一般" ? (
-                <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">🎫 この出願者は筆記試験免除の選考区分です。</p>
+                <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">この出願者は筆記試験免除の選考区分です。</p>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-end gap-4">
@@ -2171,7 +2171,7 @@ export default function ApplicationDetailPage() {
                         {["採点中","合格","不合格"].map(r=>(
                           <label key={r} className={`flex-1 cursor-pointer rounded-lg border-2 py-2 text-center text-xs font-bold transition-colors ${writtenExamResult===r ? r==="合格"?"border-green-500 bg-green-50 text-green-700":r==="不合格"?"border-red-500 bg-red-50 text-red-700":"border-navy-700 bg-navy-50 text-navy-800" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
                             <input type="radio" className="hidden" checked={writtenExamResult===r} onChange={()=>setWrittenExamResult(r)} />
-                            {r==="合格"?"✓ "+r:r==="不合格"?"✗ "+r:"⏳ "+r}
+                            {r==="合格"?""+r:r==="不合格"?""+r:""+r}
                           </label>
                         ))}
                       </div>
@@ -2182,7 +2182,7 @@ export default function ApplicationDetailPage() {
                     <textarea className="form-input text-sm min-h-[60px] resize-y" placeholder="特記事項など（任意）" value={writtenExamNotes} onChange={e=>setWrittenExamNotes(e.target.value)} />
                   </div>
                   <button onClick={handleWrittenExamSave} disabled={writtenExamSaving} className="btn-primary text-sm">
-                    {writtenExamSaving?"保存中…":writtenExamSaved?"✓ 保存しました":"成績を保存"}
+                    {writtenExamSaving?"保存中…":writtenExamSaved?"保存しました":"成績を保存"}
                   </button>
                 </div>
               )}
@@ -2243,7 +2243,7 @@ export default function ApplicationDetailPage() {
                         <div className="bg-green-500 h-2 rounded-full transition-all" style={{width:`${(checked/total)*100}%`}}/>
                       </div>
                       <span className="text-sm text-gray-600 whitespace-nowrap">{checked}/{total} 確認済</span>
-                      {checked===total && <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full border border-green-300">✓ 完了</span>}
+                      {checked===total && <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full border border-green-300">完了</span>}
                     </div>
                     <div className="space-y-1.5 mb-4">
                       {DOC_CHECK_ITEMS.map(item=>(
@@ -2257,7 +2257,7 @@ export default function ApplicationDetailPage() {
                       ))}
                     </div>
                     <button onClick={saveDocCheck} disabled={docCheckSaving} className="btn-primary text-sm w-full">
-                      {docCheckSaving?"保存中…":docCheckSaved?"✓ 保存しました":"チェック状態を保存"}
+                      {docCheckSaving?"保存中…":docCheckSaved?"保存しました":"チェック状態を保存"}
                     </button>
                   </div>
                 );
@@ -2610,7 +2610,7 @@ export default function ApplicationDetailPage() {
                             <button
                               onClick={() => handleChangeRequestReview(r, "approve")}
                               className="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg"
-                            >✓ 承認して反映</button>
+                            >承認して反映</button>
                             <button
                               onClick={() => handleChangeRequestReview(r, "reject")}
                               className="flex-1 px-3 py-1.5 bg-white hover:bg-red-50 text-red-700 border border-red-300 text-xs font-bold rounded-lg"
@@ -2657,7 +2657,7 @@ export default function ApplicationDetailPage() {
                     </span>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       {noteVisibleToStudent
-                        ? "✓ このコメントは出願者の /apply/status で確認できます"
+                        ? "このコメントは出願者の /apply/status で確認できます"
                         : "未チェックの場合は内部メモ（学生には非表示）"}
                     </p>
                   </div>
@@ -2776,7 +2776,7 @@ export default function ApplicationDetailPage() {
             {/* 電子署名確認 */}
             {application.enrollmentSignature ? (
               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-xs font-bold text-green-800 mb-2">✍️ 電子署名済み</p>
+                <p className="text-xs font-bold text-green-800 mb-2">電子署名済み</p>
                 <p className="text-xs text-green-700 mb-1">
                   署名者：<strong>{application.enrollmentSignature.signerName}</strong>
                 </p>
@@ -2794,7 +2794,7 @@ export default function ApplicationDetailPage() {
               </div>
             ) : (
               <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <p className="text-xs text-gray-500">✍️ 電子署名：未署名</p>
+                <p className="text-xs text-gray-500">電子署名：未署名</p>
               </div>
             )}
 
@@ -2803,7 +2803,7 @@ export default function ApplicationDetailPage() {
               const enrollDocs = application.documents.filter(d => d.docType.startsWith("入学手続き_"));
               return enrollDocs.length > 0 ? (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs font-bold text-blue-800 mb-2">📁 入学手続き提出書類（{enrollDocs.length}件）</p>
+                  <p className="text-xs font-bold text-blue-800 mb-2">入学手続き提出書類（{enrollDocs.length}件）</p>
                   <div className="space-y-1.5">
                     {enrollDocs.map((doc) => (
                       <div key={doc.id} className="flex items-center justify-between bg-white rounded-lg px-2 py-1.5">
@@ -2825,7 +2825,7 @@ export default function ApplicationDetailPage() {
                 </div>
               ) : (
                 <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-xs text-gray-500">📁 入学手続き書類：未提出</p>
+                  <p className="text-xs text-gray-500">入学手続き書類：未提出</p>
                 </div>
               );
             })()}
@@ -2833,7 +2833,7 @@ export default function ApplicationDetailPage() {
             {/* 学生からのメモ */}
             {enrollStudentMemo && (
               <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs font-bold text-amber-800 mb-1">📩 学生からの報告</p>
+                <p className="text-xs font-bold text-amber-800 mb-1">学生からの報告</p>
                 <p className="text-sm text-amber-900 whitespace-pre-wrap">{enrollStudentMemo}</p>
                 {enrollCompletedAt && (
                   <p className="text-xs text-amber-600 mt-1">完了報告日：{formatDateTimeJP(enrollCompletedAt)}</p>
@@ -2846,10 +2846,10 @@ export default function ApplicationDetailPage() {
               {/* STEP 1: 学費納入 */}
               <div className="p-3 rounded-xl border-2 border-blue-200 bg-blue-50">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold text-blue-800">STEP 1 · 💴 学費納入</p>
+                  <p className="text-xs font-bold text-blue-800">STEP 1 · 学費納入</p>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={tuitionPaid} onChange={(e) => setTuitionPaid(e.target.checked)} className="rounded text-green-600" />
-                    <span className={`text-xs font-medium ${tuitionPaid ? "text-green-600" : "text-gray-400"}`}>{tuitionPaid ? "✅ 納入確認済み" : "未確認"}</span>
+                    <span className={`text-xs font-medium ${tuitionPaid ? "text-green-600" : "text-gray-400"}`}>{tuitionPaid ? "納入確認済み" : "未確認"}</span>
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
@@ -2892,7 +2892,7 @@ export default function ApplicationDetailPage() {
               {/* STEP 2: 書類提出 */}
               <div className="p-3 rounded-xl border-2 border-purple-200 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold text-purple-800">STEP 2 · 📋 書類提出</p>
+                  <p className="text-xs font-bold text-purple-800">STEP 2 · 書類提出</p>
                   <span className="text-xs text-purple-600">{docChecklist.filter(d => d.done).length}/{docChecklist.length} 確認済</span>
                 </div>
                 <div className="mb-2">
@@ -2921,7 +2921,7 @@ export default function ApplicationDetailPage() {
 
               {/* STEP 3: 電子署名 */}
               <div className="p-3 rounded-xl border-2 border-green-200 bg-green-50">
-                <p className="text-xs font-bold text-green-800 mb-2">STEP 3 · ✍️ 入学誓約書への電子署名</p>
+                <p className="text-xs font-bold text-green-800 mb-2">STEP 3 · 入学誓約書への電子署名</p>
                 <div>
                   <label className="block text-xs text-green-700 mb-1 font-medium">締切日 <span className="text-red-400">*</span></label>
                   <input type="date" className="form-input text-xs" value={step3Deadline} onChange={(e) => setStep3Deadline(e.target.value)} />
@@ -2930,7 +2930,7 @@ export default function ApplicationDetailPage() {
 
               {/* その他（ビザ・寮） */}
               <div className="p-3 rounded-xl border border-gray-200 bg-gray-50">
-                <p className="text-xs font-bold text-gray-700 mb-3">🛂 その他管理情報</p>
+                <p className="text-xs font-bold text-gray-700 mb-3">その他管理情報</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">ビザ・在留資格</label>
@@ -2998,15 +2998,15 @@ export default function ApplicationDetailPage() {
           application.enrollmentProcedure?.status === "完了" && (
           <div className="card border-l-4 border-emerald-500">
             <h3 className="text-sm font-bold text-emerald-700 uppercase tracking-wide mb-4">
-              🏫 入学後フロー管理
+              入学後フロー管理
             </h3>
 
-            {/* STEP A: 学校承認 → 入学許可書発行 */}
+            {/* STEP A: 学校承認 入学許可書発行 */}
             <div className={`p-3 rounded-xl border-2 mb-3 ${application.enrollmentProcedure.schoolConfirmed ? "border-green-300 bg-green-50" : "border-emerald-300 bg-emerald-50"}`}>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-emerald-800">① 学校承認 → 入学許可書発行</p>
+                <p className="text-xs font-bold text-emerald-800">① 学校承認 入学許可書発行</p>
                 {application.enrollmentProcedure.schoolConfirmed && (
-                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">✓ 発行済み</span>
+                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">発行済み</span>
                 )}
               </div>
               {application.enrollmentProcedure.schoolConfirmed ? (
@@ -3040,7 +3040,7 @@ export default function ApplicationDetailPage() {
                     disabled={confirmSaving}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {confirmSaving ? "処理中..." : "✅ 学校承認・入学許可書を発行する"}
+                    {confirmSaving ? "処理中..." : "学校承認・入学許可書を発行する"}
                   </button>
                 </>
               )}
@@ -3052,7 +3052,7 @@ export default function ApplicationDetailPage() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-bold text-blue-800">② 入学式のご案内</p>
                   {application.enrollmentProcedure.ceremonyNotified && (
-                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">✓ 通知済み</span>
+                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">通知済み</span>
                   )}
                 </div>
                 {!application.enrollmentProcedure.ceremonyNotified && (
@@ -3083,7 +3083,7 @@ export default function ApplicationDetailPage() {
                       disabled={confirmSaving || !ceremonyDate}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {confirmSaving ? "処理中..." : "🎌 入学式案内を通知する"}
+                      {confirmSaving ? "処理中..." : "入学式案内を通知する"}
                     </button>
                   </>
                 )}
@@ -3099,7 +3099,7 @@ export default function ApplicationDetailPage() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-bold text-purple-800">③ ビザ更新手続き案内</p>
                   {application.enrollmentProcedure.visaGuideNotified && (
-                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">✓ 通知済み</span>
+                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">通知済み</span>
                   )}
                 </div>
                 {!application.enrollmentProcedure.visaGuideNotified && (
@@ -3120,7 +3120,7 @@ export default function ApplicationDetailPage() {
                       disabled={confirmSaving}
                       className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {confirmSaving ? "処理中..." : "🛂 ビザ更新案内を通知する"}
+                      {confirmSaving ? "処理中..." : "ビザ更新案内を通知する"}
                     </button>
                   </>
                 )}

@@ -281,12 +281,12 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-            <span>⚠️</span>{error}
+            <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>{error}
           </div>
         )}
         {successMsg && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-2">
-            <span>✅</span>{successMsg}
+            <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>{successMsg}
           </div>
         )}
 
@@ -525,8 +525,7 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="px-6 py-5">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                🗑️
-              </div>
+                              </div>
               <h3 className="font-bold text-gray-800 text-base text-center mb-2">学校を削除</h3>
               <p className="text-sm text-gray-600 text-center">
                 「<span className="font-semibold">{deleteConfirm.name}</span>」を削除しますか？

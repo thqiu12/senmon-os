@@ -133,7 +133,7 @@ export default function AgentsPage() {
     const url = `${window.location.origin}/prospects/new?token=${agent.formToken}`;
     try {
       await navigator.clipboard.writeText(url);
-      alert(`📋 コピーしました：\n${url}`);
+      alert(`コピーしました：\n${url}`);
     } catch {
       window.prompt("URL をコピーしてください", url);
     }
@@ -246,8 +246,7 @@ export default function AgentsPage() {
                         href={`/admin/agents/${agent.id}`}
                         className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100"
                       >
-                        📋 希望者リスト →
-                      </Link>
+                        希望者リスト                       </Link>
                       {agent.country && (
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                           {agent.country}
@@ -277,7 +276,7 @@ export default function AgentsPage() {
                         </span>
                       )}
                       {agent.notes && (
-                        <span className="text-gray-400 truncate max-w-xs">📝 {agent.notes}</span>
+                        <span className="text-gray-400 truncate max-w-xs">{agent.notes}</span>
                       )}
                     </div>
                   </div>
@@ -291,7 +290,7 @@ export default function AgentsPage() {
                           className="text-xs bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors flex items-center gap-1"
                           title="希望者リスト用 URL をコピー"
                         >
-                          📋 URL コピー
+                          URL コピー
                         </button>
                         <div className="flex gap-1 text-[10px]">
                           <button onClick={() => handleGenerateToken(agent)} className="text-blue-600 hover:underline">再発行</button>
@@ -305,7 +304,7 @@ export default function AgentsPage() {
                         className="text-xs bg-gray-100 text-gray-600 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-blue-50 hover:text-blue-700 transition-colors"
                         title="渠道専用フォーム URL を発行"
                       >
-                        🔗 URL 発行
+                        URL 発行
                       </button>
                     )}
                   </div>

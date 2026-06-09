@@ -98,18 +98,18 @@ export default function StudentsPage() {
       <header className="bg-navy-800 text-white py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/admin/dashboard" className="text-navy-300 hover:text-white text-sm">← ダッシュボード</Link>
+            <Link href="/admin/dashboard" className="text-navy-300 hover:text-white text-sm">ダッシュボード</Link>
             <span className="text-navy-600">/</span>
             <h1 className="font-bold">在籍学生管理</h1>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin/attendance"
               className="bg-navy-700 hover:bg-navy-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
-              📅 出席入力
+              出席入力
             </Link>
             <button onClick={openEnrollModal}
               className="bg-white text-navy-800 text-sm font-bold px-4 py-2 rounded-lg hover:bg-navy-50 transition-colors">
-              📋 出願→在籍 一括転換
+              出願→在籍 一括転換
             </button>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function StudentsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 shrink-0">
-              <h3 className="text-lg font-bold text-navy-800">📋 出願→在籍 一括転換</h3>
+              <h3 className="text-lg font-bold text-navy-800">出願→在籍 一括転換</h3>
               <p className="text-xs text-gray-500 mt-1">入学手続き完了済みの合格者を在籍学生に転換します</p>
             </div>
             <div className="px-6 py-4 overflow-y-auto flex-1">

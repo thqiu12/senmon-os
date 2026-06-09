@@ -418,7 +418,7 @@ export default function CohortsPage() {
               </div>
               {/* 申請番号設定 */}
               <div className="bg-navy-50 border border-navy-200 rounded-lg p-3">
-                <p className="text-xs font-bold text-navy-700 mb-2">📋 申請番号の設定</p>
+                <p className="text-xs font-bold text-navy-700 mb-2">申請番号の設定</p>
                 <div className="grid grid-cols-2 gap-3 mb-2">
                   <div>
                     <label className="form-label text-xs">年度 <span className="form-required">*</span></label>
@@ -455,7 +455,7 @@ export default function CohortsPage() {
 
               {/* 学校別受付設定 */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
-                <p className="text-xs font-bold text-amber-700">🏫 学校別受付設定</p>
+                <p className="text-xs font-bold text-amber-700">学校別受付設定</p>
                 <div>
                   <label className="form-label text-xs">対象学校（空欄＝全校共通）</label>
                   <select className="form-input" value={formSchoolKey} onChange={e => setFormSchoolKey(e.target.value)}>
@@ -514,7 +514,7 @@ export default function CohortsPage() {
 
               {/* デフォルト入学手続き設定 */}
               <div className="border-t border-gray-100 pt-3">
-                <p className="text-xs font-bold text-navy-700 mb-3">💴 入学手続きのデフォルト設定</p>
+                <p className="text-xs font-bold text-navy-700 mb-3">入学手続きのデフォルト設定</p>
                 <p className="text-xs text-gray-500 mb-3">合格通知時に自動でこの設定が入学手続きに反映されます</p>
 
                 {/* 支払いプラン + 学費締切 */}

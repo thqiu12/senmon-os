@@ -259,21 +259,21 @@ export default function FormConfigPage() {
             className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors
               ${activeTab === "form" ? "border-navy-700 text-navy-800 bg-white" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
-            📋 フォームフィールド設定
+            フォームフィールド設定
           </button>
           <button
             onClick={() => setActiveTab("schools")}
             className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors
               ${activeTab === "schools" ? "border-navy-700 text-navy-800 bg-white" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
-            🏫 志望校管理
+            志望校管理
           </button>
           <button
             onClick={() => setActiveTab("general")}
             className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors
               ${activeTab === "general" ? "border-navy-700 text-navy-800 bg-white" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
-            ⚙️ 全体設定
+            全体設定
           </button>
         </div>
 
@@ -349,7 +349,7 @@ export default function FormConfigPage() {
                 }}
                 className="px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 text-sm font-semibold rounded-lg hover:bg-orange-200 transition flex items-center gap-1.5"
               >
-                🔄 グローバル設定に戻す
+                グローバル設定に戻す
               </button>
             )}
             <button
@@ -365,12 +365,12 @@ export default function FormConfigPage() {
         {/* Messages */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-            <span>⚠️</span>{error}
+            <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>{error}
           </div>
         )}
         {successMsg && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-2">
-            <span>✅</span>{successMsg}
+            <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>{successMsg}
           </div>
         )}
 
@@ -645,8 +645,7 @@ export default function FormConfigPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="px-6 py-5">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                🗑️
-              </div>
+                              </div>
               <h3 className="font-bold text-gray-800 text-base text-center mb-2">フィールドを削除</h3>
               <p className="text-sm text-gray-600 text-center">
                 「<span className="font-semibold">{deleteConfirm.label}</span>」を削除しますか？
@@ -796,14 +795,14 @@ function GeneralSettingsPanel() {
                 onClick={() => setYearsInput([currentYear, currentYear + 1, currentYear + 2].join(", "))}
                 className="text-xs px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg"
               >
-                ↻ 当年 + 今後 2 年（{currentYear}〜{currentYear + 2}）
+                当年 + 今後 2 年（{currentYear}〜{currentYear + 2}）
               </button>
               <button
                 type="button"
                 onClick={() => setYearsInput([currentYear + 1, currentYear + 2, currentYear + 3].join(", "))}
                 className="text-xs px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-lg"
               >
-                ↻ 来年から 3 年（{currentYear + 1}〜{currentYear + 3}）
+                来年から 3 年（{currentYear + 1}〜{currentYear + 3}）
               </button>
             </div>
           </div>

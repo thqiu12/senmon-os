@@ -80,55 +80,18 @@ interface GlobalStats {
 
 // 手続き進捗ステップを計算する
 function getEnrollmentStep(ep: EnrollmentSummary): { label: string; style: string } {
-  if (ep.admitLetterIssued) return { label: "📜 許可書発行済", style: "bg-purple-100 text-purple-800" };
-  if (ep.schoolConfirmed)   return { label: "🏫 学校承認待ち", style: "bg-indigo-100 text-indigo-800" };
+  if (ep.admitLetterIssued) return { label: "許可書発行済", style: "bg-purple-100 text-purple-800" };
+  if (ep.schoolConfirmed)   return { label: "学校承認待ち", style: "bg-indigo-100 text-indigo-800" };
   const s = ep.status;
-  if (s === "STEP3完了" || s === "完了") return { label: "✍️ 署名完了", style: "bg-teal-100 text-teal-800" };
-  if (s === "STEP2完了") return { label: "📄 書類提出済", style: "bg-cyan-100 text-cyan-800" };
-  if (s === "STEP1完了") return { label: "💴 振込確認済", style: "bg-sky-100 text-sky-800" };
-  if (s === "案内済み")   return { label: "📨 手続き案内済", style: "bg-sky-50 text-sky-700" };
-  return { label: "⏳ 手続き中", style: "bg-gray-100 text-gray-600" };
+  if (s === "STEP3完了" || s === "完了") return { label: "署名完了", style: "bg-teal-100 text-teal-800" };
+  if (s === "STEP2完了") return { label: "書類提出済", style: "bg-cyan-100 text-cyan-800" };
+  if (s === "STEP1完了") return { label: "振込確認済", style: "bg-sky-100 text-sky-800" };
+  if (s === "案内済み")   return { label: "手続き案内済", style: "bg-sky-50 text-sky-700" };
+  return { label: "手続き中", style: "bg-gray-100 text-gray-600" };
 }
 
-function useAdminRole(): string {
-  const [role, setRole] = useState("");
-  useEffect(() => {
-    fetch("/api/admin/me")
-      .then((r) => (r.ok ? r.json() : { user: null }))
-      .then((d) => setRole(d?.user?.role || ""))
-      .catch(() => {});
-  }, []);
-  return role;
-}
-
-function AccountManagementLink() {
-  const role = useAdminRole();
-  if (role !== "super_admin") return null;
-  return (
-    <Link href="/admin/accounts" className="text-navy-300 hover:text-white text-xs transition-colors px-2 py-1.5 rounded hover:bg-navy-700 whitespace-nowrap">
-      アカウント
-    </Link>
-  );
-}
-
-// 旧 SettingsLink は「フォーム管理 → 全体設定」タブに統合されたため削除済み。
-
-function UserBadge() {
-  const role = useAdminRole();
-  if (!role) return null;
-  const ROLE_DISPLAY: Record<string, { label: string; icon: string }> = {
-    super_admin: { label: "スーパー管理者", icon: "👑" },
-    admin:       { label: "管理者",         icon: "🔑" },
-    interviewer: { label: "面接官",         icon: "📋" },
-  };
-  const r = ROLE_DISPLAY[role] || { label: role, icon: "👤" };
-  return (
-    <div className="flex items-center gap-1 bg-navy-700 px-2 py-1.5 rounded-lg whitespace-nowrap">
-      <span className="text-xs">{r.icon}</span>
-      <span className="text-xs text-white font-medium">{r.label}</span>
-    </div>
-  );
-}
+// 旧ヘッダー用の useAdminRole / AccountManagementLink / UserBadge は
+// サイドバー(AdminShell)へ統合されたため削除済み（役割表示はサイドバー下部）。
 
 // 列の表示/非表示定義
 const COLUMN_DEFS = [
@@ -492,11 +455,11 @@ export default function AdminDashboard() {
                   <p className="text-xl font-bold text-sky-800">{es.announced}件</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                  <p className="text-xs text-blue-600 mb-1">💴 学費振込待ち</p>
+                  <p className="text-xs text-blue-600 mb-1">学費振込待ち</p>
                   <p className="text-xl font-bold text-blue-800">{es.step1Waiting}件</p>
                 </div>
                 <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 text-center">
-                  <p className="text-xs text-cyan-600 mb-1">📄 書類提出待ち</p>
+                  <p className="text-xs text-cyan-600 mb-1">書類提出待ち</p>
                   <p className="text-xl font-bold text-cyan-800">{es.step2Waiting}件</p>
                 </div>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
@@ -621,7 +584,7 @@ export default function AdminDashboard() {
           {(statusFilter !== "all" || levelFilter !== "all" || agentFilter !== "all" || cohortFilter !== "all" || todayOnly || search) && (
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
               <span className="text-xs text-gray-400 self-center">フィルター:</span>
-              {todayOnly && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">📅 今日のみ <button onClick={() => { setTodayOnly(false); setPage(1); }} className="ml-1 hover:text-orange-900">×</button></span>}
+              {todayOnly && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">今日のみ <button onClick={() => { setTodayOnly(false); setPage(1); }} className="ml-1 hover:text-orange-900">×</button></span>}
               {statusFilter !== "all" && <span className="text-xs bg-navy-100 text-navy-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{statusFilter} <button onClick={() => { setStatusFilter("all"); setPage(1); }} className="ml-1 hover:text-navy-900">×</button></span>}
               {levelFilter !== "all" && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{levelFilter} <button onClick={() => { setLevelFilter("all"); setPage(1); }} className="ml-1 hover:text-purple-900">×</button></span>}
               {cohortFilter !== "all" && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{cohorts.find(c => c.id === cohortFilter)?.name ?? cohortFilter} <button onClick={() => { setCohortFilter("all"); setPage(1); }} className="ml-1 hover:text-indigo-900">×</button></span>}
@@ -666,7 +629,7 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-gray-900">{app.lastName} {app.firstName}</p>
-                          {app.examMode === "一般" ? (<span className="text-xs px-1.5 py-0.5 rounded font-bold shrink-0 bg-orange-100 text-orange-700">✏️筆記</span>) : app.examMode && (
+                          {app.examMode === "一般" ? (<span className="text-xs px-1.5 py-0.5 rounded font-bold shrink-0 bg-orange-100 text-orange-700">筆記</span>) : app.examMode && (
                             <span className={`text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${app.examMode === "特待生" ? "bg-yellow-100 text-yellow-700" : "bg-purple-100 text-purple-700"}`}>
                               {app.examMode === "特待生" ? "★特待" : "◆推薦"}
                             </span>
@@ -687,8 +650,7 @@ export default function AdminDashboard() {
                         className="text-navy-700 hover:text-navy-900 font-medium text-xs"
                         onClick={e => e.stopPropagation()}
                       >
-                        詳細 →
-                      </Link>
+                        詳細                       </Link>
                     </div>
                   </div>
                 ))
@@ -744,7 +706,7 @@ export default function AdminDashboard() {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-1.5 mb-0.5">
                                 <p className="font-semibold text-gray-900">{app.lastName} {app.firstName}</p>
-                                {app.examMode === "一般" ? (<span className="text-xs px-1.5 py-0.5 rounded font-bold shrink-0 bg-orange-100 text-orange-700">✏️筆記</span>) : app.examMode && (
+                                {app.examMode === "一般" ? (<span className="text-xs px-1.5 py-0.5 rounded font-bold shrink-0 bg-orange-100 text-orange-700">筆記</span>) : app.examMode && (
                                   <span className={`text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${app.examMode === "特待生" ? "bg-yellow-100 text-yellow-700" : "bg-purple-100 text-purple-700"}`}>
                                     {app.examMode === "特待生" ? "★特待" : "◆推薦"}
                                   </span>
@@ -852,8 +814,7 @@ export default function AdminDashboard() {
                               className="text-navy-700 hover:text-navy-900 font-medium text-xs"
                               onClick={e => e.stopPropagation()}
                             >
-                              詳細 →
-                            </Link>
+                              詳細                             </Link>
                           </td>
                         </tr>
                       ))

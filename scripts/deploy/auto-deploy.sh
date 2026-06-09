@@ -98,78 +98,77 @@ if [ -f scripts/migrate-document-filePath.ts ]; then
   npx ts-node scripts/migrate-document-filePath.ts >> "$LOG" 2>&1 || log "WARN: 移行スクリプトでエラー（手動確認推奨）"
 fi
 
-# ロールバック用に直前のコミットを記録（CSS 失敗時に戻す）
+# ロールバック用に直前のコミットを記録（失敗時に戻す）
 ROLLBACK_SHA="$LOCAL_SHA"
 
-# ----- クリーンビルド (.next のキャッシュ起因の CSS 崩壊を防止) -----
-# 直前のビルド成果物を退避（ロールバック用）
-if [ -d .next ]; then
-  rm -rf .next.prev 2>>"$LOG" || true
-  mv .next .next.prev 2>>"$LOG" || true
-  log "前回ビルドを .next.prev に退避"
-fi
+# =============================================================================
+# Atomic deploy: ビルドは別ディレクトリ (.next.build) で行い、現行 .next は
+# ビルド中もそのまま稼働させる。ビルド成功 & CSS 検証 OK の時だけ、
+#   .next → .next.prev,  .next.build → .next
+# と一瞬で差し替えて pm2 restart する。
+# これにより「ビルド中に .next が消えて CSS が落ちる」窓を無くす。
+# =============================================================================
+BUILD_DIR=".next.build"
+rm -rf "$BUILD_DIR" 2>>"$LOG" || true
 
-# ----- ビルド -----
-log "Next.js ビルド中..."
-if ! NODE_OPTIONS="--max-old-space-size=1536" npm run build >> "$LOG" 2>&1; then
-  log "ERROR: build failed, PM2 はリロードしません（前のビルドを継続使用）"
-  # ビルド失敗 → 退避した前回ビルドを戻す
-  if [ -d .next.prev ]; then
-    rm -rf .next 2>>"$LOG" || true
-    mv .next.prev .next 2>>"$LOG" || true
-    log "  → .next.prev から復元しました"
-  fi
+log "Next.js ビルド中（出力先: $BUILD_DIR、現行サイトは稼働継続）..."
+if ! NEXT_DIST_DIR="$BUILD_DIR" NODE_OPTIONS="--max-old-space-size=1536" npm run build >> "$LOG" 2>&1; then
+  log "ERROR: build failed → 現行 .next を維持（サイトは無傷）"
+  rm -rf "$BUILD_DIR" 2>>"$LOG" || true
   exit 1
 fi
-log "✓ ビルド成功"
 
-# ----- ビルド成果物の検証 (CSS ファイルが正しく生成されているか) -----
-CSS_COUNT=$(find .next/static/css -name "*.css" 2>/dev/null | wc -l | tr -d ' ')
+# ----- ビルド成果物を差し替え前に検証 -----
+CSS_COUNT=$(find "$BUILD_DIR/static/css" -name "*.css" 2>/dev/null | wc -l | tr -d ' ')
 if [ "${CSS_COUNT:-0}" -lt 1 ]; then
-  log "ERROR: .next/static/css に CSS ファイルが無い → ビルド破損とみなしリロード中止"
+  log "ERROR: $BUILD_DIR/static/css に CSS が無い → 破損ビルドとみなし差し替え中止（現行維持）"
+  rm -rf "$BUILD_DIR" 2>>"$LOG" || true
   exit 1
 fi
-log "✓ CSS ファイル ${CSS_COUNT} 件を確認"
-
-# ファイルシステムの flush を待つ（NFSや遅延書き込み対策）
+if [ ! -f "$BUILD_DIR/BUILD_ID" ]; then
+  log "ERROR: $BUILD_DIR/BUILD_ID が無い → 不完全ビルド、差し替え中止（現行維持）"
+  rm -rf "$BUILD_DIR" 2>>"$LOG" || true
+  exit 1
+fi
+log "✓ ビルド成功・検証 OK (CSS ${CSS_COUNT} 件)"
 sync
 
-# ----- PM2 reload（zero-downtime） -----
+# ----- 原子的差し替え（ここがダウン窓ゼロの肝。mv はミリ秒） -----
+rm -rf .next.prev 2>>"$LOG" || true
+if [ -d .next ]; then mv .next .next.prev 2>>"$LOG" || true; fi
+mv "$BUILD_DIR" .next 2>>"$LOG" || { log "ERROR: 差し替え失敗"; [ -d .next.prev ] && mv .next.prev .next; exit 1; }
+log "✓ .next を新ビルドに差し替え"
+
+# ----- PM2 restart（reload でなく restart で全ワーカーのビルドIDを揃える） -----
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  pm2 reload "$APP_NAME" --update-env >> "$LOG" 2>&1
-  log "✓ PM2 reload 完了"
+  pm2 restart "$APP_NAME" --update-env >> "$LOG" 2>&1
+  log "✓ PM2 restart 完了"
 else
   pm2 start ecosystem.config.js >> "$LOG" 2>&1
   log "✓ PM2 新規起動"
 fi
 pm2 save >> "$LOG" 2>&1
 
-# ----- ヘルスチェック (API + CSS 到達性の両方) -----
+# ----- ヘルスチェック (API + 実 CSS 到達性) -----
 sleep 3
 HEALTH_OK=0
 CSS_OK=0
-if curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok"'; then
-  HEALTH_OK=1
-fi
-# トップページから CSS パスを抽出して実際に取得できるか確認
+if curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok"'; then HEALTH_OK=1; fi
 CSS_PATH=$(curl -fsS http://127.0.0.1:3000/ 2>/dev/null | grep -oE '/_next/static/css/[^"]+\.css' | head -1)
-if [ -n "$CSS_PATH" ] && curl -fsS "http://127.0.0.1:3000${CSS_PATH}" >/dev/null 2>&1; then
-  CSS_OK=1
-fi
+if [ -n "$CSS_PATH" ] && curl -fsS "http://127.0.0.1:3000${CSS_PATH}" >/dev/null 2>&1; then CSS_OK=1; fi
 
 if [ "$HEALTH_OK" = "1" ] && [ "$CSS_OK" = "1" ]; then
   log "✓ ヘルスチェック OK (API + CSS 両方到達)"
-  # 成功時は退避ファイルを削除
   rm -rf .next.prev 2>>"$LOG" || true
 else
   log "ERROR: ヘルスチェック失敗 — API=$HEALTH_OK CSS=$CSS_OK (パス: $CSS_PATH)"
-  # ----- 自動ロールバック -----
+  # ----- 自動ロールバック（前ビルド + 前コミットに戻す） -----
   if [ -d .next.prev ]; then
-    log "→ 自動ロールバック開始: 前のビルドに戻します"
+    log "→ 自動ロールバック開始"
     git reset --hard "$ROLLBACK_SHA" --quiet 2>>"$LOG" || log "WARN: git reset 失敗"
     rm -rf .next 2>>"$LOG" || true
     mv .next.prev .next 2>>"$LOG" || true
-    pm2 reload "$APP_NAME" --update-env >> "$LOG" 2>&1
+    pm2 restart "$APP_NAME" --update-env >> "$LOG" 2>&1
     sleep 3
     if curl -fsS http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok"'; then
       log "✓ ロールバック完了 ($(git rev-parse --short HEAD))"

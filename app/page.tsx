@@ -299,7 +299,7 @@ export default function HomePage() {
 
                         {accepting ? (
                           <Link href={`/apply?school=${school.id}`}
-                            className={`block w-full ${school.color.btn} text-white text-center text-sm font-semibold py-3 rounded-xl transition-colors`}>
+                            className={`block w-full ${school.color.btn} text-white text-center text-sm font-semibold py-3 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-sm hover:shadow`}>
                             出願する →
                           </Link>
                         ) : (
@@ -402,7 +402,7 @@ export default function HomePage() {
                 </p>
                 <Link
                   href="/apply/status"
-                  className="inline-flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg transition"
+                  className="inline-flex items-center gap-1.5 text-sm bg-white hover:bg-blue-50 text-blue-700 font-bold px-4 py-2 rounded-lg border border-blue-200 transition active:scale-[0.98]"
                 >
                   出願番号でログイン →
                 </Link>

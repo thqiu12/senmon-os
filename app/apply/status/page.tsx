@@ -2121,8 +2121,15 @@ function StatusPageInner() {
 
       {/* 基本情報変更申請モーダル */}
       {showChangeModal && result && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="基本情報の変更を申請"
+          onClick={() => setShowChangeModal(false)}
+          onKeyDown={(e) => { if (e.key === "Escape") setShowChangeModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-navy-800">基本情報の変更を申請</h3>
               <button

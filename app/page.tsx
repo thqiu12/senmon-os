@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 const SCHOOLS = [
   {
     id: "chuo-seminar",
     name: "中央ゼミナール",
     hojin: "学校法人 羽場学園",
-    icon: "📚",
+    icon: "book" as const,
     color: { header: "bg-blue-600", btn: "bg-blue-600 hover:bg-blue-700", tag: "bg-blue-50 text-blue-700 border-blue-100", badge: "bg-blue-100 text-blue-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
     desc: "大学・大学院・美術系の受験指導に特化した専修学校。留学生向けの日本語指導から難関大学合格まで、個別カリキュラムで徹底サポートします。",
     departments: [
@@ -21,7 +22,7 @@ const SCHOOLS = [
     name: "東京デジタルビジネス専門学校",
     nameShort: "TDB",
     hojin: "学校法人 羽場学園",
-    icon: "💻",
+    icon: "monitor" as const,
     color: { header: "bg-violet-600", btn: "bg-violet-600 hover:bg-violet-700", tag: "bg-violet-50 text-violet-700 border-violet-100", badge: "bg-violet-100 text-violet-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
     desc: "デジタルビジネス・デジタルメディアの実践スキルを習得する専門学校。最新テクノロジーとビジネスを融合した教育で、デジタル社会を牽引する人材を育成します。",
     departments: [
@@ -33,7 +34,7 @@ const SCHOOLS = [
     id: "kanagawa-judo",
     name: "神奈川柔整鍼灸専門学校",
     hojin: "学校法人 平井学園",
-    icon: "⚕️",
+    icon: "stethoscope" as const,
     color: { header: "bg-emerald-600", btn: "bg-emerald-600 hover:bg-emerald-700", tag: "bg-emerald-50 text-emerald-700 border-emerald-100", badge: "bg-emerald-100 text-emerald-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
     desc: "柔道整復師・鍼灸師の国家資格取得を目指す専門学校。豊富な臨床実習と国家試験対策で、医療・スポーツ分野で活躍できる人材を育成します。",
     departments: [
@@ -251,7 +252,7 @@ export default function HomePage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-3xl mb-2">{school.icon}</div>
+                        <div className="mb-2"><Icon name={school.icon} className="w-8 h-8 text-white" /></div>
                         <p className="text-white/70 text-xs mb-0.5">{school.hojin}</p>
                         <h3 className="text-white font-bold text-lg leading-snug">
                           {school.name}
@@ -393,7 +394,7 @@ export default function HomePage() {
           {/* サブリンク */}
           <section className="grid sm:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-blue-200 shadow-sm p-6 flex items-start gap-4">
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">📋</div>
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0"><Icon name="clipboard" className="w-5 h-5" /></div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 mb-1">出願の続き・状況確認</h3>
                 <p className="text-gray-500 text-sm mb-3">
@@ -408,7 +409,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex items-start gap-4">
-              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">📞</div>
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0"><Icon name="phone" className="w-5 h-5" /></div>
               <div>
                 <h3 className="font-bold text-gray-800 mb-1">お問い合わせ</h3>
                 <p className="text-gray-500 text-sm">出願に関するご不明点は各校の入学相談室（平日 9:00〜17:00）までお問い合わせください。</p>

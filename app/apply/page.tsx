@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useUI } from "@/components/ui/toast";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -234,10 +235,12 @@ function Select({ error, children, ...props }: React.SelectHTMLAttributes<HTMLSe
   );
 }
 
-function SectionTitle({ icon, children }: { icon: string; children: React.ReactNode }) {
+function SectionTitle({ icon, children }: { icon: IconName; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 mb-5">
-      <span className="text-lg" aria-hidden="true">{icon}</span>
+    <div className="flex items-center gap-2.5 mb-5">
+      <span className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+        <Icon name={icon} className="w-[18px] h-[18px]" />
+      </span>
       <h2 className="text-base font-bold text-gray-800">{children}</h2>
     </div>
   );
@@ -326,7 +329,7 @@ function Step1({ form, onChange, errors, formConfig }: {
     <div className="space-y-6">
       {hasNameFields && (
         <>
-          <SectionTitle icon="👤">氏名</SectionTitle>
+          <SectionTitle icon="user">氏名</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("lastName") && (
               <Field label="姓（漢字・ローマ字）" required={isRequired("lastName")} error={errors.lastName}>
@@ -355,7 +358,7 @@ function Step1({ form, onChange, errors, formConfig }: {
       {hasBasicFields && (
         <>
           <Divider />
-          <SectionTitle icon="📋">基本情報</SectionTitle>
+          <SectionTitle icon="id">基本情報</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {isEnabled("birthDate") && (
               <div className="sm:col-span-2">
@@ -389,7 +392,7 @@ function Step1({ form, onChange, errors, formConfig }: {
       {hasContactFields && (
         <>
           <Divider />
-          <SectionTitle icon="📞">連絡先</SectionTitle>
+          <SectionTitle icon="phone">連絡先</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("phone") && (
               <Field label="電話番号" required={isRequired("phone")} hint="ハイフンなし" error={errors.phone}>
@@ -408,7 +411,7 @@ function Step1({ form, onChange, errors, formConfig }: {
       {hasAddressFields && (
         <>
           <Divider />
-          <SectionTitle icon="🏠">住所</SectionTitle>
+          <SectionTitle icon="home">住所</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {isEnabled("postalCode") && (
               <Field label="郵便番号" required={isRequired("postalCode")} hint="ハイフンなし7桁" error={errors.postalCode}>
@@ -448,7 +451,7 @@ function Step1({ form, onChange, errors, formConfig }: {
       {hasResidenceFields && (
         <>
           <Divider />
-          <SectionTitle icon="🗾">在日情報・日本語能力</SectionTitle>
+          <SectionTitle icon="globe">在日情報・日本語能力</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("residenceStatus") && (
               <Field label="在留資格（日本在住の方）" required={isRequired("residenceStatus", false)} error={errors.residenceStatus}>
@@ -666,7 +669,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       )}
 
       <Divider />
-      <SectionTitle icon="📅">入学希望時期</SectionTitle>
+      <SectionTitle icon="calendar">入学希望時期</SectionTitle>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="入学希望年" required error={errors.enrollmentYear}>
           <Select value={form.enrollmentYear} error={!!errors.enrollmentYear} onChange={e => onChange("enrollmentYear", e.target.value)}>
@@ -684,7 +687,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       {isEnabled("applicationReason") && (
         <>
           <Divider />
-          <SectionTitle icon="✍️">志望動機</SectionTitle>
+          <SectionTitle icon="pencil">志望動機</SectionTitle>
           <Field label="志望動機" required={isRequired("applicationReason")} hint="300字以上で具体的にご記入ください" error={errors.applicationReason}>
             <textarea
               className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
@@ -703,7 +706,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       {(isEnabled("lastSchoolName") || isEnabled("lastSchoolCountry") || isEnabled("lastSchoolGraduate") || isEnabled("priorAttendanceRate") || isEnabled("workExperience")) && (
         <>
           <Divider />
-          <SectionTitle icon="🎓">最終学歴</SectionTitle>
+          <SectionTitle icon="graduation">最終学歴</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {isEnabled("lastSchoolName") && (
               <Field label="学校名" required={isRequired("lastSchoolName")} error={errors.lastSchoolName}>
@@ -749,12 +752,12 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       )}
 
       <Divider />
-      <SectionTitle icon="🏷️">選考区分・推薦</SectionTitle>
+      <SectionTitle icon="tag">選考区分・推薦</SectionTitle>
       <div className="grid grid-cols-3 gap-3">
         {[
-          { value: "一般", label: "一般選考", desc: "筆記試験・面接あり", icon: "📝", exam: true },
-          { value: "指定推薦", label: "指定推薦", desc: "筆記試験免除・面接のみ", icon: "🤝", exam: false },
-          { value: "特待生", label: "特待生選考", desc: "筆記試験免除・面接のみ", icon: "⭐", exam: false },
+          { value: "一般", label: "一般選考", desc: "筆記試験・面接あり", icon: "pencil" as IconName, exam: true },
+          { value: "指定推薦", label: "指定推薦", desc: "筆記試験免除・面接のみ", icon: "handshake" as IconName, exam: false },
+          { value: "特待生", label: "特待生選考", desc: "筆記試験免除・面接のみ", icon: "star" as IconName, exam: false },
         ].map(mode => {
           const sel = form.examMode === mode.value;
           return (
@@ -762,11 +765,14 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
               ${sel ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 bg-white hover:border-blue-200"}`}>
               <input type="radio" name="examMode" value={mode.value} className="sr-only"
                 checked={sel} onChange={() => onChange("examMode", mode.value)} />
-              <div className="text-2xl mb-1" aria-hidden="true">{mode.icon}</div>
+              <span className={`mx-auto mb-1.5 w-10 h-10 rounded-full flex items-center justify-center ${sel ? "bg-accent text-white" : "bg-gray-100 text-gray-500"}`}>
+                <Icon name={mode.icon} className="w-5 h-5" />
+              </span>
               <p className={`font-bold text-sm mb-0.5 ${sel ? "text-blue-700" : "text-gray-700"}`}>{mode.label}</p>
               <p className="text-xs text-gray-500">{mode.desc}</p>
-              <span className={`inline-block mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${mode.exam ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
-                {mode.exam ? "✏️ 筆記あり" : "🎫 筆記免除"}
+              <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${mode.exam ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                <Icon name={mode.exam ? "pencil" : "ticket"} className="w-3 h-3" />
+                {mode.exam ? "筆記あり" : "筆記免除"}
               </span>
             </label>
           );
@@ -788,7 +794,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       {form.examMode === "特待生" && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <span className="text-2xl" aria-hidden="true">⭐</span>
+            <span className="shrink-0 w-9 h-9 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center"><Icon name="star" className="w-5 h-5" /></span>
             <div>
               <p className="font-bold text-yellow-800 text-sm mb-1">特待生選考の要件</p>
               <p className="text-xs text-yellow-800 mb-2">
@@ -806,7 +812,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
         <>
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <span className="text-2xl">✏️</span>
+              <span className="shrink-0 w-9 h-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center"><Icon name="pencil" className="w-5 h-5" /></span>
               <div>
                 <p className="font-bold text-orange-800 text-sm mb-1">一般選考は筆記試験があります</p>
                 <p className="text-xs text-orange-700">書類審査通過後、筆記試験（日本語・一般教養）と面接を受けていただきます。試験日程は別途ご案内します。</p>
@@ -2081,12 +2087,12 @@ function ApplyPageInner() {
                         }`}
                     >
                       {submitting ? (
-                        <><span className="animate-spin">⏳</span> 保存中...</>
+                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 保存中...</>
                       ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
                     </button>
                     {!valid && !submitting && (
                       <span className="text-[11px] text-amber-700 font-medium">
-                        ⚠️ 必須項目を入力してから進んでください
+                        必須項目を入力してから進んでください
                       </span>
                     )}
                   </div>
@@ -2094,7 +2100,7 @@ function ApplyPageInner() {
               })() : (
                 <button onClick={handleSubmit} disabled={submitting}
                   className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
-                  {submitting ? <><span className="animate-spin">⏳</span> 提出中...</> : "✅ 提出する"}
+                  {submitting ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 提出中...</> : <><Icon name="check" className="w-4 h-4" /> 提出する</>}
                 </button>
               )}
             </div>

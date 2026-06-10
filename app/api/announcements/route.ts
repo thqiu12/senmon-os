@@ -6,6 +6,7 @@ import { AnnouncementCreateSchema } from "@/lib/schemas";
 import { logError, logger } from "@/lib/logger";
 import { sendBatch } from "@/lib/email";
 import { ENV } from "@/lib/env";
+import { buildRecipientWhere } from "@/lib/announcement-targeting";
 
 export async function GET(request: NextRequest) {
   const session = await getSession(request);
@@ -101,14 +102,13 @@ async function handleSend(id: string) {
     return NextResponse.json({ error: "お知らせが見つかりません" }, { status: 404 });
   }
 
-  const where: Record<string, unknown> = {};
-  if (announcement.targetType === "合格者") {
-    where.status = { in: ["合格", "補欠合格"] };
-  } else if (announcement.targetType === "specific_cohort" && announcement.targetCohortId) {
-    where.cohortId = announcement.targetCohortId;
-  } else if (announcement.targetType === "status_filter" && announcement.targetStatus) {
-    where.status = announcement.targetStatus;
-  }
+  const where = buildRecipientWhere({
+    targetType: announcement.targetType,
+    // レガシー(specific_cohort/status_filter)も新フィルタも、保存済みの各列をそのまま使う
+    targetCohortId: announcement.targetCohortId,
+    targetSchool: announcement.targetSchool,
+    targetStatus: announcement.targetStatus,
+  });
 
   const recipients = await prisma.application.findMany({
     where,

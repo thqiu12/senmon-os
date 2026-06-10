@@ -101,9 +101,11 @@ model Announcement {
   id             String    @id @default(cuid())
   title          String
   content        String
-  targetType     String    @default("all") // all/合格者/specific_cohort/status_filter
-  targetCohortId String?
-  targetStatus   String?
+  targetType     String    @default("all") // all/合格者/specific_cohort/status_filter/filter
+  targetCohortId String?   // 選考バッチ（第N期）で絞り込み
+  targetSchool   String?   // 学校名で絞り込み（主志望 or 併願）
+  targetStatus   String?   // ステータスで絞り込み
+  // ↑ targetType="filter" のとき上記3軸を AND 結合（各 null=指定なし）
   sentAt         DateTime?
   sentCount      Int       @default(0)
   createdAt      DateTime  @default(now())

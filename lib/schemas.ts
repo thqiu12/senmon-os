@@ -278,8 +278,9 @@ export const AgentPatchSchema = AgentCreateSchema.partial().extend({ isActive: z
 export const AnnouncementCreateSchema = z.object({
   title: str(200),
   content: str(10000),
-  targetType: z.enum(["all", "合格者", "specific_cohort", "status_filter"]).default("all"),
+  targetType: z.enum(["all", "合格者", "specific_cohort", "status_filter", "filter"]).default("all"),
   targetCohortId: z.string().max(40).optional().nullable(),
+  targetSchool: z.string().max(120).optional().nullable(),
   targetStatus: ApplicationStatusEnum.optional().nullable(),
 });
 

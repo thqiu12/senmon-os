@@ -6,14 +6,10 @@ import { useRouter } from "next/navigation";
 import { formatDateTimeJP } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
 
-const TARGET_TYPES = [
-  { value: "all", label: "全員" },
-  { value: "合格者", label: "合格者のみ（合格・補欠合格）" },
-  { value: "specific_cohort", label: "バッチ指定" },
-  { value: "status_filter", label: "ステータス指定" },
-];
-
 const STATUSES = ["受付中", "書類確認中", "面接待ち", "合格", "補欠合格", "不合格", "保留"];
+// ステータス絞り込みの選択肢（先頭2つは特別値）
+const STATUS_ALL = "";              // すべて
+const STATUS_PASS = "合格＋補欠合格"; // 合格者プリセット（合格＋補欠合格）
 
 interface Announcement {
   id: string;
@@ -21,6 +17,7 @@ interface Announcement {
   content: string;
   targetType: string;
   targetCohortId: string | null;
+  targetSchool: string | null;
   targetStatus: string | null;
   sentAt: string | null;
   sentCount: number;
@@ -34,15 +31,17 @@ interface Cohort {
   _count: { applications: number };
 }
 
+// 第N期 × 学校 × ステータス の複合フィルタを人が読めるラベルに
 function getTargetLabel(a: Announcement, cohorts: Cohort[]): string {
-  if (a.targetType === "all") return "全員";
-  if (a.targetType === "合格者") return "合格・補欠合格者";
-  if (a.targetType === "specific_cohort") {
+  const parts: string[] = [];
+  if (a.targetCohortId) {
     const cohort = cohorts.find(c => c.id === a.targetCohortId);
-    return cohort ? `バッチ: ${cohort.name}` : "バッチ指定";
+    parts.push(cohort ? cohort.name : "指定バッチ");
   }
-  if (a.targetType === "status_filter") return `ステータス: ${a.targetStatus || "—"}`;
-  return a.targetType;
+  if (a.targetSchool) parts.push(a.targetSchool);
+  if (a.targetType === "合格者") parts.push("合格＋補欠合格");
+  else if (a.targetStatus) parts.push(a.targetStatus);
+  return parts.length ? parts.join(" / ") : "全員";
 }
 
 export default function AnnouncementsPage() {
@@ -50,16 +49,17 @@ export default function AnnouncementsPage() {
   const { toast, confirm } = useUI();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const [schools, setSchools] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form
+  // Form（複合フィルタ：選考バッチ × 学校 × ステータス）
   const [showForm, setShowForm] = useState(false);
   const [formTitle, setFormTitle] = useState("");
   const [formContent, setFormContent] = useState("");
-  const [formTargetType, setFormTargetType] = useState("all");
   const [formTargetCohortId, setFormTargetCohortId] = useState("");
-  const [formTargetStatus, setFormTargetStatus] = useState("");
+  const [formTargetSchool, setFormTargetSchool] = useState("");
+  const [formTargetStatus, setFormTargetStatus] = useState(STATUS_ALL);
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -74,15 +74,19 @@ export default function AnnouncementsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [annoRes, cohortRes] = await Promise.all([
+      const [annoRes, cohortRes, schoolRes] = await Promise.all([
         fetch("/api/announcements"),
         fetch("/api/cohorts"),
+        fetch("/api/announcements/recipients?facets=1"),
       ]);
       if (annoRes.status === 401) { router.push("/admin"); return; }
       if (!annoRes.ok) throw new Error("取得に失敗しました");
-      const [annoData, cohortData] = await Promise.all([annoRes.json(), cohortRes.json()]);
+      const [annoData, cohortData, schoolData] = await Promise.all([
+        annoRes.json(), cohortRes.json(), schoolRes.ok ? schoolRes.json() : { schools: [] },
+      ]);
       setAnnouncements(annoData);
       if (Array.isArray(cohortData)) setCohorts(cohortData);
+      if (Array.isArray(schoolData?.schools)) setSchools(schoolData.schools);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -92,41 +96,37 @@ export default function AnnouncementsPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // 対象件数プレビュー
+  // 対象件数プレビュー（実送信と同じロジックの API で算出）
   useEffect(() => {
     setPreviewCount(null);
     if (!showForm) return;
+    let cancelled = false;
     const fetchPreview = async () => {
       setPreviewLoading(true);
       try {
-        const params = new URLSearchParams({ limit: "1000", page: "1" });
-        if (formTargetType === "合格者") params.set("status", "合格");
-        else if (formTargetType === "specific_cohort" && formTargetCohortId) params.set("cohortId", formTargetCohortId);
-        else if (formTargetType === "status_filter" && formTargetStatus) params.set("status", formTargetStatus);
-        const res = await fetch(`/api/applications?${params}`);
+        const params = new URLSearchParams();
+        if (formTargetCohortId) params.set("cohortId", formTargetCohortId);
+        if (formTargetSchool) params.set("school", formTargetSchool);
+        if (formTargetStatus === STATUS_PASS) params.set("targetType", "合格者");
+        else if (formTargetStatus) params.set("status", formTargetStatus);
+        const res = await fetch(`/api/announcements/recipients?${params}`);
         if (res.ok) {
           const data = await res.json();
-          if (formTargetType === "合格者") {
-            // 合格+補欠合格を全取得してカウント
-            const res2 = await fetch("/api/applications?status=補欠合格&limit=1000&page=1");
-            const data2 = res2.ok ? await res2.json() : { total: 0 };
-            setPreviewCount(data.total + data2.total);
-          } else {
-            setPreviewCount(data.total);
-          }
+          if (!cancelled) setPreviewCount(data.count ?? 0);
         }
       } catch { /* ignore */ }
-      finally { setPreviewLoading(false); }
+      finally { if (!cancelled) setPreviewLoading(false); }
     };
     fetchPreview();
-  }, [showForm, formTargetType, formTargetCohortId, formTargetStatus]);
+    return () => { cancelled = true; };
+  }, [showForm, formTargetCohortId, formTargetSchool, formTargetStatus]);
 
   const resetForm = () => {
     setFormTitle("");
     setFormContent("");
-    setFormTargetType("all");
     setFormTargetCohortId("");
-    setFormTargetStatus("");
+    setFormTargetSchool("");
+    setFormTargetStatus(STATUS_ALL);
     setFormError(null);
     setPreviewCount(null);
   };
@@ -136,14 +136,10 @@ export default function AnnouncementsPage() {
       setFormError("タイトルと本文は必須です");
       return;
     }
-    if (formTargetType === "specific_cohort" && !formTargetCohortId) {
-      setFormError("バッチを選択してください");
-      return;
-    }
-    if (formTargetType === "status_filter" && !formTargetStatus) {
-      setFormError("ステータスを選択してください");
-      return;
-    }
+    // 複合フィルタ → 保存形式に変換
+    const isPass = formTargetStatus === STATUS_PASS;
+    const anyFilter = !!formTargetCohortId || !!formTargetSchool || !!formTargetStatus;
+    const targetType = isPass ? "合格者" : anyFilter ? "filter" : "all";
     setFormSaving(true);
     setFormError(null);
     try {
@@ -153,9 +149,10 @@ export default function AnnouncementsPage() {
         body: JSON.stringify({
           title: formTitle.trim(),
           content: formContent.trim(),
-          targetType: formTargetType,
-          targetCohortId: formTargetType === "specific_cohort" ? formTargetCohortId : null,
-          targetStatus: formTargetType === "status_filter" ? formTargetStatus : null,
+          targetType,
+          targetCohortId: formTargetCohortId || null,
+          targetSchool: formTargetSchool || null,
+          targetStatus: isPass ? null : (formTargetStatus || null),
         }),
       });
       if (!res.ok) {
@@ -256,47 +253,54 @@ export default function AnnouncementsPage() {
                 />
               </div>
               <div>
-                <label className="form-label">送信対象</label>
-                <select
-                  className="form-input"
-                  value={formTargetType}
-                  onChange={(e) => { setFormTargetType(e.target.value); }}
-                >
-                  {TARGET_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <label className="form-label">送信対象の絞り込み</label>
+                <p className="text-xs text-gray-500 mb-2">選考バッチ・学校・ステータスを組み合わせて絞り込みます（すべて「指定なし」なら全員）。</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* 選考バッチ（第N期） */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">選考バッチ（第N期）</label>
+                    <select
+                      className="form-input"
+                      value={formTargetCohortId}
+                      onChange={(e) => setFormTargetCohortId(e.target.value)}
+                    >
+                      <option value="">すべての選考</option>
+                      {cohorts.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}（{c._count.applications}件）</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* 学校 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">学校</label>
+                    <select
+                      className="form-input"
+                      value={formTargetSchool}
+                      onChange={(e) => setFormTargetSchool(e.target.value)}
+                    >
+                      <option value="">すべての学校</option>
+                      {schools.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* ステータス */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">ステータス</label>
+                    <select
+                      className="form-input"
+                      value={formTargetStatus}
+                      onChange={(e) => setFormTargetStatus(e.target.value)}
+                    >
+                      <option value={STATUS_ALL}>すべてのステータス</option>
+                      <option value={STATUS_PASS}>合格＋補欠合格</option>
+                      {STATUSES.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-              {formTargetType === "specific_cohort" && (
-                <div>
-                  <label className="form-label">バッチを選択</label>
-                  <select
-                    className="form-input"
-                    value={formTargetCohortId}
-                    onChange={(e) => setFormTargetCohortId(e.target.value)}
-                  >
-                    <option value="">— バッチを選択 —</option>
-                    {cohorts.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}（{c._count.applications}件）</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {formTargetType === "status_filter" && (
-                <div>
-                  <label className="form-label">ステータスを選択</label>
-                  <select
-                    className="form-input"
-                    value={formTargetStatus}
-                    onChange={(e) => setFormTargetStatus(e.target.value)}
-                  >
-                    <option value="">— ステータスを選択 —</option>
-                    {STATUSES.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* 対象件数プレビュー */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

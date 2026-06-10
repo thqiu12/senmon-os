@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ENV } from "@/lib/env";
 import crypto from "crypto";
 
-export type AdminRole = "super_admin" | "admin" | "interviewer";
+export type AdminRole = "super_admin" | "admin" | "sales" | "interviewer";
 
 export interface AdminSession {
   userId: string;
@@ -65,7 +65,15 @@ export async function getSession(request: NextRequest): Promise<AdminSession | n
   }
 }
 
+// 一般的な管理権限。営業(sales)もここに含む＝ほぼ全機能を利用可。
+// ただし「出願フォーム編集・選考操作」は isCoreAdmin、「アカウント管理」は
+// isSuperAdmin で別途制限する（営業はこれら3領域だけ不可）。
 export function isAdmin(session: AdminSession | null): boolean {
+  return session !== null && ["super_admin", "admin", "sales"].includes(session.role);
+}
+
+// 中核管理者（営業を除く）。出願フォーム編集・選考(コホート)操作に使う。
+export function isCoreAdmin(session: AdminSession | null): boolean {
   return session !== null && ["super_admin", "admin"].includes(session.role);
 }
 

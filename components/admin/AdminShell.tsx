@@ -85,11 +85,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     router.push("/admin");
   };
 
-  // accounts はスーパー管理者のみ
+  // accounts はスーパー管理者のみ。
+  // 営業(sales)は「出願フォーム編集・選考操作」が不可なので該当ナビを隠す。
+  const salesHidden = new Set(["/admin/form-config", "/admin/cohorts"]);
   const filteredNav = NAV.map((sec) => ({
     ...sec,
     items: sec.items.filter((it) => {
       if (it.href === "/admin/accounts" && me?.role !== "super_admin") return false;
+      if (me?.role === "sales" && salesHidden.has(it.href)) return false;
       return true;
     }),
   })).filter((sec) => sec.items.length > 0);
@@ -160,6 +163,7 @@ function roleLabel(role: string): string {
   switch (role) {
     case "super_admin": return "スーパー管理者";
     case "admin":       return "管理者";
+    case "sales":       return "営業";
     case "interviewer": return "面接官";
     default:            return role;
   }

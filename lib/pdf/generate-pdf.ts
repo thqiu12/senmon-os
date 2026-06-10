@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-core";
 import { existsSync } from "fs";
 import { escapeHtml } from "@/lib/security";
-import { squareSeal, institutionSealText } from "@/lib/pdf/seal";
+import { institutionSealText, schoolSealHtml } from "@/lib/pdf/seal";
 
 export interface AdmissionLetterData {
   type: "admission_notice" | "admission_permit";
@@ -62,12 +62,12 @@ function buildNoticeHTML(data: AdmissionLetterData): string {
     ? `あなたは所定の入学手続きを完了されましたので、${enrollmentText}より${officialNameSafe} ${departmentSafe}${courseSafe ? ` ${courseSafe}` : ""}への入学を許可いたします。`
     : `あなたは選考の結果、${enrollmentText}入学生として合格と決定いたしましたので、ご通知申し上げます。`;
 
-  // 電子印：法人公印（角印）を校長名に重ねて捺印
-  const officialSealHtml = squareSeal({
-    text: institutionSealText(school.legalName),
-    size: 78,
-    rotate: -4,
-  });
+  // 電子印：学校の印影画像があれば実印影、無ければ法人公印の CSS 角印を校長名に重ねて捺印
+  const officialSealHtml = schoolSealHtml(
+    data.schoolName,
+    institutionSealText(school.legalName),
+    { size: 80, rotate: -4 },
+  );
 
   return `<!DOCTYPE html>
 <html lang="ja">

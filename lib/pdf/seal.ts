@@ -10,7 +10,71 @@
 //   テンプレ側の CSS クラスと衝突しない。位置決めは extraStyle で渡す。
 // =============================================================================
 
+import { existsSync, readFileSync } from "fs";
+import path from "path";
+
 const VERMILION = "#bb1f2a"; // 朱肉に近い朱色
+
+const SEAL_DIR = path.join(process.cwd(), "public", "seals");
+
+/**
+ * 学校名 → 印影画像のファイルキー。public/seals/<key>.(png|webp|jpg) を探す。
+ */
+export function schoolSealKey(schoolName: string): string {
+  if (/神奈川|柔整|鍼灸/.test(schoolName)) return "kanagawa";
+  if (/中央/.test(schoolName)) return "chuo";
+  if (/デジタル|TDB|東京/.test(schoolName)) return "tdb";
+  return "default";
+}
+
+/**
+ * public/seals/<key>.(png|webp|jpg) を読み、捺印用の data URI を返す。
+ * 無ければ null（呼び出し側は CSS 角印にフォールバック）。
+ */
+export function readSealDataUri(key: string): string | null {
+  for (const ext of ["png", "webp", "jpg", "jpeg"] as const) {
+    const p = path.join(SEAL_DIR, `${key}.${ext}`);
+    if (existsSync(p)) {
+      try {
+        const buf = readFileSync(p);
+        const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+        return `data:${mime};base64,${buf.toString("base64")}`;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 実際の印影画像を「捺印」した見た目で返す。
+ * 白背景の印影は mix-blend-mode:multiply で自然に透過（白→透明、朱色は残る）。
+ */
+export function stampImage(
+  dataUri: string,
+  opts: { size?: number; rotate?: number; opacity?: number } = {},
+): string {
+  const { size = 78, rotate = -4, opacity = 0.95 } = opts;
+  return (
+    `<img src="${dataUri}" alt="" aria-hidden="true" ` +
+    `style="width:${size}px;height:${size}px;object-fit:contain;` +
+    `transform:rotate(${rotate}deg);opacity:${opacity};mix-blend-mode:multiply;" />`
+  );
+}
+
+/**
+ * 学校名に対応する印影を返す。画像があれば実印影、無ければ CSS 角印（fallbackText）。
+ */
+export function schoolSealHtml(
+  schoolName: string,
+  fallbackText: string,
+  opts: { size?: number; rotate?: number; rows?: number } = {},
+): string {
+  const uri = readSealDataUri(schoolSealKey(schoolName));
+  if (uri) return stampImage(uri, { size: opts.size, rotate: opts.rotate });
+  return squareSeal({ text: fallbackText, size: opts.size, rotate: opts.rotate, rows: opts.rows });
+}
 
 /**
  * 印字を縦書きグリッド（右列→左列、列内は上→下）に並べる。

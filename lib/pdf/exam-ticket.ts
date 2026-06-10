@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { escapeHtml } from "@/lib/security";
 import { ENV } from "@/lib/env";
-import { squareSeal } from "@/lib/pdf/seal";
+import { schoolSealHtml } from "@/lib/pdf/seal";
 
 // 受験票内アイコン（ストロークSVG・絵文字の代替）。currentColor で見出し色を継承。
 const ICON_WRITTEN =
@@ -71,7 +71,7 @@ function buildHTML(data: ExamTicketData): string {
   const e = escapeHtml;
   const photoUri = readPhotoAsDataUri(data.photoFilePath);
   // 選考事務局の受付印（角印）
-  const recvSeal = squareSeal({ text: "選考事務局印", size: 58, rows: 3, rotate: -5, opacity: 0.9 });
+  const recvSeal = schoolSealHtml(data.schoolName, "選考事務局印", { size: 58, rows: 3, rotate: -5 });
 
   return `<!DOCTYPE html>
 <html lang="ja">

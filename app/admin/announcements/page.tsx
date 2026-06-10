@@ -67,8 +67,9 @@ export default function AnnouncementsPage() {
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Sending
+  // Sending / Deleting
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -195,6 +196,29 @@ export default function AnnouncementsPage() {
       toast(e instanceof Error ? e.message : "送信に失敗しました", "error");
     } finally {
       setSendingId(null);
+    }
+  };
+
+  // 未送信のお知らせを削除（送信済みは履歴として保持されるため削除不可）
+  const handleDelete = async (announcement: Announcement) => {
+    const ok = await confirm({
+      title: "お知らせを削除",
+      message: `未送信の「${announcement.title}」を削除しますか？`,
+      okLabel: "削除",
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingId(announcement.id);
+    try {
+      const res = await fetch(`/api/announcements?id=${announcement.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "削除に失敗しました");
+      toast("お知らせを削除しました", "success");
+      await fetchData();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "削除に失敗しました", "error");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -385,28 +409,48 @@ export default function AnnouncementsPage() {
                   </div>
                   <div className="flex-shrink-0">
                     {!a.sentAt ? (
-                      <button
-                        onClick={() => handleSend(a)}
-                        disabled={sendingId === a.id}
-                        className="btn-primary text-sm flex items-center gap-2"
-                      >
-                        {sendingId === a.id ? (
-                          <>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleSend(a)}
+                          disabled={sendingId === a.id || deletingId === a.id}
+                          className="btn-primary text-sm flex items-center gap-2"
+                        >
+                          {sendingId === a.id ? (
+                            <>
+                              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              送信中...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                              </svg>
+                              送信
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(a)}
+                          disabled={sendingId === a.id || deletingId === a.id}
+                          title="削除（未送信のみ）"
+                          aria-label="削除"
+                          className="text-sm flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition disabled:opacity-50"
+                        >
+                          {deletingId === a.id ? (
                             <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                             </svg>
-                            送信中...
-                          </>
-                        ) : (
-                          <>
+                          ) : (
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-1.99-1.86L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
                             </svg>
-                            送信
-                          </>
-                        )}
-                      </button>
+                          )}
+                        </button>
+                      </div>
                     ) : (
                       <div className="text-center">
                         <p className="text-xs text-green-600 font-medium">送信済み</p>

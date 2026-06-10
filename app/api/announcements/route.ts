@@ -79,6 +79,40 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+// 未送信のお知らせのみ削除可。送信済みは操作ログとして必ず保持する。
+export async function DELETE(request: NextRequest) {
+  const session = await getSession(request);
+  if (!isAdmin(session)) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
+
+    // sentAt=null 条件付きの deleteMany で原子的に「未送信のみ削除」。
+    // （送信済みを誤って消さない／レース時も安全）
+    const result = await prisma.announcement.deleteMany({ where: { id, sentAt: null } });
+    if (result.count === 0) {
+      const existing = await prisma.announcement.findUnique({
+        where: { id },
+        select: { sentAt: true },
+      });
+      if (existing?.sentAt) {
+        return NextResponse.json(
+          { error: "送信済みのお知らせは削除できません（履歴として保持されます）" },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: "お知らせが見つかりません" }, { status: 404 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logError("DELETE /api/announcements", error);
+    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
+  }
+}
+
 async function handleSend(id: string) {
   // メール送信は Resend に統一。未設定なら送信済みフラグを立てずに 503 を返す（後で再送可能）。
   if (!ENV.RESEND_API_KEY) {

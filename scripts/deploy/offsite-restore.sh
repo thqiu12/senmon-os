@@ -38,10 +38,11 @@ case "$CMD" in
     # 念のため整合性チェック
     sqlite3 "$DB_OUT" "PRAGMA integrity_check;" | head -1
     echo "復元完了: $DB_OUT"
-    echo "本番反映する場合（停止してから）:"
+    echo "本番反映する場合（停止してから。DB実体は prisma/prisma/data.db）:"
+    echo "  LIVE=/srv/senmon/app/prisma/prisma/data.db"
     echo "  pm2 stop senmon-nyuugaku"
-    echo "  cp /srv/senmon/app/prisma/data.db /srv/senmon/app/prisma/data.db.bak.\$(date +%s)"
-    echo "  cp '$DB_OUT' /srv/senmon/app/prisma/data.db"
+    echo "  cp \"\$LIVE\" \"\$LIVE.bak.\$(date +%s)\""
+    echo "  cp '$DB_OUT' \"\$LIVE\""
     echo "  pm2 start senmon-nyuugaku"
     ;;
   uploads)

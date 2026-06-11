@@ -25,7 +25,16 @@ PASS_FILE="${BACKUP_PASS_FILE:-/srv/senmon/secrets/backup.pass}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
 R2_BUCKET="${R2_BUCKET:-senmon-backup}"
 KEEP_DAYS="${KEEP_DAYS:-90}"
-DB_PATH="$APP_DIR/prisma/data.db"
+
+# DB パス検出:
+#   DATABASE_URL="file:./prisma/data.db" を Prisma が schema.prisma のディレクトリ
+#   (app/prisma/) 基準で解決するため、実体は app/prisma/prisma/data.db に置かれる。
+#   旧構成 app/prisma/data.db も一応フォールバックで見る。DB_PATH 環境変数で上書き可。
+if [ -z "${DB_PATH:-}" ]; then
+  if   [ -f "$APP_DIR/prisma/prisma/data.db" ]; then DB_PATH="$APP_DIR/prisma/prisma/data.db"
+  elif [ -f "$APP_DIR/prisma/data.db" ];        then DB_PATH="$APP_DIR/prisma/data.db"
+  else DB_PATH="$APP_DIR/prisma/prisma/data.db"; fi
+fi
 
 ts() { date "+%Y-%m-%d %H:%M:%S"; }
 log() { echo "[$(ts)] $*" >> "$LOG"; }

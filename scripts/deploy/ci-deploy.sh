@@ -57,9 +57,13 @@ echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
 log "ロールバック用 SHA を保存: $CURRENT_SHA"
 
 # ---- 2. DB バックアップ（破壊的変更前の安全網） ----
-if [ -f "prisma/data.db" ]; then
+# 実体は prisma/prisma/data.db（Prisma の相対解決による）。旧構成もフォールバック。
+if   [ -f "prisma/prisma/data.db" ]; then DB_SRC="prisma/prisma/data.db"
+elif [ -f "prisma/data.db" ];        then DB_SRC="prisma/data.db"
+else DB_SRC=""; fi
+if [ -n "$DB_SRC" ]; then
   BACKUP_FILE="$BACKUP_DIR/data-$(date +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:7}.db.gz"
-  sqlite3 prisma/data.db ".backup '$BACKUP_DIR/_tmp.db'" 2>/dev/null
+  sqlite3 "$DB_SRC" ".backup '$BACKUP_DIR/_tmp.db'" 2>/dev/null
   gzip -c "$BACKUP_DIR/_tmp.db" > "$BACKUP_FILE"
   rm -f "$BACKUP_DIR/_tmp.db"
   log "DB バックアップ: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"

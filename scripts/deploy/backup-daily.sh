@@ -25,7 +25,10 @@ mkdir -p "$BACKUP_DIR/db" "$BACKUP_DIR/uploads"
 echo "[$(date '+%F %T')] バックアップ開始"
 
 # ---- SQLite DB ----
-DB_PATH="$APP_DIR/prisma/data.db"
+# DATABASE_URL の相対解決により実体は app/prisma/prisma/data.db（prisma二重）に置かれる。
+if   [ -f "$APP_DIR/prisma/prisma/data.db" ]; then DB_PATH="$APP_DIR/prisma/prisma/data.db"
+elif [ -f "$APP_DIR/prisma/data.db" ];        then DB_PATH="$APP_DIR/prisma/data.db"
+else DB_PATH="$APP_DIR/prisma/prisma/data.db"; fi
 if [ -f "$DB_PATH" ]; then
   DB_OUT="$BACKUP_DIR/db/data-$TS.db"
   echo "  DB: $DB_PATH -> $DB_OUT"

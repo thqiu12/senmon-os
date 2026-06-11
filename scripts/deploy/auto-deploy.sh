@@ -61,6 +61,25 @@ log "================================================================="
 log "新しいコミットを検出: $LOCAL_SHA → $REMOTE_SHA"
 log "================================================================="
 
+# ----- デプロイ前 DB バックアップ（破壊的変更=prisma db push の前の安全網） -----
+# 実体は app/prisma/prisma/data.db（Prisma の相対解決による）。旧構成もフォールバック。
+if   [ -f "$APP_DIR/prisma/prisma/data.db" ]; then DB_SRC="$APP_DIR/prisma/prisma/data.db"
+elif [ -f "$APP_DIR/prisma/data.db" ];        then DB_SRC="$APP_DIR/prisma/data.db"
+else DB_SRC=""; fi
+if [ -n "$DB_SRC" ]; then
+  mkdir -p "$LOG_DIR/db"
+  PD_OUT="$LOG_DIR/db/predeploy-$(date +%Y%m%d-%H%M%S)-${LOCAL_SHA:0:7}.db"
+  if sqlite3 "$DB_SRC" ".backup '$PD_OUT'" 2>>"$LOG"; then
+    gzip -9 "$PD_OUT" 2>>"$LOG" || true
+    log "✓ デプロイ前DBバックアップ: ${PD_OUT}.gz"
+    find "$LOG_DIR/db" -name 'predeploy-*.db.gz' -mtime +30 -delete 2>/dev/null || true
+  else
+    log "WARN: デプロイ前DBバックアップ失敗（続行）"
+  fi
+else
+  log "WARN: DB が見つからずデプロイ前バックアップをスキップ"
+fi
+
 # ----- 同期（reset --hard で確実に origin に合わせる） -----
 # ビルド時に Next.js が tsconfig.json / next-env.d.ts を自動書き換えするため、
 # pull --ff-only だと「ローカル変更で上書き不可」で失敗する。デプロイ専用機なので

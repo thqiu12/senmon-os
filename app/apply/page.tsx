@@ -829,6 +829,10 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
 }
 
 // ========== Step 3 ==========
+// アップロード上限（UIの「最大10MB」表記と一致）。サーバー到達前にクライアントで弾く。
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const overSizeMsg = "ファイルサイズが大きすぎます（最大10MB）。圧縮するか別のファイルを選んでください。";
+
 function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, onDelete, formConfig }: {
   applicationId: string | null;
   applicationNo: string | null;
@@ -900,6 +904,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
               const file = e.target.files?.[0];
               if (!file || !applicationId) return;
               if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
+              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
               setUploading(label); setUploadError(null);
               const fd = new FormData();
               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
@@ -1005,6 +1010,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                               const file = e.target.files?.[0];
                               if (!file || !applicationId) return;
                               if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
+                              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
                               setUploading(doc.type); setUploadError(null);
                               const fd = new FormData();
                               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
@@ -1042,15 +1048,25 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   const [uploadedReceipt, setUploadedReceipt] = useState<{ name: string } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/config/payment").then(r => r.json()).then(setPaymentConfig).catch(() => {});
   }, []);
 
+  // 振込先のワンクリックコピー（口座番号の手入力ミス防止）
+  const copyField = (key: string, val: string) => {
+    navigator.clipboard?.writeText(val).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
+    }).catch(() => { /* clipboard 非対応環境は黙って無視 */ });
+  };
+
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !applicationId) return;
     if (!applicationNo || !email) { setUploadError("申請が確定していません。"); return; }
+    if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
     setUploading(true); setUploadError(null);
     const fd = new FormData();
     fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", "選考費振込証明書");
@@ -1094,7 +1110,18 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
             ].map(([k, v]) => (
               <div key={k} className="contents">
                 <span className="text-gray-500">{k}</span>
-                <span className="font-semibold text-gray-900">{v}</span>
+                {v ? (
+                  <button type="button" onClick={() => copyField(k, String(v))}
+                    title="クリックでコピー"
+                    className="font-semibold text-gray-900 text-left flex items-center gap-1.5 min-w-0 hover:text-blue-700 transition-colors">
+                    <span className="truncate">{v}</span>
+                    <span className={`text-[10px] shrink-0 font-bold ${copiedKey === k ? "text-green-600" : "text-blue-500"}`}>
+                      {copiedKey === k ? "✓ コピー" : "コピー"}
+                    </span>
+                  </button>
+                ) : (
+                  <span className="font-semibold text-gray-900">—</span>
+                )}
               </div>
             ))}
           </div>
@@ -1110,12 +1137,21 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
         <h3 className="font-bold text-gray-800 mb-1">📎 振込証明書のアップロード</h3>
         <p className="text-xs text-gray-400 mb-4">銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。</p>
         {uploadedReceipt ? (
-          <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <span className="text-green-600 text-xl">✅</span>
-            <div>
-              <p className="text-sm font-semibold text-green-800">アップロード完了</p>
-              <p className="text-xs text-green-600">{uploadedReceipt.name}</p>
+          <div>
+            <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <span className="text-green-600 text-xl">✅</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-green-800">アップロード完了</p>
+                <p className="text-xs text-green-600 truncate">{uploadedReceipt.name}</p>
+              </div>
             </div>
+            {feeStatus !== "確認済" && (
+              <button type="button"
+                onClick={() => { setUploadedReceipt(null); setUploadError(null); }}
+                className="mt-2 text-xs text-blue-600 hover:underline">
+                別のファイルに差し替える
+              </button>
+            )}
           </div>
         ) : (
           <label className={`flex items-center justify-center gap-3 border-2 border-dashed rounded-xl py-8 px-4 cursor-pointer transition-colors

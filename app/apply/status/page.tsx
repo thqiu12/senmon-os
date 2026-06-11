@@ -351,7 +351,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
   if (loading) return <div className="text-center py-6 text-gray-400 text-sm">読み込み中...</div>;
   if (!portalData?.enrolled) return (
     <div className="text-center py-8 text-gray-400">
-      <p className="text-3xl mb-2">🎓</p>
+      <svg className="w-9 h-9 mx-auto mb-2" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 10 12 5 2 10l10 5 10-5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 12v5c3 1.5 9 1.5 12 0v-5" /></svg>
       <p className="text-sm">在籍登録が完了すると、出席・時間割・証明書などが確認できます</p>
     </div>
   );
@@ -401,13 +401,14 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
       {/* タブ */}
       <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
         {[
-          { key: "attendance", label: "📅 出席" },
-          { key: "timetable", label: "📋 時間割" },
-          { key: "leave", label: "📝 欠席届" },
-          { key: "cert", label: "📜 証明書" },
+          { key: "attendance", label: "出席", icon: "M8 2v3M16 2v3M3.5 9h17M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z" },
+          { key: "timetable", label: "時間割", icon: "M4 5h16v14H4zM4 9h16M9 5v14" },
+          { key: "leave", label: "欠席届", icon: "M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4" },
+          { key: "cert", label: "証明書", icon: "M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2zM8 8h8M8 12h6" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
-            className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-colors ${tab === t.key ? "bg-white shadow text-navy-800" : "text-gray-500"}`}>
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${tab === t.key ? "bg-white shadow text-navy-800" : "text-gray-500"}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={t.icon} /></svg>
             {t.label}
           </button>
         ))}
@@ -975,7 +976,7 @@ function StatusPageInner() {
               result.enrollmentProcedure && result.enrollmentProcedure.status !== "完了" && (
               <div className="mb-6 rounded-xl bg-gradient-to-r from-green-600 to-emerald-500 text-white p-5 shadow-md">
                 <div className="flex items-start gap-4">
-                  <span className="text-3xl">🏫</span>
+                  <svg className="w-8 h-8 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5a3 3 0 016 0v5M9 11h.01M15 11h.01" /></svg>
                   <div className="flex-1">
                     <p className="font-bold text-lg mb-1">入学手続きを完了してください</p>
                     <p className="text-green-100 text-sm mb-3">
@@ -1093,7 +1094,7 @@ function StatusPageInner() {
               {/* 合格カード */}
               {result.status === "合格" && (
                 <div className="rounded-xl p-5 mb-6 bg-green-50 border-2 border-green-400 text-center">
-                  <p className="text-3xl mb-2">🎉</p>
+                  <svg className="w-10 h-10 mx-auto mb-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
                   <p className="text-green-800 text-xl font-bold mb-1">合格おめでとうございます！</p>
                   <p className="text-green-700 text-sm mb-4">
                     書類審査・面接の結果、合格と決定いたしました。<br />
@@ -1118,7 +1119,7 @@ function StatusPageInner() {
               {result.status === "補欠合格" && (
                 <div className="rounded-xl p-5 mb-6 bg-orange-50 border-2 border-orange-300">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">📋</span>
+                    <svg className="w-6 h-6 text-orange-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5h6a1 1 0 011 1v0a1 1 0 01-1 1H9a1 1 0 01-1-1v0a1 1 0 011-1zM8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2M9 12h6M9 16h4" /></svg>
                     <p className="text-orange-800 text-lg font-bold">補欠合格のご通知</p>
                   </div>
                   <p className="text-orange-700 text-sm leading-relaxed mb-3">
@@ -1126,7 +1127,10 @@ function StatusPageInner() {
                     ただし、今回は定員の関係により、補欠合格という形でのご通知となりました。
                   </p>
                   <div className="bg-orange-100 rounded-lg p-3 text-sm text-orange-800">
-                    <p className="font-semibold mb-1">📌 今後の流れについて</p>
+                    <p className="font-semibold mb-1 flex items-center gap-1.5">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v7m0 0l8 4v9H4v-9l8-4z" /></svg>
+                      今後の流れについて
+                    </p>
                     <p className="leading-relaxed">
                       他の合格者の入学辞退が発生した場合、<strong>速やかにご連絡し、正式合格をご案内</strong>いたします。
                     </p>
@@ -1149,7 +1153,7 @@ function StatusPageInner() {
               {result.status === "書類待ち" && (
                 <div className="rounded-xl p-5 mb-6 bg-amber-50 border-2 border-amber-300">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">📋</span>
+                    <svg className="w-6 h-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5h6a1 1 0 011 1v0a1 1 0 01-1 1H9a1 1 0 01-1-1v0a1 1 0 011-1zM8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2M9 12h6M9 16h4" /></svg>
                     <div>
                       <p className="font-bold text-amber-800 text-base">書類アップロード・選考料のお支払いが未完了です</p>
                       <p className="text-amber-700 text-xs mt-0.5">出願番号が発行されています。続きの手続きを完了してください。</p>
@@ -2049,7 +2053,12 @@ function StatusPageInner() {
                                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                     手続き完了を報告しました
                                   </span>
-                                ) : "✅ 手続き完了を報告する"}
+                                ) : (
+                                  <span className="flex items-center justify-center gap-1.5">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    手続き完了を報告する
+                                  </span>
+                                )}
                               </button>
                               {enrollSubmitted && result.enrollmentProcedure?.completedAt && (
                                 <p className="text-xs text-green-600 mt-2 text-center">完了報告日：{formatDate(result.enrollmentProcedure.completedAt)}</p>
@@ -2098,7 +2107,7 @@ function StatusPageInner() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-bold text-green-800">入学手続き完了 ✅</p>
+                      <p className="font-bold text-green-800">入学手続き完了</p>
                       <p className="text-xs text-green-600">学校承認が完了しました。入学許可書を発行しました。</p>
                     </div>
                   </div>
@@ -2120,7 +2129,7 @@ function StatusPageInner() {
               {result.enrollmentProcedure.ceremonyNotified && (
                 <div className="card border-l-4 border-blue-500">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl" aria-hidden="true">🎌</span>
+                    <svg className="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 21V4a1 1 0 011-1h0a1 1 0 011 1v17M7 5h11l-2.5 3L18 11H7" /></svg>
                     <p className="font-bold text-blue-800">入学式のご案内</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-4 space-y-2 text-sm">
@@ -2151,7 +2160,7 @@ function StatusPageInner() {
               {result.enrollmentProcedure.visaGuideNotified && (
                 <div className="card border-l-4 border-purple-500">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl" aria-hidden="true">🛂</span>
+                    <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM12 8a2 2 0 100 4 2 2 0 000-4zM9 16h6" /></svg>
                     <p className="font-bold text-purple-800">ビザ・在留資格 更新手続きのご案内</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
@@ -2288,7 +2297,10 @@ function StatusPageInner() {
               )}
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-                <p className="font-bold mb-0.5">⚠️ 注意事項</p>
+                <p className="font-bold mb-0.5 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.01M10.34 4.66l-7.1 12.3A1.5 1.5 0 004.55 19.5h14.9a1.5 1.5 0 001.31-2.54l-7.1-12.3a1.5 1.5 0 00-2.62 0z" /></svg>
+                  注意事項
+                </p>
                 <ul className="space-y-0.5 list-disc list-inside">
                   <li>管理者の承認後に反映されます（即時には変わりません）</li>
                   <li>同じ項目を複数同時に申請することはできません</li>

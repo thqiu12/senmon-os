@@ -904,14 +904,14 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
               const file = e.target.files?.[0];
               if (!file || !applicationId) return;
               if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
-              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
+              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${label}」：${overSizeMsg}`); e.target.value = ""; return; }
               setUploading(label); setUploadError(null);
               const fd = new FormData();
               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
               fd.append("applicationNo", applicationNo); fd.append("email", email);
               fetch("/api/upload", { method: "POST", body: fd })
-                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
-                .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
+                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${label}」のアップロードに失敗しました：${data.error || "エラー"}`); })
+                .catch(() => setUploadError(`「${label}」：ネットワークエラー`)).finally(() => { setUploading(null); e.target.value = ""; });
             }} />
           {isUp ? "送信中..." : "+ 追加"}
         </label>
@@ -1010,14 +1010,14 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                               const file = e.target.files?.[0];
                               if (!file || !applicationId) return;
                               if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
-                              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
+                              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${doc.type}」：${overSizeMsg}`); e.target.value = ""; return; }
                               setUploading(doc.type); setUploadError(null);
                               const fd = new FormData();
                               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
                               fd.append("applicationNo", applicationNo); fd.append("email", email);
                               fetch("/api/upload", { method: "POST", body: fd })
-                                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
-                                .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
+                                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${doc.type}」のアップロードに失敗しました：${data.error || "エラー"}`); })
+                                .catch(() => setUploadError(`「${doc.type}」：ネットワークエラー`)).finally(() => { setUploading(null); e.target.value = ""; });
                             }} />
                           {isUp ? "送信中..." : "+ 追加"}
                         </label>
@@ -1049,6 +1049,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     fetch("/api/config/payment").then(r => r.json()).then(setPaymentConfig).catch(() => {});
@@ -1062,11 +1063,11 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
     }).catch(() => { /* clipboard 非対応環境は黙って無視 */ });
   };
 
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !applicationId) return;
+  // アップロード本体（ファイル選択・ドラッグ&ドロップ共通）
+  const doReceiptUpload = async (file: File) => {
+    if (!applicationId) return;
     if (!applicationNo || !email) { setUploadError("申請が確定していません。"); return; }
-    if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); e.target.value = ""; return; }
+    if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); return; }
     setUploading(true); setUploadError(null);
     const fd = new FormData();
     fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", "選考費振込証明書");
@@ -1087,7 +1088,17 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
       });
       onFeeStatusChange("確認中");
     } catch (err) { setUploadError(err instanceof Error ? err.message : "エラー"); }
-    finally { setUploading(false); e.target.value = ""; }
+    finally { setUploading(false); }
+  };
+  const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) doReceiptUpload(file);
+    e.target.value = "";
+  };
+  const handleReceiptDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) doReceiptUpload(file);
   };
 
   return (
@@ -1098,7 +1109,10 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">🏦 振込先情報</h3>
+        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M4 10h16M5 10V7l7-4 7 4v3M6 10v8m4-8v8m4-8v8m4-8v8" /></svg>
+          振込先情報
+        </h3>
         {paymentConfig ? (
           <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
             {[
@@ -1134,12 +1148,27 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="font-bold text-gray-800 mb-1">📎 振込証明書のアップロード</h3>
-        <p className="text-xs text-gray-400 mb-4">銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。</p>
+        <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-1.5">
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 12.5l-7 7a4 4 0 01-5.66-5.66l8.49-8.49a2.5 2.5 0 113.54 3.54L9.4 17.4" /></svg>
+          振込証明書のアップロード
+        </h3>
+        <p className="text-xs text-gray-400 mb-3">銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。</p>
+        {/* 手順ガイド */}
+        <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+          {["銀行で振込", "明細をアップロード", "確認をお待ちください"].map((label, i) => (
+            <span key={label} className="inline-flex items-center gap-1.5">
+              {i > 0 && (
+                <svg className="w-3 h-3 text-gray-300 mr-1" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              )}
+              <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[9px] shrink-0">{i + 1}</span>
+              {label}
+            </span>
+          ))}
+        </div>
         {uploadedReceipt ? (
           <div>
             <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <span className="text-green-600 text-xl">✅</span>
+              <svg className="w-5 h-5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-green-800">アップロード完了</p>
                 <p className="text-xs text-green-600 truncate">{uploadedReceipt.name}</p>
@@ -1154,13 +1183,23 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
             )}
           </div>
         ) : (
-          <label className={`flex items-center justify-center gap-3 border-2 border-dashed rounded-xl py-8 px-4 cursor-pointer transition-colors
-            ${uploading ? "border-gray-200 bg-gray-50 cursor-wait" : "border-gray-300 hover:border-blue-400 hover:bg-blue-50"}`}>
+          <label
+            onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleReceiptDrop}
+            className={`flex items-center justify-center gap-3 border-2 border-dashed rounded-xl py-8 px-4 cursor-pointer transition-colors
+            ${uploading ? "border-gray-200 bg-gray-50 cursor-wait" : dragOver ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-blue-400 hover:bg-blue-50"}`}>
             <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp,application/pdf"
               disabled={uploading || !applicationId} onChange={handleReceiptUpload} />
             <div className="text-center">
-              <div className="text-3xl mb-2">{uploading ? "⏳" : "📤"}</div>
-              <p className="text-sm text-gray-600 font-medium">{uploading ? "アップロード中..." : "クリックして振込明細をアップロード"}</p>
+              <div className="mb-2 flex justify-center text-gray-400">
+                {uploading ? (
+                  <svg className="animate-spin w-7 h-7" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                ) : (
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 font-medium">{uploading ? "アップロード中..." : dragOver ? "ここにドロップ" : "クリック、またはドラッグ&ドロップでアップロード"}</p>
               <p className="text-xs text-gray-400 mt-1">JPEG・PNG・PDF（最大10MB）</p>
             </div>
           </label>

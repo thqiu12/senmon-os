@@ -172,12 +172,21 @@ async function handleSend(id: string) {
     emails.map((to) => ({ to, subject, html })),
   );
 
+  // 全件失敗（誰にも届いていない）なら送信済みフラグを戻し、再送可能にする。
+  // 1件でも成功していれば戻さない（受信者単位の重複排除が無く、再送は二重送信になるため）。
+  const allFailed = sentCount === 0 && failCount > 0;
   await prisma.announcement.update({
     where: { id },
-    data: { sentCount },
+    data: { sentCount, ...(allFailed ? { sentAt: null } : {}) },
   });
 
-  logger.info({ id, targets: emails.length, sentCount, failCount }, "announcement sent (resend)");
+  logger.info({ id, targets: emails.length, sentCount, failCount, allFailed }, "announcement sent (resend)");
+  if (allFailed) {
+    return NextResponse.json(
+      { error: "送信に失敗しました。時間をおいて再送してください。", targets: emails.length, sentCount: 0, failCount },
+      { status: 502 },
+    );
+  }
   return NextResponse.json({
     success: true,
     provider: "resend",

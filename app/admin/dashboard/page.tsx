@@ -275,7 +275,7 @@ export default function AdminDashboard() {
         {/* ===== Hero スタッツ（4枚、wsdb 風） ===== */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div
-            style={{ "--reveal-delay": "0ms" } as CSSProperties}
+            style={{ "--reveal-delay": "0ms", "--wsdb-accent": "#2563eb" } as CSSProperties}
             className={`reveal-up wsdb-stat ${statusFilter === "all" && !todayOnly ? "active" : ""}`}
             onClick={() => { setStatusFilter("all"); setTodayOnly(false); setPage(1); }}
           >
@@ -284,10 +284,10 @@ export default function AdminDashboard() {
               <div className="wsdb-stat-value">{globalStats?.total ?? "—"}</div>
               <div className="wsdb-stat-sub">累計</div>
             </div>
-            <div className="wsdb-stat-icon wsdb-stat-icon-blue"><Icon name="clipboard" className="w-5 h-5" /></div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-blue"><Icon name="clipboard" className="w-6 h-6" /></div>
           </div>
           <div
-            style={{ "--reveal-delay": "70ms" } as CSSProperties}
+            style={{ "--reveal-delay": "70ms", "--wsdb-accent": "#d97706" } as CSSProperties}
             className={`reveal-up wsdb-stat ${todayOnly ? "active" : ""}`}
             onClick={() => { setTodayOnly(v => !v); setPage(1); }}
           >
@@ -296,10 +296,10 @@ export default function AdminDashboard() {
               <div className="wsdb-stat-value">{globalStats?.todayCount ?? "—"}</div>
               <div className="wsdb-stat-sub">直近24時間</div>
             </div>
-            <div className="wsdb-stat-icon wsdb-stat-icon-amber"><Icon name="calendar" className="w-5 h-5" /></div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-amber"><Icon name="calendar" className="w-6 h-6" /></div>
           </div>
           <div
-            style={{ "--reveal-delay": "140ms" } as CSSProperties}
+            style={{ "--reveal-delay": "140ms", "--wsdb-accent": "#7c3aed" } as CSSProperties}
             className={`reveal-up wsdb-stat ${["受付中", "書類確認中", "面接待ち"].includes(statusFilter) ? "active" : ""}`}
             onClick={() => { setStatusFilter("面接待ち"); setTodayOnly(false); setPage(1); }}
           >
@@ -312,10 +312,10 @@ export default function AdminDashboard() {
               </div>
               <div className="wsdb-stat-sub">受付 + 書類 + 面接</div>
             </div>
-            <div className="wsdb-stat-icon wsdb-stat-icon-purple"><Icon name="users" className="w-5 h-5" /></div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-purple"><Icon name="users" className="w-6 h-6" /></div>
           </div>
           <div
-            style={{ "--reveal-delay": "210ms" } as CSSProperties}
+            style={{ "--reveal-delay": "210ms", "--wsdb-accent": "#059669" } as CSSProperties}
             className={`reveal-up wsdb-stat ${statusFilter === "合格" ? "active" : ""}`}
             onClick={() => { setStatusFilter("合格"); setTodayOnly(false); setPage(1); }}
           >
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
               <div className="wsdb-stat-value">{globalStats?.statusCounts["合格"] ?? 0}</div>
               <div className="wsdb-stat-sub">合格確定</div>
             </div>
-            <div className="wsdb-stat-icon wsdb-stat-icon-green"><Icon name="check" className="w-5 h-5" /></div>
+            <div className="wsdb-stat-icon wsdb-stat-icon-green"><Icon name="check" className="w-6 h-6" /></div>
           </div>
         </div>
 

@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, content: true, author: true, createdAt: true },
         },
         cohort: { select: { resultPublishedAt: true, defaultTuitionBankInfo: true } },
+        applySchool: { select: { schoolKey: true } },
       },
     });
 
@@ -119,6 +120,7 @@ export async function GET(request: NextRequest) {
       japaneseLevel: application.japaneseLevel,
       jlptCertified: application.jlptCertified,
       schoolId: application.schoolName, // schoolKey は schoolName で代替
+      schoolKey: application.applySchool?.schoolKey ?? null, // 学費の学校別支払い設定の解決に使用
       schoolName: application.schoolName,
       department: application.department,
       course: application.course,

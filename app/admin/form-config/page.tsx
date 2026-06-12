@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SCHOOLS } from "@/lib/formFieldDefaults";
 import { SchoolsManager } from "@/app/admin/components/SchoolsManager";
+import { PaymentSettingsPanel } from "@/app/admin/components/PaymentSettingsPanel";
 import { useUI } from "@/components/ui/toast";
 import { SkeletonList } from "@/components/ui/skeleton";
 
@@ -61,13 +62,13 @@ const emptyAddForm: AddFieldForm = {
 export default function FormConfigPage() {
   const router = useRouter();
   const { confirm } = useUI();
-  const [activeTab, setActiveTab] = useState<"form" | "schools" | "general">("form");
+  const [activeTab, setActiveTab] = useState<"form" | "schools" | "general" | "payment">("form");
 
-  // URL クエリ ?tab=general 等で初期タブを切り替えられる（旧 /admin/settings からのリダイレクト対応）
+  // URL クエリ ?tab=general 等で初期タブを切り替えられる（旧 /admin/settings・/admin/payment からのリダイレクト対応）
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const t = sp.get("tab");
-    if (t === "form" || t === "schools" || t === "general") setActiveTab(t);
+    if (t === "form" || t === "schools" || t === "general" || t === "payment") setActiveTab(t);
   }, []);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
@@ -239,18 +240,12 @@ export default function FormConfigPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title">フォーム管理</h1>
-          <p className="wsdb-topbar-meta">出願フォームの項目・全体設定</p>
+          <h1 className="wsdb-topbar-title">各種設定</h1>
+          <p className="wsdb-topbar-meta">出願フォーム・志望校・全体設定・支払い設定</p>
         </div>
       </div>
 
       <div>
-        {/* Page Title */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">フォーム管理</h2>
-          </div>
-        </div>
 
         {/* 上位タブ: フォームフィールド設定 / 志望校管理 / 全体設定 */}
         <div className="flex border-b border-gray-200 mb-6 gap-1">
@@ -275,6 +270,13 @@ export default function FormConfigPage() {
           >
             全体設定
           </button>
+          <button
+            onClick={() => setActiveTab("payment")}
+            className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors
+              ${activeTab === "payment" ? "border-navy-700 text-navy-800 bg-white" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          >
+            支払い設定
+          </button>
         </div>
 
         {/* 志望校管理タブ */}
@@ -282,6 +284,9 @@ export default function FormConfigPage() {
 
         {/* 全体設定タブ（入学希望時期など） */}
         {activeTab === "general" && <GeneralSettingsPanel />}
+
+        {/* 支払い設定タブ（受験料・学費の振込先＋QR、学校別） */}
+        {activeTab === "payment" && <PaymentSettingsPanel onUnauthorized={() => router.push("/admin")} />}
 
         {/* フォームフィールド設定タブ */}
         {activeTab === "form" && <>

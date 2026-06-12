@@ -12,7 +12,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 
 type IconKey =
   | "home" | "clipboard" | "megaphone" | "edit" | "handshake"
-  | "graduation" | "book" | "chart" | "wrench" | "users" | "yen";
+  | "graduation" | "book" | "chart" | "wrench" | "users";
 
 interface NavItem {
   href: string;
@@ -56,8 +56,7 @@ const NAV: NavSection[] = [
     label: "報告・設定",
     items: [
       { href: "/admin/quota",       label: "定員管理",   icon: "chart" },
-      { href: "/admin/form-config", label: "フォーム管理", icon: "wrench" },
-      { href: "/admin/payment",     label: "支払い設定", icon: "yen" },
+      { href: "/admin/form-config", label: "各種設定",   icon: "wrench" },
       { href: "/admin/accounts",    label: "アカウント", icon: "users" },
       { href: "/admin/permissions", label: "権限設定",   icon: "wrench" },
     ],
@@ -214,10 +213,6 @@ function NavIcon({ name }: { name: IconKey }) {
     case "users":
       return (
         <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3 3-5 6-5s6 2 6 5" /><circle cx="17" cy="9" r="2.5" /><path d="M15 15c4 0 6 2 6 5" /></svg>
-      );
-    case "yen":
-      return (
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 8l4 5 4-5M8 13h8M8 16h8M12 13v4" /></svg>
       );
   }
 }

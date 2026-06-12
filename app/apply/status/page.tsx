@@ -52,6 +52,7 @@ interface ApplicationStatus {
   lastName: string;
   firstName: string;
   schoolName: string;
+  schoolKey?: string | null;
   department: string;
   enrollmentYear: string;
   enrollmentMonth: string;
@@ -612,14 +613,16 @@ function StatusPageInner() {
   const [crSubmitting, setCrSubmitting] = useState(false);
   const [crError, setCrError] = useState<string | null>(null);
 
-  // 全体共通の支払い設定（学費の振込先・QR）。入学手続き STEP1 で表示。
+  // 学費の振込先・QR（学校別の支払い設定を解決）。入学手続き STEP1 で表示。
   const [payCfg, setPayCfg] = useState<{ tuitionBankInfo: string | null; tuitionQr: string | null } | null>(null);
+  const resultSchoolKey = result?.schoolKey ?? null;
   useEffect(() => {
-    fetch("/api/config/payment")
+    const q = resultSchoolKey ? `?schoolKey=${encodeURIComponent(resultSchoolKey)}` : "";
+    fetch(`/api/config/payment${q}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setPayCfg({ tuitionBankInfo: d.tuitionBankInfo ?? null, tuitionQr: d.tuitionQr ?? null }); })
       .catch(() => {});
-  }, []);
+  }, [resultSchoolKey]);
 
   // URLパラメータから自動ロード
   const fetchStatus = useCallback(async (appNo: string, emailAddr: string) => {

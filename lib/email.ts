@@ -22,7 +22,7 @@ export interface SendEmailResult {
   error?: string;
 }
 
-const DEFAULT_FROM = "出願システム <onboarding@resend.dev>";
+const DEFAULT_FROM = "Compass 出願 <onboarding@resend.dev>";
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = ENV.RESEND_API_KEY;

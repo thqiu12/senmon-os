@@ -4,9 +4,9 @@ import CsrfBootstrap from "./csrf-bootstrap";
 import { UIProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "専門学校 入学出願システム",
-  description: "専門学校への入学願書をオンラインで提出できるシステムです。",
-  keywords: "専門学校, 入学, 出願, 願書",
+  title: "Compass｜入学出願システム",
+  description: "Compass — 専門学校への入学願書をオンラインで提出できるシステムです。",
+  keywords: "Compass, 専門学校, 入学, 出願, 願書",
 };
 
 export default function RootLayout({

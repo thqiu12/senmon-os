@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CompassMark } from "@/components/ui/CompassMark";
 
 /**
  * wsdb 風の管理画面シェル。
@@ -105,11 +106,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <aside className="wsdb-sidebar">
         <div className="wsdb-brand">
           <div className="wsdb-brand-mark">
-            <BrandIcon />
+            <CompassMark className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="font-extrabold text-white text-[15px] leading-tight">専門学校</div>
-            <div className="text-[11px] text-white/55 mt-0.5">入学・出願システム</div>
+            <div className="font-extrabold text-white text-[15px] leading-tight">Compass</div>
+            <div className="text-[11px] text-white/55 mt-0.5">入学・出願管理</div>
           </div>
         </div>
 
@@ -170,15 +171,6 @@ function roleLabel(role: string): string {
   }
 }
 
-function BrandIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 10 12 5 2 10l10 5 10-5z" />
-      <path d="M6 12v5c3 1.5 9 1.5 12 0v-5" />
-      <path d="M22 10v6" />
-    </svg>
-  );
-}
 
 function NavIcon({ name }: { name: IconKey }) {
   switch (name) {

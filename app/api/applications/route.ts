@@ -95,12 +95,12 @@ ${baseUrl}/apply/status
 ご不明な点がございましたら、お気軽にお問い合わせください。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-このメールは出願システムより自動送信されました。
+このメールは Compass（入学出願システム）より自動送信されました。
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   try {
     const apiKey = ENV.RESEND_API_KEY;
-    const from = ENV.RESEND_FROM || "出願システム <onboarding@resend.dev>";
+    const from = ENV.RESEND_FROM || "Compass 出願 <onboarding@resend.dev>";
     if (!apiKey) throw new Error("RESEND_API_KEY not set");
 
     const res = await fetch("https://api.resend.com/emails", {
@@ -159,11 +159,11 @@ async function sendAdminNotification(application: {
 ${baseUrl}/admin
 
 ---
-このメールは出願システムより自動送信されました。`;
+このメールは Compass（入学出願システム）より自動送信されました。`;
 
   try {
     const apiKey = ENV.RESEND_API_KEY;
-    const from = ENV.RESEND_FROM || "出願システム <onboarding@resend.dev>";
+    const from = ENV.RESEND_FROM || "Compass 出願 <onboarding@resend.dev>";
     if (!apiKey) throw new Error("RESEND_API_KEY not set");
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

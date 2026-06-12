@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useUI } from "@/components/ui/toast";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { CompassMark } from "@/components/ui/CompassMark";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -1382,8 +1383,11 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 py-4 px-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
-          <span className="font-bold text-gray-800">入学出願システム</span>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
+          <div>
+            <p className="font-bold text-gray-800 leading-none">Compass</p>
+            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+          </div>
         </div>
       </header>
       <div className="flex-1 flex items-center justify-center p-6">
@@ -2002,8 +2006,11 @@ function ApplyPageInner() {
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white border-b border-gray-200 py-4 px-4">
           <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
-            <span className="font-bold text-gray-800">入学出願システム</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
+            <div>
+            <p className="font-bold text-gray-800 leading-none">Compass</p>
+            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+          </div>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -2032,8 +2039,11 @@ function ApplyPageInner() {
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white border-b border-gray-200 py-4 px-4">
           <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
-            <span className="font-bold text-gray-800">入学出願システム</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
+            <div>
+            <p className="font-bold text-gray-800 leading-none">Compass</p>
+            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+          </div>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -2062,10 +2072,10 @@ function ApplyPageInner() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">専</div>
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
             <div>
-              <p className="font-bold text-gray-800 text-sm leading-none">入学出願システム</p>
-              <p className="text-xs text-gray-400 mt-0.5">ステップ {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
+              <p className="font-bold text-gray-800 text-sm leading-none">Compass</p>
+              <p className="text-xs text-gray-400 mt-0.5">入学出願システム · ステップ {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
             </div>
           </div>
           <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">← トップへ</Link>

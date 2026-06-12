@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { CompassMark } from "@/components/ui/CompassMark";
 
 const SCHOOLS = [
   {
@@ -175,10 +176,10 @@ export default function HomePage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow-sm">専</div>
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm"><CompassMark className="w-5 h-5" /></div>
             <div>
-              <p className="font-bold text-gray-800 text-sm leading-none">入学出願システム</p>
-              <p className="text-xs text-gray-400 mt-0.5">Online Application System</p>
+              <p className="font-bold text-gray-800 text-sm leading-none">Compass</p>
+              <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

@@ -6,6 +6,7 @@ import { getStatusStyle } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
+import { CompassMark } from "@/components/ui/CompassMark";
 
 interface EnrollmentProcedure {
   instructions: string | null;
@@ -943,10 +944,13 @@ function StatusPageInner() {
       <header className="bg-navy-800 text-white py-4">
         <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-navy-800 font-bold">専</span>
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-navy-800">
+              <CompassMark className="w-5 h-5" />
             </div>
-            <h1 className="font-bold">専門学校 入学出願システム</h1>
+            <div className="leading-none">
+              <p className="font-bold">Compass</p>
+              <p className="text-[11px] text-navy-200 mt-0.5">入学出願システム</p>
+            </div>
           </div>
           <Link href="/" className="text-navy-200 hover:text-white text-sm transition-colors">
             ← トップへ戻る

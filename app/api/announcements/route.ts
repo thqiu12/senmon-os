@@ -163,7 +163,7 @@ async function handleSend(id: string) {
   <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden;">
     <div style="background:#1e3a5f; color:#fff; padding:24px 32px;">
       <h1 style="margin:0; font-size:20px; font-weight:700;">${titleSafe}</h1>
-      <p style="margin:4px 0 0; font-size:13px; opacity:0.8;">専門学校 入学出願システム</p>
+      <p style="margin:4px 0 0; font-size:13px; opacity:0.8;">Compass｜入学出願システム</p>
     </div>
     <div style="padding:32px;">
       <div style="font-size:15px; line-height:1.8; color:#333; white-space:pre-line;">${contentSafe}</div>

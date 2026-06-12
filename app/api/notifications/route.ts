@@ -52,7 +52,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
     <div style="background: #1e3a5f; color: #fff; padding: 24px 32px;">
       ${payload.priorityLabel ? `<span style="display:inline-block; background:#fff; color:#1e3a5f; font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px; letter-spacing:1px; margin-bottom:6px;">${e(payload.priorityLabel)}</span>` : ""}
       <h1 style="margin: 0; font-size: 20px; font-weight: 700;">${payload.schoolName ? "試験のご案内" : "面接のご案内"}</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">Compass｜入学出願システム</p>
     </div>
     <div style="padding: 32px;">
       <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
@@ -154,7 +154,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
   <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
     <div style="background: ${headerColor}; color: #fff; padding: 24px 32px;">
       <h1 style="margin: 0; font-size: 20px; font-weight: 700;">${isPass ? "合格通知" : isHokketsu ? "補欠合格のご通知" : "審査結果のご連絡"}</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">Compass｜入学出願システム</p>
     </div>
     <div style="padding: 32px;">
       <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>
@@ -225,7 +225,7 @@ function buildSubjectAndHtml(payload: NotificationPayload): { subject: string; h
   <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
     <div style="background: #1e3a5f; color: #fff; padding: 24px 32px;">
       <h1 style="margin: 0; font-size: 20px; font-weight: 700;">入学手続きのご案内</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">専門学校 入学出願システム</p>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;">Compass｜入学出願システム</p>
     </div>
     <div style="padding: 32px;">
       <p style="color: #333; font-size: 15px; line-height: 1.7;">${applicantNameSafe} 様</p>

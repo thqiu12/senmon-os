@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CompassMark } from "@/components/ui/CompassMark";
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   super_admin: { label: "スーパー管理者", color: "bg-purple-100 text-purple-800" },
@@ -56,11 +57,11 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-navy-800 font-bold text-2xl">専</span>
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg text-navy-800">
+            <CompassMark className="w-9 h-9" />
           </div>
           <h1 className="text-white text-2xl font-bold">管理者ログイン</h1>
-          <p className="text-navy-300 text-sm mt-1">専門学校 入学出願システム 管理画面</p>
+          <p className="text-navy-300 text-sm mt-1">Compass · 入学・出願管理</p>
         </div>
 
         {/* Login Card */}

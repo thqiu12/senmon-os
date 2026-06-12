@@ -130,15 +130,41 @@ export async function PATCH(
           const cohort = updated.cohort
             ? await tx.cohort.findUnique({ where: { id: updated.cohort.id } })
             : null;
-          const defaultChecklist = JSON.stringify([
-            { name: "入学誓約書", required: true, done: false },
-            { name: "経費支弁能力を証明する書類", required: true, done: false },
-            { name: "健康診断書", required: false, done: false },
-            { name: "最終学歴証明書（原本）", required: true, done: false },
-            { name: "パスポートコピー", required: true, done: false },
-            { name: "在留カードコピー", required: false, done: false },
-            { name: "証明写真（4枚）", required: true, done: false },
-          ]);
+          // 入学手続き書類は フォーム管理（section=入学手続き書類・学校別）から生成。
+          // 学校固有が全校共通(schoolId=null)を上書き。未設定なら従来の既定にフォールバック。
+          let appSchoolKey: string | null = null;
+          if (updated.applySchoolId) {
+            const as = await tx.applySchool.findUnique({ where: { id: updated.applySchoolId }, select: { schoolKey: true } });
+            appSchoolKey = as?.schoolKey ?? null;
+          }
+          const enrollDocFields = await tx.formFieldConfig.findMany({
+            where: {
+              fieldType: "file",
+              section: "入学手続き書類",
+              OR: [{ schoolId: null }, ...(appSchoolKey ? [{ schoolId: appSchoolKey }] : [])],
+            },
+            orderBy: { displayOrder: "asc" },
+          });
+          const byKey = new Map<string, (typeof enrollDocFields)[number]>();
+          for (const f of enrollDocFields) {
+            const prev = byKey.get(f.fieldKey);
+            if (!prev || (f.schoolId && !prev.schoolId)) byKey.set(f.fieldKey, f); // 学校固有を優先
+          }
+          const configured = Array.from(byKey.values())
+            .filter((f) => f.isEnabled)
+            .sort((a, b) => a.displayOrder - b.displayOrder);
+          const checklistItems = configured.length > 0
+            ? configured.map((f) => ({ name: f.label, required: f.isRequired, done: false }))
+            : [
+                { name: "入学誓約書", required: true, done: false },
+                { name: "経費支弁能力を証明する書類", required: true, done: false },
+                { name: "健康診断書", required: false, done: false },
+                { name: "最終学歴証明書（原本）", required: true, done: false },
+                { name: "パスポートコピー", required: true, done: false },
+                { name: "在留カードコピー", required: false, done: false },
+                { name: "証明写真（4枚）", required: true, done: false },
+              ];
+          const defaultChecklist = JSON.stringify(checklistItems);
           // 選考モード別の学費があれば、Application.examMode に対応する金額を採用
           let tuitionAmount = cohort?.defaultTuitionAmount ?? null;
           if (cohort?.examModeTuitionAmounts && updated.examMode) {

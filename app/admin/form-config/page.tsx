@@ -22,7 +22,7 @@ interface FormFieldConfig {
   isCustom?: boolean;
 }
 
-const SECTIONS = ["個人情報", "連絡先", "住所", "在日情報", "志望・学歴", "書類"];
+const SECTIONS = ["個人情報", "連絡先", "住所", "在日情報", "志望・学歴", "書類", "入学手続き書類"];
 const FIELD_TYPES = ["text", "select", "textarea", "checkbox", "date", "tel", "email", "file"];
 
 const FIELD_TYPE_LABELS: Record<string, string> = {

@@ -16,7 +16,7 @@ export interface SchoolOption {
 // 実データの schoolKey と一致させること（/admin/schools の一覧と整合する）。
 export const SCHOOLS: SchoolOption[] = [
   { id: "chuo-seminar",      name: "中央ゼミナール" },
-  { id: "tdb-tokyo-business", name: "TDB東京ビジネス専門学校" },
+  { id: "tdb",               name: "東京デジタルビジネス専門学校（TDB）" },
   { id: "kanagawa-judo",     name: "神奈川柔整鍼灸専門学校" },
 ];
 

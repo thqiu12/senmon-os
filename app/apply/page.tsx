@@ -882,8 +882,9 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
 
   const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1024 / 1024).toFixed(1)}MB`;
 
+  // 「入学手続き書類」セクションの file 項目は出願フォームには出さない（入学手続き専用）
   const dynamicFileFields = formConfig
-    ? formConfig.filter(c => c.fieldType === "file" && c.isEnabled)
+    ? formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.section !== "入学手続き書類")
     : [];
 
   const hasConfiguredFileFields = dynamicFileFields.length > 0;
@@ -1914,7 +1915,7 @@ function ApplyPageInner() {
     }
     if (currentStep === 3) {
       if (!formConfig) return true;
-      const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired);
+      const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired && c.section !== "入学手続き書類");
       return requiredFileFields.every(f => uploadedDocs.some(d => d.docType === f.label));
     }
     if (currentStep === 4) {
@@ -1955,7 +1956,7 @@ function ApplyPageInner() {
     } else if (currentStep === 3) {
       // 必須書類のアップロードチェック
       if (formConfig) {
-        const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired);
+        const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired && c.section !== "入学手続き書類");
         const missingDocs = requiredFileFields.filter(f => !uploadedDocs.some(d => d.docType === f.label));
         if (missingDocs.length > 0) {
           setErrors({ step3: `以下の必須書類をアップロードしてください：${missingDocs.map(f => f.label).join("、")}` });

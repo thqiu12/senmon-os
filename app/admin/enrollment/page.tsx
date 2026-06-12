@@ -207,7 +207,7 @@ export default function EnrollmentManagementPage() {
 
         {/* ===== ステップタブ ===== */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 overflow-hidden">
-          <div className="flex overflow-x-auto">
+          <div className="flex overflow-x-auto divide-x divide-gray-100">
             {STEPS.map(s => {
               const count = counts[s.key] ?? 0;
               const active = stepFilter === s.key;
@@ -215,12 +215,12 @@ export default function EnrollmentManagementPage() {
                 <button
                   key={s.key}
                   onClick={() => setStepFilter(s.key)}
-                  className={`flex flex-col items-center px-5 py-3 border-b-2 transition whitespace-nowrap min-w-fit
+                  className={`flex-1 flex flex-col items-center gap-1.5 px-3 py-4 border-b-2 transition whitespace-nowrap min-w-[6.75rem]
                     ${active ? "border-navy-700 bg-navy-50 text-navy-800" : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}
                 >
-                  <span className="mb-0.5"><Icon name={s.icon} className="w-5 h-5" /></span>
-                  <span className="text-xs font-semibold">{s.label}</span>
-                  <span className={`text-lg font-bold mt-0.5 ${active ? "text-navy-700" : "text-gray-600"}`}>
+                  <Icon name={s.icon} className="w-5 h-5 opacity-80" />
+                  <span className="text-[11px] font-medium leading-none">{s.label}</span>
+                  <span className={`text-xl font-bold leading-none ${active ? "text-navy-700" : "text-gray-700"}`}>
                     {count}
                   </span>
                 </button>

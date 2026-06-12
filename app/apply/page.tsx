@@ -1063,11 +1063,11 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
 
 // ========== Step 4 ==========
 interface PaymentConfig {
-  bankName: string; accountType: string; accountNumber: string; accountHolder: string; deadline: string;
+  bankName: string; accountType: string; accountNumber: string; accountHolder: string; deadline: string; bankInfoText?: string | null;
 }
 
-function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeStatus, onFeeStatusChange }: {
-  applicationId: string | null; applicationNo: string | null; email: string; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void;
+function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeStatus, onFeeStatusChange, schoolKey }: {
+  applicationId: string | null; applicationNo: string | null; email: string; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void; schoolKey?: string;
 }) {
   const fee = calcExamFee(schoolCount);
   const [uploading, setUploading] = useState(false);
@@ -1078,8 +1078,9 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
-    fetch("/api/config/payment").then(r => r.json()).then(setPaymentConfig).catch(() => {});
-  }, []);
+    const q = schoolKey ? `?schoolKey=${encodeURIComponent(schoolKey)}` : "";
+    fetch(`/api/config/payment${q}`).then(r => r.json()).then(setPaymentConfig).catch(() => {});
+  }, [schoolKey]);
 
   // 振込先のワンクリックコピー（口座番号の手入力ミス防止）
   const copyField = (key: string, val: string) => {
@@ -1140,6 +1141,18 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
           振込先情報
         </h3>
         {paymentConfig ? (
+          paymentConfig.bankInfoText ? (
+            // 選考管理で設定された受験料振込先（フリーテキスト）
+            <button type="button" onClick={() => copyField("振込先", paymentConfig.bankInfoText as string)}
+              title="クリックでコピー"
+              className="w-full text-left bg-gray-50 border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
+              <p className="text-sm text-gray-900 whitespace-pre-line font-mono leading-relaxed">{paymentConfig.bankInfoText}</p>
+              <span className={`mt-2 inline-flex items-center gap-0.5 text-[11px] font-bold ${copiedKey === "振込先" ? "text-green-600" : "text-blue-500"}`}>
+                {copiedKey === "振込先" && <Icon name="check" className="w-3 h-3" />}
+                {copiedKey === "振込先" ? "コピー済み" : "タップでコピー"}
+              </span>
+            </button>
+          ) : (
           <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
             {[
               ["銀行名", paymentConfig.bankName],
@@ -1166,6 +1179,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
               </div>
             ))}
           </div>
+          )
         ) : (
           <p className="text-sm text-gray-400">読み込み中...</p>
         )}
@@ -2173,7 +2187,7 @@ function ApplyPageInner() {
                   formConfig={formConfig} />
               </>}
               {currentStep === 4 && <Step4Payment applicationId={applicationId} applicationNo={applicationNo} email={form.email} schoolCount={schoolCount}
-                feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
+                schoolKey={form.schoolId} feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
               {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} />}
             </>
           )}

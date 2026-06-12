@@ -48,7 +48,8 @@ model Cohort {
   defaultTuitionAmount2  String?  // 第2期金額
   defaultTuitionDeadline String?  // STEP1締切（例: 2026-05-31）
   defaultTuitionDeadline2 String? // 第2期締切
-  defaultTuitionBankInfo String?  // 振込先情報
+  defaultTuitionBankInfo String?  // 学費の振込先（合格後の入学手続きに表示）
+  examFeeBankInfo        String?  // 受験料の振込先（出願時に学生へ表示。未設定なら環境変数の既定値）
   defaultStep2Deadline   String?  // 書類提出締切
   defaultStep3Deadline   String?  // 署名締切
   // 選考モード別 学費 JSON: {"一般":"350000","指定推薦":"300000","特待生":"0"}

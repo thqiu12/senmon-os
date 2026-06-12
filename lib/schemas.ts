@@ -358,6 +358,7 @@ export const CohortCreateSchema = z.object({
   defaultTuitionDeadline: optStr(50),
   defaultTuitionDeadline2: optStr(50),
   defaultTuitionBankInfo: optStr(500),
+  examFeeBankInfo: optStr(500),
   defaultStep2Deadline: optStr(50),
   defaultStep3Deadline: optStr(50),
   // 選考モード別の学費（一般/指定推薦/特待生 などのキーから金額文字列へのマップ）

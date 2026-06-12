@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: "desc" },
           select: { id: true, content: true, author: true, createdAt: true },
         },
-        cohort: { select: { resultPublishedAt: true } },
+        cohort: { select: { resultPublishedAt: true, defaultTuitionBankInfo: true } },
       },
     });
 
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
             tuitionAmount: application.enrollmentProcedure.tuitionAmount,
             tuitionAmount2: application.enrollmentProcedure.tuitionAmount2,
             tuitionDeadline2: application.enrollmentProcedure.tuitionDeadline2,
-            tuitionBankInfo: application.enrollmentProcedure.tuitionBankInfo,
+            tuitionBankInfo: application.enrollmentProcedure.tuitionBankInfo || application.cohort?.defaultTuitionBankInfo || null,
             // 学校承認フロー
             schoolConfirmed: application.enrollmentProcedure.schoolConfirmed,
             schoolConfirmedAt: application.enrollmentProcedure.schoolConfirmedAt,

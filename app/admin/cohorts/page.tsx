@@ -28,6 +28,7 @@ interface Cohort {
   defaultTuitionDeadline: string | null;
   defaultTuitionDeadline2: string | null;
   defaultTuitionBankInfo: string | null;
+  examFeeBankInfo: string | null;
   defaultStep2Deadline: string | null;
   defaultStep3Deadline: string | null;
   schoolKey: string | null;
@@ -81,6 +82,7 @@ export default function CohortsPage() {
   const [formTuitionDeadline, setFormTuitionDeadline] = useState("");
   const [formTuitionDeadline2, setFormTuitionDeadline2] = useState("");
   const [formTuitionBankInfo, setFormTuitionBankInfo] = useState("");
+  const [formExamFeeBankInfo, setFormExamFeeBankInfo] = useState("");
   const [formStep2Deadline, setFormStep2Deadline] = useState("");
   const [formStep3Deadline, setFormStep3Deadline] = useState("");
   // 選考モード別学費
@@ -120,6 +122,7 @@ export default function CohortsPage() {
     setFormTuitionDeadline("");
     setFormTuitionDeadline2("");
     setFormTuitionBankInfo("");
+    setFormExamFeeBankInfo("");
     setFormStep2Deadline("");
     setFormStep3Deadline("");
     setFormTuitionIppan("");
@@ -165,6 +168,7 @@ export default function CohortsPage() {
     setFormTuitionDeadline(cohort.defaultTuitionDeadline || "");
     setFormTuitionDeadline2(cohort.defaultTuitionDeadline2 || "");
     setFormTuitionBankInfo(cohort.defaultTuitionBankInfo || "");
+    setFormExamFeeBankInfo(cohort.examFeeBankInfo || "");
     setFormStep2Deadline(cohort.defaultStep2Deadline || "");
     setFormStep3Deadline(cohort.defaultStep3Deadline || "");
     // examMode 別学費 JSON を展開
@@ -207,6 +211,7 @@ export default function CohortsPage() {
         defaultTuitionDeadline:  formTuitionDeadline || null,
         defaultTuitionDeadline2: formTuitionDeadline2 || null,
         defaultTuitionBankInfo:  formTuitionBankInfo || null,
+        examFeeBankInfo:         formExamFeeBankInfo || null,
         defaultStep2Deadline:    formStep2Deadline || null,
         defaultStep3Deadline:    formStep3Deadline || null,
         examModeTuitionAmounts: Object.keys(examModes).length > 0 ? examModes : null,
@@ -566,9 +571,20 @@ export default function CohortsPage() {
                   </div>
                 </div>
 
-                {/* 振込先 */}
+                {/* 受験料の振込先（出願時に学生へ表示） */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">振込先情報（学生に表示）</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">受験料の振込先（出願時に学生へ表示）</label>
+                  <textarea
+                    className="form-input text-sm min-h-[80px] resize-y"
+                    placeholder={"未入力の場合は既定の振込先（環境設定）を表示します。\n銀行名：〇〇銀行 〇〇支店\n口座種別：普通\n口座番号：1234567\n口座名義：学校法人〇〇学園"}
+                    value={formExamFeeBankInfo}
+                    onChange={e => setFormExamFeeBankInfo(e.target.value)}
+                  />
+                </div>
+
+                {/* 学費の振込先（合格後の入学手続きに表示） */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">学費の振込先（合格後の入学手続きに表示）</label>
                   <textarea
                     className="form-input text-sm min-h-[80px] resize-y"
                     placeholder={"銀行名：〇〇銀行 〇〇支店\n口座種別：普通\n口座番号：1234567\n口座名義：学校法人〇〇学園"}

@@ -38,7 +38,7 @@ const NAV: NavSection[] = [
     items: [
       { href: "/admin/cohorts",       label: "選考管理",     icon: "clipboard" },
       { href: "/admin/announcements", label: "お知らせ",     icon: "megaphone" },
-      { href: "/admin/prospects",     label: "希望者",       icon: "edit", match: ["/admin/agents"] },
+      { href: "/admin/prospects",     label: "CRM管理",      icon: "edit", match: ["/admin/agents"] },
     ],
   },
   {

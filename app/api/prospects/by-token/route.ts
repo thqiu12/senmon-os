@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logError } from "@/lib/logger";
+import { checkRateLimit, getClientIp } from "@/lib/security";
 
 /**
  * GET /api/prospects/by-token?token=xxx
@@ -10,6 +11,10 @@ import { logError } from "@/lib/logger";
  * トークンに紐づくエージェントの希望者だけを返す。
  */
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`prospect-token:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
+  }
   const { searchParams } = new URL(request.url);
   const token = searchParams.get("token");
   if (!token || token.length < 8) {

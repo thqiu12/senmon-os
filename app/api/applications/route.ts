@@ -119,7 +119,7 @@ ${baseUrl}/apply/status
     });
     const data = await res.json() as { id?: string; message?: string };
     if (!res.ok) throw new Error(data.message || "Resend API error");
-    console.log(`学生メール送信完了: ${application.email} id=${data.id}`);
+    console.log(`学生メール送信完了 id=${data.id}`);
   } catch (err) {
     console.error("学生メール送信エラー:", err);
   }
@@ -173,7 +173,7 @@ ${baseUrl}/admin
     });
     const data = await res.json() as { id?: string; message?: string };
     if (!res.ok) throw new Error(data.message || "Resend API error");
-    console.log(`管理者メール送信完了: ${adminEmail} id=${data.id}`);
+    console.log(`管理者メール送信完了 id=${data.id}`);
   } catch (err) {
     console.error("管理者メール送信エラー:", err);
   }

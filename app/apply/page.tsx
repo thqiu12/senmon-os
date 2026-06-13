@@ -1080,7 +1080,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
 
   useEffect(() => {
     const q = schoolKey ? `?schoolKey=${encodeURIComponent(schoolKey)}` : "";
-    fetch(`/api/config/payment${q}`).then(r => r.json()).then(setPaymentConfig).catch(() => {});
+    fetch(`/api/config/payment${q}`).then(r => (r.ok ? r.json() : null)).then(d => d && setPaymentConfig(d)).catch(() => {});
   }, [schoolKey]);
 
   // 振込先のワンクリックコピー（口座番号の手入力ミス防止）

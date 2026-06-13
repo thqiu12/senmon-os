@@ -292,7 +292,11 @@ export default function EnrollmentManagementPage() {
               {rows.map(row => {
                 const stepStyle = STEP_STYLES[row.step] ?? { badge: "bg-gray-100 text-gray-600", row: "" };
                 return (
-                  <div key={row.id} className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 ${stepStyle.row}`}>
+                  <div
+                    key={row.id}
+                    onClick={(e) => { if ((e.target as HTMLElement).closest("button, a, input, select, label")) return; router.push(`/admin/applications/${row.id}`); }}
+                    className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow ${stepStyle.row}`}
+                  >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -351,7 +355,11 @@ export default function EnrollmentManagementPage() {
                     const stepStyle = STEP_STYLES[row.step] ?? { badge: "bg-gray-100 text-gray-600", row: "" };
                     const ep = row.ep;
                     return (
-                      <tr key={row.id} className={`hover:bg-gray-50 transition-colors ${stepStyle.row}`}>
+                      <tr
+                        key={row.id}
+                        onClick={(e) => { if ((e.target as HTMLElement).closest("button, a, input, select, label")) return; router.push(`/admin/applications/${row.id}`); }}
+                        className={`hover:bg-gray-50 transition-colors cursor-pointer ${stepStyle.row}`}
+                      >
                         {/* 申請番号 */}
                         <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">
                           {row.applicationNo}

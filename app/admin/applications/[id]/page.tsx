@@ -10,6 +10,7 @@ import {
   formatFileSize,
 } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
+import { Icon } from "@/components/ui/Icon";
 import { useCapabilities } from "@/lib/useCapabilities";
 
 // ===== 面接フィードバックコンポーネント =====
@@ -1678,37 +1679,42 @@ export default function ApplicationDetailPage() {
           <div className="lg:col-span-2 space-y-4">
             {/* 申請者情報サマリー */}
             <div className="card bg-navy-800 text-white">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {application.lastName} {application.firstName}
-                  </h2>
-                  <p className="text-navy-300">
-                    {application.lastNameKana} {application.firstNameKana}
-                  </p>
+              <div className="flex items-start justify-between mb-4 gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-lg font-bold shrink-0">
+                    {application.lastName?.charAt(0) || "—"}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold truncate">
+                      {application.lastName} {application.firstName}
+                    </h2>
+                    <p className="text-navy-200 truncate">
+                      {application.lastNameKana} {application.firstNameKana}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-navy-300 text-xs">申請日</p>
+                <div className="text-right shrink-0">
+                  <p className="text-navy-200 text-xs">申請日</p>
                   <p className="text-sm">{formatDateTimeJP(application.createdAt)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-navy-700 rounded-lg p-3">
-                  <p className="text-navy-300 text-xs mb-1">国籍</p>
+                <div className="bg-navy-700/60 rounded-lg p-3">
+                  <p className="text-navy-200 text-xs mb-1.5 flex items-center gap-1.5"><Icon name="globe" className="w-3.5 h-3.5" />国籍</p>
                   <p className="font-medium">{application.nationality}</p>
                 </div>
-                <div className="bg-navy-700 rounded-lg p-3">
-                  <p className="text-navy-300 text-xs mb-1">日本語レベル</p>
+                <div className="bg-navy-700/60 rounded-lg p-3">
+                  <p className="text-navy-200 text-xs mb-1.5 flex items-center gap-1.5"><Icon name="book" className="w-3.5 h-3.5" />日本語レベル</p>
                   <span className={`status-badge ${getJapaneseLevelStyle(application.japaneseLevel)}`}>
                     {application.japaneseLevel}
                   </span>
                 </div>
-                <div className="bg-navy-700 rounded-lg p-3">
-                  <p className="text-navy-300 text-xs mb-1">志望校</p>
+                <div className="bg-navy-700/60 rounded-lg p-3">
+                  <p className="text-navy-200 text-xs mb-1.5 flex items-center gap-1.5"><Icon name="school" className="w-3.5 h-3.5" />志望校</p>
                   <p className="font-medium text-sm">{application.schoolName}</p>
                 </div>
-                <div className="bg-navy-700 rounded-lg p-3">
-                  <p className="text-navy-300 text-xs mb-1">入学希望</p>
+                <div className="bg-navy-700/60 rounded-lg p-3">
+                  <p className="text-navy-200 text-xs mb-1.5 flex items-center gap-1.5"><Icon name="calendar" className="w-3.5 h-3.5" />入学希望</p>
                   <p className="font-medium">{application.enrollmentYear}年{application.enrollmentMonth}月</p>
                 </div>
               </div>

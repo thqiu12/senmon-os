@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
     const quotaSet = new Set(
       quotas.map((q) => key(q.schoolName, q.department, q.enrollmentYear)),
     );
-    for (const [k, accepted] of acceptedMap) {
-      if (quotaSet.has(k)) continue;
+    acceptedMap.forEach((accepted, k) => {
+      if (quotaSet.has(k)) return;
       const [schoolName, department, enrollmentYear] = k.split("__");
       result.push({
         id: `unset-${k}`,
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         fillRate: -1,
         memo: null,
       });
-    }
+    });
 
     return NextResponse.json(result);
   } catch (e) {

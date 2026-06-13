@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SCHOOLS } from "@/lib/formFieldDefaults";
@@ -60,6 +60,49 @@ const emptyAddForm: AddFieldForm = {
   description: "",
 };
 
+// 学生フォームのプレビュー1項目（実際の入力欄に近い見た目のダミー）
+function PreviewField({ f }: { f: FormFieldConfig }) {
+  const box = "w-full rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-400";
+  let control: ReactNode;
+  switch (f.fieldType) {
+    case "textarea":
+      control = <div className={`${box} h-16`} />;
+      break;
+    case "select":
+      control = (
+        <div className={`${box} h-9 px-3 flex items-center justify-between`}>
+          選択してください
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
+        </div>
+      );
+      break;
+    case "date":
+      control = (
+        <div className={`${box} h-9 px-3 flex items-center justify-between`}>
+          年 / 月 / 日
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>
+        </div>
+      );
+      break;
+    case "checkbox":
+      control = <div className="flex items-center gap-2 text-xs text-gray-400"><span className="w-4 h-4 rounded border border-gray-300 bg-white inline-block" />チェックボックス</div>;
+      break;
+    case "file":
+      control = <div className="w-full rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-3 text-center text-xs text-gray-400">ファイルをアップロード</div>;
+      break;
+    default:
+      control = <div className={`${box} h-9 px-3 flex items-center`}>{f.description || "入力してください"}</div>;
+  }
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-700 mb-1">
+        {f.label}{f.isRequired && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {control}
+    </div>
+  );
+}
+
 export default function FormConfigPage() {
   const router = useRouter();
   const { confirm } = useUI();
@@ -78,6 +121,10 @@ export default function FormConfigPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // ドラッグ並べ替え（セクション内）＋ 学生フォームのライブプレビュー
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Add field modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -154,6 +201,25 @@ export default function FormConfigPage() {
     setConfigs(prev =>
       prev.map(c => c.fieldKey === fieldKey ? { ...c, [key]: value } : c)
     );
+  };
+
+  // ドラッグ中、同一セクション内で対象行の手前に移動する
+  const handleDragEnter = (target: FormFieldConfig) => {
+    if (!dragKey || dragKey === target.fieldKey) return;
+    setConfigs(prev => {
+      const dragged = prev.find(c => c.fieldKey === dragKey);
+      if (!dragged || dragged.section !== target.section) return prev; // セクション内のみ
+      const arr = prev.filter(c => c.fieldKey !== dragKey);
+      const i = arr.findIndex(c => c.fieldKey === target.fieldKey);
+      arr.splice(i, 0, dragged);
+      return arr;
+    });
+  };
+
+  // ドラッグ終了：配列順に合わせて displayOrder を振り直す（保存で永続化）
+  const handleDragEnd = () => {
+    setConfigs(prev => prev.map((c, i) => ({ ...c, displayOrder: (i + 1) * 10 })));
+    setDragKey(null);
   };
 
   const handleAddField = async () => {
@@ -334,6 +400,13 @@ export default function FormConfigPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setPreviewOpen(true)}
+              className="px-4 py-2 bg-white text-navy-800 border border-navy-200 text-sm font-semibold rounded-lg hover:bg-navy-50 transition flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+              プレビュー
+            </button>
+            <button
               onClick={() => { setShowAddModal(true); setAddError(null); setAddForm(emptyAddForm); }}
               className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition flex items-center gap-1.5"
             >
@@ -392,6 +465,10 @@ export default function FormConfigPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></svg>
+              左端のハンドルをドラッグして、同じセクション内で表示順を並べ替えできます。変更後は「保存する」を押してください。
+            </div>
             {[...SECTIONS, ...otherSections].map(section => {
               const fields = groupedBySection[section] || configs.filter(c => c.section === section);
               if (fields.length === 0) return null;
@@ -404,12 +481,12 @@ export default function FormConfigPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                          <th className="w-8 px-2 py-2.5"></th>
                           <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">フィールドキー</th>
                           <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">ラベル</th>
                           <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">説明（ヒント）</th>
                           <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">セクション</th>
                           <th className="text-left px-4 py-2.5 font-semibold text-gray-600 text-xs">種類</th>
-                          <th className="text-center px-4 py-2.5 font-semibold text-gray-600 text-xs">表示順</th>
                           <th className="text-center px-4 py-2.5 font-semibold text-gray-600 text-xs">有効</th>
                           <th className="text-center px-4 py-2.5 font-semibold text-gray-600 text-xs">必須</th>
                           <th className="text-center px-4 py-2.5 font-semibold text-gray-600 text-xs">操作</th>
@@ -417,7 +494,23 @@ export default function FormConfigPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {fields.map(field => (
-                          <tr key={field.fieldKey} className={`hover:bg-gray-50 transition-colors ${!field.isEnabled ? "opacity-50" : ""}`}>
+                          <tr
+                            key={field.fieldKey}
+                            onDragEnter={() => handleDragEnter(field)}
+                            onDragOver={(e) => e.preventDefault()}
+                            className={`transition-colors ${dragKey === field.fieldKey ? "bg-navy-50 ring-1 ring-navy-300" : "hover:bg-gray-50"} ${!field.isEnabled ? "opacity-50" : ""}`}
+                          >
+                            <td className="px-2 py-3 text-center">
+                              <span
+                                draggable
+                                onDragStart={() => setDragKey(field.fieldKey)}
+                                onDragEnd={handleDragEnd}
+                                title="ドラッグで並べ替え"
+                                className="inline-flex cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500"
+                              >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></svg>
+                              </span>
+                            </td>
                             <td className="px-4 py-3 font-mono text-xs text-gray-500">
                               <div className="flex items-center gap-2">
                                 {field.fieldType === "file" && (
@@ -468,14 +561,6 @@ export default function FormConfigPage() {
                                   "bg-gray-100 text-gray-600"}`}>
                                 {FIELD_TYPE_LABELS[field.fieldType] ?? field.fieldType}
                               </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="number"
-                                value={field.displayOrder}
-                                onChange={e => updateField(field.fieldKey, "displayOrder", Number(e.target.value))}
-                                className="w-16 px-2 py-1 text-sm border border-gray-200 rounded text-center focus:outline-none focus:ring-1 focus:ring-navy-500"
-                              />
                             </td>
                             <td className="px-4 py-3 text-center">
                               <label className="relative inline-flex items-center cursor-pointer">
@@ -540,6 +625,41 @@ export default function FormConfigPage() {
         )}
         </>}
       </div>
+
+      {/* 学生フォーム プレビュー */}
+      {previewOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPreviewOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-gray-800">学生フォーム プレビュー</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{selectedSchoolName}・有効な項目のみ／上から表示順</p>
+              </div>
+              <button onClick={() => setPreviewOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="px-6 py-5 overflow-y-auto space-y-6">
+              {[...SECTIONS, ...otherSections].map((section) => {
+                const fs = configs.filter((c) => c.section === section && c.isEnabled);
+                if (fs.length === 0) return null;
+                return (
+                  <div key={section}>
+                    <h4 className="text-xs font-bold text-navy-700 uppercase tracking-wide mb-3 pb-1.5 border-b border-gray-100">{section}</h4>
+                    <div className="space-y-3.5">
+                      {fs.map((f) => <PreviewField key={f.fieldKey} f={f} />)}
+                    </div>
+                  </div>
+                );
+              })}
+              {configs.filter((c) => c.isEnabled).length === 0 && (
+                <p className="text-center text-sm text-gray-400 py-8">有効な項目がありません</p>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-gray-200 text-center shrink-0">
+              <p className="text-[11px] text-gray-400">実際の出願フォームの簡易プレビューです（選択肢の中身などは省略）</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Field Modal */}
       {showAddModal && (

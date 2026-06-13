@@ -2065,7 +2065,7 @@ export default function ApplicationDetailPage() {
               })}
               <div className="py-2.5 text-sm mt-1">
                 <p className="text-gray-500 font-medium mb-2">志望動機</p>
-                <p className="text-gray-900 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">
+                <p className="text-gray-900 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
                   {application.applicationReason}
                 </p>
               </div>
@@ -2204,7 +2204,7 @@ export default function ApplicationDetailPage() {
               {application.workExperience && (
                 <div className="py-2.5 text-sm">
                   <p className="text-gray-500 font-medium mb-2">職務経歴</p>
-                  <p className="text-gray-900 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">
+                  <p className="text-gray-900 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                     {application.workExperience}
                   </p>
                 </div>
@@ -2619,7 +2619,7 @@ export default function ApplicationDetailPage() {
                           {r.reviewerNote && (
                             <div className="grid grid-cols-[80px_1fr] gap-1">
                               <span className="text-gray-500">メモ</span>
-                              <span className="text-gray-700 whitespace-pre-line">{r.reviewerNote}</span>
+                              <span className="text-gray-700 whitespace-pre-line break-words [overflow-wrap:anywhere]">{r.reviewerNote}</span>
                             </div>
                           )}
                         </div>
@@ -2725,7 +2725,7 @@ export default function ApplicationDetailPage() {
                         </span>
                         <span className="text-xs text-gray-400 flex-shrink-0">{formatDateTimeJP(note.createdAt)}</span>
                       </div>
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.content}</p>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{note.content}</p>
                     </div>
                   ))
                 )}
@@ -2860,7 +2860,7 @@ export default function ApplicationDetailPage() {
             {enrollStudentMemo && (
               <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs font-bold text-amber-800 mb-1">学生からの報告</p>
-                <p className="text-sm text-amber-900 whitespace-pre-wrap">{enrollStudentMemo}</p>
+                <p className="text-sm text-amber-900 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{enrollStudentMemo}</p>
                 {enrollCompletedAt && (
                   <p className="text-xs text-amber-600 mt-1">完了報告日：{formatDateTimeJP(enrollCompletedAt)}</p>
                 )}

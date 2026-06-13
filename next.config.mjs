@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
+  // SAMEORIGIN: 自サイト内（書類プレビューの iframe 等）は許可しつつ、
+  // 他サイトからのフレーム埋め込み（クリックジャッキング）は引き続き拒否。
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },

@@ -1770,7 +1770,7 @@ function StatusPageInner() {
                         {data.notes && (
                           <div className="flex gap-3 pt-1">
                             <span className={`${subtleText} w-14 flex-shrink-0`}>注意</span>
-                            <span className="text-gray-800 whitespace-pre-line">{data.notes}</span>
+                            <span className="text-gray-800 whitespace-pre-line break-words [overflow-wrap:anywhere]">{data.notes}</span>
                           </div>
                         )}
                       </div>
@@ -1837,7 +1837,7 @@ function StatusPageInner() {
                 {/* 案内文 */}
                 {result.enrollmentProcedure.instructions && (
                   <div className="bg-gray-50 rounded-lg p-4 mb-5">
-                    <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">
+                    <p className="text-sm text-gray-800 whitespace-pre-line break-words [overflow-wrap:anywhere] leading-relaxed">
                       {result.enrollmentProcedure.instructions}
                     </p>
                   </div>
@@ -2190,7 +2190,7 @@ function StatusPageInner() {
                     )}
                     {result.enrollmentProcedure.ceremonyNotes && (
                       <div className="mt-2 pt-2 border-t border-blue-200">
-                        <p className="text-blue-800 whitespace-pre-line text-xs leading-relaxed">
+                        <p className="text-blue-800 whitespace-pre-line break-words [overflow-wrap:anywhere] text-xs leading-relaxed">
                           {result.enrollmentProcedure.ceremonyNotes}
                         </p>
                       </div>
@@ -2208,7 +2208,7 @@ function StatusPageInner() {
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
                     {result.enrollmentProcedure.visaGuideNotes ? (
-                      <p className="text-purple-900 text-sm whitespace-pre-line leading-relaxed">
+                      <p className="text-purple-900 text-sm whitespace-pre-line break-words [overflow-wrap:anywhere] leading-relaxed">
                         {result.enrollmentProcedure.visaGuideNotes}
                       </p>
                     ) : (

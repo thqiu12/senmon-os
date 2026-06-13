@@ -82,8 +82,6 @@ export default function CohortsPage() {
   const [formTuitionAmount2, setFormTuitionAmount2] = useState("");
   const [formTuitionDeadline, setFormTuitionDeadline] = useState("");
   const [formTuitionDeadline2, setFormTuitionDeadline2] = useState("");
-  const [formTuitionBankInfo, setFormTuitionBankInfo] = useState("");
-  const [formExamFeeBankInfo, setFormExamFeeBankInfo] = useState("");
   const [formStep2Deadline, setFormStep2Deadline] = useState("");
   const [formStep3Deadline, setFormStep3Deadline] = useState("");
   // 選考モード別学費
@@ -122,8 +120,6 @@ export default function CohortsPage() {
     setFormTuitionAmount2("");
     setFormTuitionDeadline("");
     setFormTuitionDeadline2("");
-    setFormTuitionBankInfo("");
-    setFormExamFeeBankInfo("");
     setFormStep2Deadline("");
     setFormStep3Deadline("");
     setFormTuitionIppan("");
@@ -168,8 +164,6 @@ export default function CohortsPage() {
     setFormTuitionAmount2(cohort.defaultTuitionAmount2 || "");
     setFormTuitionDeadline(cohort.defaultTuitionDeadline || "");
     setFormTuitionDeadline2(cohort.defaultTuitionDeadline2 || "");
-    setFormTuitionBankInfo(cohort.defaultTuitionBankInfo || "");
-    setFormExamFeeBankInfo(cohort.examFeeBankInfo || "");
     setFormStep2Deadline(cohort.defaultStep2Deadline || "");
     setFormStep3Deadline(cohort.defaultStep3Deadline || "");
     // examMode 別学費 JSON を展開
@@ -211,8 +205,6 @@ export default function CohortsPage() {
         defaultTuitionAmount2:   formTuitionAmount2 || null,
         defaultTuitionDeadline:  formTuitionDeadline || null,
         defaultTuitionDeadline2: formTuitionDeadline2 || null,
-        defaultTuitionBankInfo:  formTuitionBankInfo || null,
-        examFeeBankInfo:         formExamFeeBankInfo || null,
         defaultStep2Deadline:    formStep2Deadline || null,
         defaultStep3Deadline:    formStep3Deadline || null,
         examModeTuitionAmounts: Object.keys(examModes).length > 0 ? examModes : null,
@@ -274,7 +266,7 @@ export default function CohortsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title inline-flex items-center gap-2">選考管理<HelpTip text={"募集回（バッチ）の管理です。出願受付〜選考〜合否のまとまりを設定します。受験料の振込先もここで指定できます。"} /></h1>
+          <h1 className="wsdb-topbar-title inline-flex items-center gap-2">選考管理<HelpTip text={"募集回（バッチ）の管理です。出願受付〜選考〜合否のまとまりを設定します。振込先は「各種設定 → 支払い設定」で管理します。"} /></h1>
           <p className="wsdb-topbar-meta">入学選考バッチ・面接ラウンド管理</p>
         </div>
       </div>
@@ -572,27 +564,10 @@ export default function CohortsPage() {
                   </div>
                 </div>
 
-                {/* 受験料の振込先（出願時に学生へ表示） */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">受験料の振込先（出願時に学生へ表示）</label>
-                  <textarea
-                    className="form-input text-sm min-h-[80px] resize-y"
-                    placeholder={"未入力の場合は既定の振込先（環境設定）を表示します。\n銀行名：〇〇銀行 〇〇支店\n口座種別：普通\n口座番号：1234567\n口座名義：学校法人〇〇学園"}
-                    value={formExamFeeBankInfo}
-                    onChange={e => setFormExamFeeBankInfo(e.target.value)}
-                  />
-                </div>
-
-                {/* 学費の振込先（合格後の入学手続きに表示） */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">学費の振込先（合格後の入学手続きに表示）</label>
-                  <textarea
-                    className="form-input text-sm min-h-[80px] resize-y"
-                    placeholder={"銀行名：〇〇銀行 〇〇支店\n口座種別：普通\n口座番号：1234567\n口座名義：学校法人〇〇学園"}
-                    value={formTuitionBankInfo}
-                    onChange={e => setFormTuitionBankInfo(e.target.value)}
-                  />
-                </div>
+                {/* 振込先（受験料・学費）は「各種設定 → 支払い設定」で一元管理 */}
+                <p className="text-xs text-gray-400 -mt-1">
+                  振込先（受験料・学費）は「各種設定 → 支払い設定」で学校別に設定します。
+                </p>
 
                 {/* 選考モード別 学費（合格時に自動セット） */}
                 <div className="mt-4 pt-4 border-t border-gray-200">

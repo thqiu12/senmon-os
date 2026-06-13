@@ -8,6 +8,7 @@ import { SchoolsManager } from "@/app/admin/components/SchoolsManager";
 import { PaymentSettingsPanel } from "@/app/admin/components/PaymentSettingsPanel";
 import { useUI } from "@/components/ui/toast";
 import { SkeletonList } from "@/components/ui/skeleton";
+import { Icon } from "@/components/ui/Icon";
 
 interface FormFieldConfig {
   id: string;
@@ -420,7 +421,7 @@ export default function FormConfigPage() {
                             <td className="px-4 py-3 font-mono text-xs text-gray-500">
                               <div className="flex items-center gap-2">
                                 {field.fieldType === "file" && (
-                                  <span title="ファイルアップロード">📎</span>
+                                  <span title="ファイルアップロード" className="text-blue-500"><Icon name="doc" className="w-3.5 h-3.5" /></span>
                                 )}
                                 {field.fieldKey}
                                 {!isGlobal && field.isCustom && (
@@ -649,8 +650,9 @@ export default function FormConfigPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="px-6 py-5">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                              </div>
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.9 12.1a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M4 7h16" /></svg>
+              </div>
               <h3 className="font-bold text-gray-800 text-base text-center mb-2">フィールドを削除</h3>
               <p className="text-sm text-gray-600 text-center">
                 「<span className="font-semibold">{deleteConfirm.label}</span>」を削除しますか？

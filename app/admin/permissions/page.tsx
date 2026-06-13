@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useUI } from "@/components/ui/toast";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 interface CapabilityDef { key: string; label: string; group: string; desc: string; }
 
@@ -112,7 +113,7 @@ export default function PermissionsPage() {
       {error ? (
         <div className="card text-center py-8 text-red-600">{error}</div>
       ) : loading ? (
-        <div className="card text-center py-16 text-gray-400">読み込み中...</div>
+        <SkeletonList rows={8} cols={4} />
       ) : (
         <div>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -125,25 +126,26 @@ export default function PermissionsPage() {
             </div>
           </div>
 
-          <div className="card p-0 overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left font-bold text-gray-700 px-4 py-3 min-w-[260px]">操作</th>
-                  <th className="text-center font-bold text-purple-700 px-3 py-3 w-24">スーパー<br/>管理者</th>
+                <tr className="bg-navy-800 text-white">
+                  <th className="text-left font-semibold px-4 py-3 min-w-[260px] text-xs">操作</th>
+                  <th className="text-center font-semibold px-3 py-3 w-24 text-xs text-purple-200">スーパー<br/>管理者</th>
                   {roles.map((r) => (
-                    <th key={r} className="text-center font-bold text-navy-700 px-3 py-3 w-24">{ROLE_LABEL[r] || r}</th>
+                    <th key={r} className="text-center font-semibold px-3 py-3 w-24 text-xs">{ROLE_LABEL[r] || r}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(groups).map(([group, list]) => (
-                  <>
-                    <tr key={`g-${group}`} className="bg-gray-50/60">
-                      <td colSpan={2 + roles.length} className="px-4 py-1.5 text-xs font-bold text-gray-500 tracking-wide">{group}</td>
+                  <Fragment key={`g-${group}`}>
+                    <tr className="bg-gray-50">
+                      <td colSpan={2 + roles.length} className="px-4 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wide">{group}</td>
                     </tr>
                     {list.map((c) => (
-                      <tr key={c.key} className="border-b border-gray-100 hover:bg-gray-50/50">
+                      <tr key={c.key} className="border-b border-gray-100 hover:bg-navy-50/40 transition-colors">
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-900 flex items-center gap-2">
                             {c.label}
@@ -168,10 +170,11 @@ export default function PermissionsPage() {
                         ))}
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           <p className="text-xs text-gray-400 mt-3">

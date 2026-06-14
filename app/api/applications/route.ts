@@ -125,6 +125,15 @@ ${baseUrl}/apply/status
   }
 }
 
+// 志望校ごとの入試担当メール（出願通知の宛先）。
+// 中央ゼミ・TDB（学校法人 羽場学園）→ chuo-seminar、神奈川柔整鍼灸（平井学園）→ hirai-gakuen。
+// 未登録の学校は ENV.ADMIN_EMAIL にフォールバック。
+const ADMISSION_EMAILS: Record<string, string> = {
+  "中央ゼミナール": "admission@chuo-seminar.ac.jp",
+  "東京デジタルビジネス専門学校（TDB）": "admission@chuo-seminar.ac.jp",
+  "神奈川柔整鍼灸専門学校": "admission@hirai-gakuen.ac.jp",
+};
+
 // 管理者へメール通知
 async function sendAdminNotification(application: {
   applicationNo: string;
@@ -138,7 +147,7 @@ async function sendAdminNotification(application: {
   enrollmentYear: string;
   enrollmentMonth: string;
 }) {
-  const adminEmail = ENV.ADMIN_EMAIL;
+  const adminEmail = ADMISSION_EMAILS[application.schoolName] || ENV.ADMIN_EMAIL;
   if (!adminEmail) return;
   const subject = `【新規出願】${application.applicationNo}　${application.lastName}${application.firstName}様`;
   const baseUrl = ENV.PUBLIC_BASE_URL || "http://localhost:3000";

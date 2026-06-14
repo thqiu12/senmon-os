@@ -146,9 +146,13 @@ async function sendAdminNotification(application: {
   japaneseLevel: string;
   enrollmentYear: string;
   enrollmentMonth: string;
-}) {
-  const adminEmail = ADMISSION_EMAILS[application.schoolName] || ENV.ADMIN_EMAIL;
-  if (!adminEmail) return;
+}, schoolNames?: string[]) {
+  // 併願なら該当する全志望校のメールへ通知（重複除去）。未登録校は ENV.ADMIN_EMAIL にフォールバック。
+  const names = (schoolNames && schoolNames.length ? schoolNames : [application.schoolName]).filter(Boolean);
+  const matched = Array.from(new Set(names.map((n) => ADMISSION_EMAILS[n]).filter(Boolean)));
+  const recipients = matched.length ? matched : (ENV.ADMIN_EMAIL ? [ENV.ADMIN_EMAIL] : []);
+  if (recipients.length === 0) return;
+  const otherSchools = Array.from(new Set(names)).filter((n) => n && n !== application.schoolName);
   const subject = `【新規出願】${application.applicationNo}　${application.lastName}${application.firstName}様`;
   const baseUrl = ENV.PUBLIC_BASE_URL || "http://localhost:3000";
   const body = `${application.lastName} ${application.firstName} 様より新規出願を受け付けました。
@@ -160,7 +164,7 @@ async function sendAdminNotification(application: {
 氏名：${application.lastName} ${application.firstName}
 メール：${application.email}
 志望校：${application.schoolName}
-志望学科：${application.department}
+志望学科：${application.department}${otherSchools.length ? `\n併願校：${otherSchools.join("、")}` : ""}
 国籍：${application.nationality}
 日本語レベル：${application.japaneseLevel}
 入学希望：${application.enrollmentYear}年${application.enrollmentMonth}月
@@ -178,7 +182,7 @@ ${baseUrl}/admin
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: adminEmail, subject, text: body }),
+      body: JSON.stringify({ from, to: recipients, subject, text: body }),
     });
     const data = await res.json() as { id?: string; message?: string };
     if (!res.ok) throw new Error(data.message || "Resend API error");
@@ -433,8 +437,9 @@ export async function POST(request: NextRequest) {
       console.error("Prospect 自動マッチ失敗 (出願自体は成功):", matchErr);
     }
 
-    // 管理者へメール通知（非同期・失敗しても無視）
-    void sendAdminNotification(application).catch(() => {});
+    // 管理者へメール通知（非同期・失敗しても無視）。併願は全志望校のメールへ。
+    const allSchoolNames = [application.schoolName, ...additional.map((s) => s.schoolName)];
+    void sendAdminNotification(application, allSchoolNames).catch(() => {});
 
     // 学生へ出願番号確認メール送信（非同期・失敗しても無視）
     void sendStudentConfirmation(application).catch(() => {});

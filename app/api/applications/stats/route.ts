@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const cohortId = searchParams.get("cohortId");
 
     if (cohortId) {
-      const cohortFilter = cohortId === "none" ? { cohortId: null } : { cohortId };
+      const cohortFilter = cohortId === "none" ? { cohortId: null, deletedAt: null } : { cohortId, deletedAt: null };
 
       const [statusGroups, total, withDocs] = await Promise.all([
         prisma.application.groupBy({
@@ -59,11 +59,12 @@ export async function GET(request: NextRequest) {
     const [statusGroups, todayCount, passedApps] = await Promise.all([
       prisma.application.groupBy({
         by: ["status"],
+        where: { deletedAt: null },
         _count: { _all: true },
       }),
-      prisma.application.count({ where: { createdAt: { gte: todayStart } } }),
+      prisma.application.count({ where: { createdAt: { gte: todayStart }, deletedAt: null } }),
       prisma.application.findMany({
-        where: { status: { in: PASS_STATUSES } },
+        where: { status: { in: PASS_STATUSES }, deletedAt: null },
         select: {
           enrollmentProcedure: {
             select: { status: true, schoolConfirmed: true, admitLetterIssued: true },

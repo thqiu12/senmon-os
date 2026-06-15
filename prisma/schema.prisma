@@ -120,6 +120,11 @@ model Application {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // 論理削除（ゴミ箱）。一覧・集計からは除外し、削除済みビューから復元できる。
+  deletedAt       DateTime?
+  deletedBy       String?   // 削除した管理者（表示名）
+  deleteReason    String?
+
   // 選考バッチ
   cohortId        String?
   cohort          Cohort?  @relation(fields: [cohortId], references: [id])

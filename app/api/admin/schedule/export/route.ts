@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     // 試験日が設定されているスロットを持つ申請を取得（per-school と Application-level の両方をスキャン）
     const applications = await prisma.application.findMany({
-      where: statusFilter ? { status: statusFilter } : undefined,
+      where: statusFilter ? { status: statusFilter, deletedAt: null } : { deletedAt: null },
       orderBy: [{ createdAt: "asc" }],
       include: {
         applicationSchools: {

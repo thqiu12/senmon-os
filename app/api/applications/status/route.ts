@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!application || application.email !== email) {
+    if (!application || application.email !== email || application.deletedAt) {
       return NextResponse.json(
         { error: "申請が見つかりません。申請番号またはメールアドレスをご確認ください。" },
         { status: 404 }

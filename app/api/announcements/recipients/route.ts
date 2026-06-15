@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (searchParams.get("facets") === "1") {
       // 出願に出現する学校名（主志望 + 併願）を distinct で集約
       const [primary, sub] = await Promise.all([
-        prisma.application.findMany({ select: { schoolName: true }, distinct: ["schoolName"] }),
+        prisma.application.findMany({ where: { deletedAt: null }, select: { schoolName: true }, distinct: ["schoolName"] }),
         prisma.applicationSchool.findMany({ select: { schoolName: true }, distinct: ["schoolName"] }),
       ]);
       const schools = Array.from(

@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     const grouped = await prisma.application.groupBy({
       by: ["schoolName", "department", "enrollmentYear", "status"],
+      where: { deletedAt: null },
       _count: { id: true },
     });
     const key = (s: string, d: string, y: string) => `${s}__${d}__${y}`;

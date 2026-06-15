@@ -781,6 +781,28 @@ export default function ApplicationDetailPage() {
   const { toast, confirm } = useUI();
   const { can } = useCapabilities();
   const canDecide = can("result.decide");
+
+  // 出願の削除（論理削除＝ゴミ箱へ）
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteApplication = async () => {
+    if (!application) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/applications/${application.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason || null }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "削除に失敗しました");
+      toast("削除しました（ゴミ箱に移動しました）", "success");
+      router.push("/admin/dashboard");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "削除に失敗しました", "error");
+      setDeleting(false);
+    }
+  };
   const canNotify = can("notification.send");
   const DECISION_STATUSES = ["合格", "不合格", "補欠合格", "保留"];
   const id = params.id as string;
@@ -1657,11 +1679,44 @@ export default function ApplicationDetailPage() {
               <p className="text-navy-300 text-xs font-mono">{application.applicationNo}</p>
             </div>
           </div>
-          <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(application.status)}`}>
-            {application.status}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(application.status)}`}>
+              {application.status}
+            </span>
+            {can("application.delete") && (
+              <button
+                onClick={() => { setDeleteReason(""); setShowDeleteModal(true); }}
+                className="text-xs font-medium text-white bg-red-600/90 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors"
+                title="この出願を削除（ゴミ箱へ）"
+              >
+                削除
+              </button>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* 削除確認モーダル（論理削除＝ゴミ箱） */}
+      {showDeleteModal && application && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setShowDeleteModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-5">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.9 12.1a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M4 7h16" /></svg>
+              </div>
+              <h3 className="font-bold text-gray-800 text-base text-center mb-1">この出願を削除しますか？</h3>
+              <p className="text-sm text-gray-600 text-center">{application.lastName} {application.firstName}（<span className="font-mono text-xs">{application.applicationNo}</span>）</p>
+              <p className="text-xs text-gray-400 text-center mt-1 mb-4">ゴミ箱に移動します。データは保持され、「削除済み」から復元できます。</p>
+              <label className="form-label">削除理由（任意・操作ログに残ります）</label>
+              <textarea className="form-input text-sm min-h-[72px] resize-y" placeholder="例：テスト用データのため" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-center gap-3">
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting} className="px-5 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition disabled:opacity-50">キャンセル</button>
+              <button onClick={handleDeleteApplication} disabled={deleting} className="px-5 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-50">{deleting ? "削除中..." : "削除する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* タブナビゲーション */}

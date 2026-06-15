@@ -238,7 +238,14 @@ export async function DELETE(
     if (!(await hasCapability(session, "application.delete"))) {
       return NextResponse.json({ error: "申請を削除する権限がありません" }, { status: 403 });
     }
-    await prisma.application.delete({ where: { id: params.id } });
+    // 論理削除（ゴミ箱へ）。データ・書類・履歴は保持され、削除済みビューから復元できる。
+    const body = await request.json().catch(() => ({}));
+    const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
+    const admin = await prisma.adminUser.findUnique({ where: { id: session.userId }, select: { displayName: true } });
+    await prisma.application.update({
+      where: { id: params.id },
+      data: { deletedAt: new Date(), deletedBy: admin?.displayName || session.userId, deleteReason: reason },
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     logError("DELETE /api/applications/[id]", error);

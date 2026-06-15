@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (status && status !== "all") where.status = status;
 
     const stream = new ReadableStream<Uint8Array>({

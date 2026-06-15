@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const applications = await prisma.application.findMany({
       where: {
+        deletedAt: null,
         status: { in: ["合格", "補欠合格"] },
         ...(search ? {
           OR: [

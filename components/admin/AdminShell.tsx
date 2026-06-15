@@ -12,7 +12,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 
 type IconKey =
   | "home" | "clipboard" | "megaphone" | "edit" | "handshake"
-  | "graduation" | "book" | "chart" | "wrench" | "users";
+  | "graduation" | "book" | "chart" | "wrench" | "users" | "trash";
 
 interface NavItem {
   href: string;
@@ -60,6 +60,7 @@ const NAV: NavSection[] = [
       { href: "/admin/form-config", label: "各種設定",   icon: "wrench" },
       { href: "/admin/accounts",    label: "アカウント", icon: "users" },
       { href: "/admin/permissions", label: "権限設定",   icon: "wrench" },
+      { href: "/admin/trash",       label: "削除済み",   icon: "trash" },
     ],
   },
 ];
@@ -216,6 +217,10 @@ function NavIcon({ name }: { name: IconKey }) {
     case "users":
       return (
         <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3 3-5 6-5s6 2 6 5" /><circle cx="17" cy="9" r="2.5" /><path d="M15 15c4 0 6 2 6 5" /></svg>
+      );
+    case "trash":
+      return (
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
       );
   }
 }

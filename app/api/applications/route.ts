@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
     const cohortId = searchParams.get("cohortId");
     const todayOnly = searchParams.get("todayOnly") === "1";
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (status && status !== "all") where.status = status;
     if (nationality) where.nationality = { contains: nationality };
     if (japaneseLevel && japaneseLevel !== "all") where.japaneseLevel = japaneseLevel;

@@ -17,7 +17,8 @@ export interface TargetFilter {
 }
 
 export function buildRecipientWhere(f: TargetFilter): Prisma.ApplicationWhereInput {
-  const where: Prisma.ApplicationWhereInput = {};
+  // 論理削除（ゴミ箱）された出願は通知対象から除外
+  const where: Prisma.ApplicationWhereInput = { deletedAt: null };
 
   // ステータス：合格者プリセットは合格＋補欠合格、それ以外は単一指定
   if (f.targetType === "合格者") {

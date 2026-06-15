@@ -2,6 +2,7 @@ import puppeteer from "puppeteer-core";
 import { existsSync } from "fs";
 import { escapeHtml } from "@/lib/security";
 import { institutionSealText, schoolSealHtml } from "@/lib/pdf/seal";
+import { PLEDGE_INTRO, PLEDGE_ITEMS } from "@/lib/pledge";
 
 export interface AdmissionLetterData {
   type: "admission_notice" | "admission_permit";
@@ -384,7 +385,7 @@ function buildPledgeHTML(d: EnrollmentPledgeData): string {
 <body><div class="page">
   <h1>入学誓約書</h1>
   <p class="addressee">${e(sc.legalName)}　${e(sc.officialName)}　御中</p>
-  <p class="body">私は、貴校への入学を許可されたことを受け、下記の事項を誓約のうえ、正式に入学の手続きを行います。</p>
+  <p class="body">${e(PLEDGE_INTRO)}</p>
   <table class="info">
     <tr><th>出願番号</th><td>${e(d.applicationNo)}</td></tr>
     <tr><th>氏名</th><td>${e(d.applicantName)}（${e(d.applicantNameKana)}）</td></tr>
@@ -394,10 +395,7 @@ function buildPledgeHTML(d: EnrollmentPledgeData): string {
   </table>
   <p class="body" style="margin-bottom:6px;">記</p>
   <ol class="pledge-list">
-    <li>本校の学則および諸規程を遵守し、学生の本分を守ります。</li>
-    <li>所定の学費・諸納付金を期日までに納入します。</li>
-    <li>在留資格その他、就学に必要な法令上の手続きを適切に行います。</li>
-    <li>提出書類の記載内容に虚偽がないことを誓約します。</li>
+    ${PLEDGE_ITEMS.map((i) => `<li>${e(i)}</li>`).join("\n    ")}
   </ol>
   <p class="date">${e(d.signedAt)}　電子署名</p>
   <div class="sign-area"><div class="sign-box">

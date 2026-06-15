@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { getStatusStyle } from "@/lib/utils";
+import { PLEDGE_INTRO, PLEDGE_ITEMS } from "@/lib/pledge";
 import { useUI } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
@@ -599,6 +600,7 @@ function StatusPageInner() {
 
   // 電子署名
   const [signerName, setSignerName] = useState("");
+  const [pledgeAgreed, setPledgeAgreed] = useState(false);
   const [signatureSaving, setSignatureSaving] = useState(false);
   const [signatureSaved, setSignatureSaved] = useState(false);
   const [signatureError, setSignatureError] = useState<string | null>(null);
@@ -865,6 +867,10 @@ function StatusPageInner() {
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
+    if (!pledgeAgreed) {
+      setSignatureError("入学誓約書の内容を確認・同意してください");
+      return;
+    }
     if (!result || !signerName.trim()) {
       setSignatureError("署名者氏名を入力してください");
       return;
@@ -2045,11 +2051,26 @@ function StatusPageInner() {
                               </div>
                             ) : step3Expired ? expiredBanner("電子署名") : (
                               <>
+                                {/* 誓約書の全文（署名前に必ず表示） */}
+                                <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                  <p className="text-sm font-bold text-gray-800 text-center mb-1">入学誓約書</p>
+                                  <p className="text-xs text-gray-500 mb-2">{result.schoolName}　御中</p>
+                                  <p className="text-xs text-gray-700 leading-relaxed mb-2">{PLEDGE_INTRO}</p>
+                                  <ol className="list-decimal list-inside space-y-1 text-xs text-gray-700 leading-relaxed">
+                                    {PLEDGE_ITEMS.map((item, i) => <li key={i}>{item}</li>)}
+                                  </ol>
+                                  <p className="text-[11px] text-gray-400 mt-2">署名すると、上記の内容で入学誓約書（PDF）が作成されます。</p>
+                                </div>
+                                <label className="flex items-start gap-2 mb-3 cursor-pointer">
+                                  <input type="checkbox" className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0" checked={pledgeAgreed} onChange={(e) => setPledgeAgreed(e.target.checked)} disabled={signatureSaving} />
+                                  <span className="text-xs text-gray-700">上記の入学誓約書の内容を確認し、同意します。</span>
+                                </label>
                                 <div className="mb-3">
                                   <label className="block text-xs font-medium text-gray-600 mb-1">署名者氏名（フルネーム）</label>
                                   <input type="text" className="form-input text-sm" placeholder="例：山田 太郎" value={signerName} onChange={(e) => setSignerName(e.target.value)} disabled={signatureSaving} />
                                 </div>
-                                <SignatureCanvas onSave={handleSignatureSave} disabled={signatureSaving} />
+                                {!pledgeAgreed && <p className="text-[11px] text-amber-600 mb-2">※ 内容を確認・同意のうえ署名してください。</p>}
+                                <SignatureCanvas onSave={handleSignatureSave} disabled={signatureSaving || !pledgeAgreed} />
                                 {signatureError && <p className="text-xs text-red-500 mt-2">{signatureError}</p>}
                                 {signatureSaving && <p className="text-xs text-gray-400 mt-2 text-center">保存中...</p>}
                               </>

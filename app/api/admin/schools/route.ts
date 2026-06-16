@@ -61,19 +61,32 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-    const result = schools.map((s) => ({
-      ...s,
-      departments: s.applyDepartments.map((d) => ({
+    const result = schools.map((s) => {
+      // 学科は ApplyDepartment（正規テーブル）優先。未投入の場合は
+      // ApplySchool.departments（JSONスナップショット）にフォールバックして表示する。
+      let departments = s.applyDepartments.map((d) => ({
         id: d.id,
         name: d.name,
         duration: d.duration,
         courses: (() => {
           try { return JSON.parse(d.courses); } catch { return []; }
         })(),
-      })),
+      })) as { id?: string; name: string; duration: string; courses: string[] }[];
+      if (departments.length === 0 && s.departments) {
+        try {
+          const snap = JSON.parse(s.departments);
+          if (Array.isArray(snap)) {
+            departments = snap.map((d) => ({
+              name: String(d?.name ?? ""),
+              duration: String(d?.duration ?? ""),
+              courses: Array.isArray(d?.courses) ? d.courses.map(String) : [],
+            }));
+          }
+        } catch { /* スナップショット不正時は空のまま */ }
+      }
       // 内部 FK は表に出さない
-      applyDepartments: undefined,
-    }));
+      return { ...s, departments, applyDepartments: undefined };
+    });
     return NextResponse.json(result);
   } catch (e) {
     logError("GET /api/admin/schools", e);

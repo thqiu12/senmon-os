@@ -238,7 +238,7 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
     setSaving(true);
     try {
       const method = editId ? "PUT" : "POST";
-      const payload = { ...form, departments: JSON.stringify(cleanDepts) };
+      const payload = { ...form, departments: cleanDepts };
       const body = editId ? { id: editId, ...payload } : payload;
       const res = await fetch("/api/admin/schools", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "保存に失敗しました"); }

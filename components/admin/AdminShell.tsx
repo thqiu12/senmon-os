@@ -57,6 +57,7 @@ const NAV: NavSection[] = [
   {
     label: "報告・設定",
     items: [
+      { href: "/admin/analytics",   label: "分析・予測", icon: "chart" },
       { href: "/admin/quota",       label: "定員管理",   icon: "chart" },
       { href: "/admin/form-config", label: "各種設定",   icon: "wrench" },
       { href: "/admin/accounts",    label: "アカウント", icon: "users" },

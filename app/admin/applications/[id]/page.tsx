@@ -14,6 +14,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useCapabilities } from "@/lib/useCapabilities";
 import { InterviewFeedbackCard } from "@/components/admin/InterviewFeedbackCard";
 import { InterviewSummaryCard } from "@/components/admin/InterviewSummaryCard";
+import { EmailDraftCard } from "@/components/admin/EmailDraftCard";
 import { DocCheckCard } from "@/components/admin/DocCheckCard";
 
 
@@ -2268,6 +2269,13 @@ export default function ApplicationDetailPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {/* AIメール下書き（日/中/英）— 送信権限のみ。送信は既存フロー、これは下書き生成 */}
+            {canNotify && (
+              <div className="mt-4">
+                <EmailDraftCard applicationId={application.id} status={application.status} />
+              </div>
             )}
             </div>{/* end screening right tab */}
 

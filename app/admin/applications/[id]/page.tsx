@@ -13,6 +13,7 @@ import { useUI } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/Icon";
 import { useCapabilities } from "@/lib/useCapabilities";
 import { InterviewFeedbackCard } from "@/components/admin/InterviewFeedbackCard";
+import { DocCheckCard } from "@/components/admin/DocCheckCard";
 
 
 const STATUSES = ["受付中", "書類確認中", "面接待ち", "結果待ち", "合格", "補欠合格", "不合格", "保留", "辞退"];
@@ -1936,6 +1937,11 @@ export default function ApplicationDetailPage() {
                 </div>
               )}
             </Section>
+
+            {/* 書類チェック（自動：漏件/期限/形式 + AI照合） */}
+            <div className="mb-4">
+              <DocCheckCard applicationId={application.id} />
+            </div>
 
             {/* 書類確認チェックリスト（事務用） */}
             <Section title="書類確認チェックリスト（事務確認用）">

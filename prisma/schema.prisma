@@ -336,6 +336,11 @@ model Document {
   reviewedAt    DateTime?
   reviewedBy    String?
 
+  // AI抽出(Haiku vision)結果。キャッシュして再課金を防ぐ。未抽出なら null。
+  aiExtraction  String?     // 抽出フィールドの JSON 文字列
+  aiExtractedAt DateTime?
+  aiModel       String?
+
   @@index([applicationId])
 }
 

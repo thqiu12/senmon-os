@@ -24,4 +24,6 @@ export const ENV = {
   RESEND_FROM: process.env.RESEND_FROM || "",
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || "",
   PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "",
+  // AI書類照合(Haiku vision)。未設定なら AI 機能はUIに出ない・APIは無効。
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || "",
 } as const;

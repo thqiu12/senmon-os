@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { SkeletonList } from "@/components/ui/skeleton";
 
 interface ForecastRow {
@@ -17,12 +18,16 @@ interface Group { label: string; count: number; detail: string; }
 interface Anomalies {
   duplicatePeople: Group[]; sameEmail: Group[]; samePhone: Group[]; sameAddress: Group[]; reusedEssays: Group[];
 }
+interface RiskRow {
+  id: string; applicationNo: string; name: string; school: string; department: string;
+  score: number; level: string; factors: string[];
+}
 interface Data {
   generatedAt: string; totalApplications: number;
-  forecast: ForecastRow[]; channels: ChannelRow[]; anomalies: Anomalies;
+  forecast: ForecastRow[]; channels: ChannelRow[]; anomalies: Anomalies; declineRisk: RiskRow[];
 }
 
-type Tab = "forecast" | "channels" | "anomalies";
+type Tab = "forecast" | "channels" | "anomalies" | "decline";
 const num = "tabular-nums";
 
 function pct(v: number | null) { return v == null ? "—" : `${v}%`; }
@@ -60,6 +65,7 @@ export default function AnalyticsPage() {
 
   const TABS: { key: Tab; label: string }[] = [
     { key: "forecast", label: "入学予測・漏斗" },
+    { key: "decline", label: "辞退リスク" },
     { key: "channels", label: "チャネル品質" },
     { key: "anomalies", label: "重複・異常" },
   ];
@@ -183,6 +189,38 @@ export default function AnalyticsPage() {
               <AnomalyBlock title="同一電話番号" groups={data.anomalies.samePhone} />
               <AnomalyBlock title="同一住所" groups={data.anomalies.sameAddress} />
               <AnomalyBlock title="志望動機の使い回し" hint="異なる申請者で同一文面" groups={data.anomalies.reusedEssays} />
+            </div>
+          )}
+
+          {/* === 辞退リスク（要フォロー） === */}
+          {tab === "decline" && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-sm font-bold text-gray-700">要フォロー（合格・補欠合格で未入学）</span>
+                <span className="text-xs text-gray-400">{data.declineRisk.length} 名</span>
+              </div>
+              {data.declineRisk.length === 0 ? (
+                <p className="text-center text-gray-400 py-6 text-sm">辞退リスクの高い対象はいません</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {data.declineRisk.map((r) => (
+                    <li key={r.id}>
+                      <Link href={`/admin/applications/${r.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                        <span className={`shrink-0 text-xs px-2 py-1 rounded-full font-bold ${r.level === "高" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{r.level}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-800 truncate">{r.name}<span className="text-xs text-gray-400"> / {r.school}{r.department ? "・" + r.department : ""}</span></p>
+                          <p className="text-xs text-gray-500 truncate">{r.factors.join(" ・ ")}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-gray-400 tabular-nums">{r.applicationNo}</span>
+                        <span className="shrink-0 text-navy-600 text-xs">開く →</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-[11px] text-gray-400 px-3 py-2">
+                ※ スコアは規則ベースの目安（手続き未着手/期限/補欠/併願/エージェント辞退率）。優先追客の参考にしてください。
+              </p>
             </div>
           )}
         </>

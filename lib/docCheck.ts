@@ -190,3 +190,42 @@ export function compareExtraction(
 
   return items;
 }
+
+// 書類カテゴリの正規化（誤ラベル検知用）。判定不能は null。
+const DOC_CATEGORY_RULES: { cat: string; keys: string[] }[] = [
+  { cat: "パスポート", keys: ["パスポート", "passport", "旅券"] },
+  { cat: "在留カード", keys: ["在留カード", "在留", "residence", "zairyu"] },
+  { cat: "証明写真", keys: ["証明写真", "顔写真", "photo", "id photo"] },
+  { cat: "成績証明書", keys: ["成績証明", "成績", "transcript", "grade"] },
+  { cat: "卒業証明書", keys: ["卒業証明", "卒業証書", "卒業", "diploma", "graduation"] },
+  { cat: "日本語能力", keys: ["日本語", "jlpt", "能力試験", "nat-test", "japanese"] },
+  { cat: "出席証明書", keys: ["出席証明", "出席", "attendance"] },
+];
+
+function docCategory(s: string | null | undefined): string | null {
+  const t = (s || "").trim().toLowerCase().replace(/[\s　]+/g, "");
+  if (!t) return null;
+  for (const r of DOC_CATEGORY_RULES) {
+    if (r.keys.some((k) => t.includes(k.toLowerCase().replace(/[\s　]+/g, "")))) return r.cat;
+  }
+  return null;
+}
+
+/**
+ * 誤ラベル検知: 申請者が選んだラベル(docType)と、AIが画像から判定した documentType が
+ * 別カテゴリの場合に警告。どちらかがカテゴリ判定不能（その他等）の場合は判定しない（誤検知回避）。
+ */
+export function checkDocLabel(ext: DocExtraction, docTypeLabel: string): DocCheckItem | null {
+  const labelCat = docCategory(docTypeLabel);
+  const visionCat = docCategory(ext.documentType);
+  if (!labelCat || !visionCat) return null;
+  if (labelCat !== visionCat) {
+    return {
+      key: "doc-label",
+      label: "ラベル整合性",
+      level: "warn",
+      message: `ラベル不一致（選択=${docTypeLabel} / 判定=${ext.documentType}）`,
+    };
+  }
+  return { key: "doc-label", label: "ラベル整合性", level: "ok", message: "選択ラベルと一致" };
+}

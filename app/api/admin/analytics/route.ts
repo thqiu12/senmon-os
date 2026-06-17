@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
       prisma.application.findMany({
         where: { deletedAt: null },
         select: {
-          id: true, schoolName: true, department: true, enrollmentYear: true, status: true,
+          id: true, applicationNo: true, schoolName: true, department: true, enrollmentYear: true, status: true,
           agentId: true, agent: { select: { name: true } },
           lastName: true, firstName: true, birthDate: true, email: true, phone: true,
           address: true, addressDetail: true, applicationReason: true,
-          enrollmentProcedure: { select: { completedAt: true } },
+          enrollmentProcedure: { select: { completedAt: true, status: true, deadline: true } },
           documents: { select: { status: true } },
         },
       }),
@@ -168,12 +168,55 @@ export async function GET(request: NextRequest) {
       })(),
     };
 
+    // ===== B 辞退リスクスコア（合格/補欠の未入学者・規則ベース・0 token）=====
+    const personCount = new Map<string, number>();
+    for (const a of apps) {
+      if (!a.birthDate) continue;
+      const k = norm(a.lastName) + norm(a.firstName) + "|" + norm(a.birthDate);
+      personCount.set(k, (personCount.get(k) ?? 0) + 1);
+    }
+    const agentDecline = new Map<string | null, number>();
+    channels.forEach((c) => agentDecline.set(c.agentId, c.declineRate));
+    const parseDate = (s: string | null | undefined) => {
+      if (!s) return null;
+      const d = new Date(String(s).replace(/\//g, "-"));
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+    const declineRisk = apps
+      .filter((a) => (a.status === "合格" || a.status === "補欠合格") && !a.enrollmentProcedure?.completedAt)
+      .map((a) => {
+        const factors: string[] = [];
+        let score = 0;
+        const ep = a.enrollmentProcedure;
+        if (!ep || ep.status === "未開始") { score += 40; factors.push("手続き未着手"); }
+        else {
+          const dl = parseDate(ep.deadline);
+          if (dl) {
+            const days = Math.round((dl.getTime() - today.getTime()) / 86400000);
+            if (days < 0) { score += 40; factors.push("手続き期限超過"); }
+            else if (days <= 7) { score += 25; factors.push(`期限間近(あと${days}日)`); }
+          }
+        }
+        if (a.status === "補欠合格") { score += 15; factors.push("補欠合格"); }
+        const pk = a.birthDate ? norm(a.lastName) + norm(a.firstName) + "|" + norm(a.birthDate) : null;
+        if (pk && (personCount.get(pk) ?? 0) > 1) { score += 20; factors.push("併願あり"); }
+        const adr = agentDecline.get(a.agentId) ?? 0;
+        if (adr >= 30) { score += 15; factors.push(`高辞退率エージェント経由(${adr}%)`); }
+        const level = score >= 50 ? "高" : score >= 25 ? "中" : "低";
+        return { id: a.id, applicationNo: a.applicationNo, name: `${a.lastName}${a.firstName}`, school: a.schoolName, department: a.department, score, level, factors };
+      })
+      .filter((r) => r.level !== "低")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 200);
+
     return NextResponse.json({
       generatedAt: new Date(),
       totalApplications: apps.length,
       forecast,
       channels,
       anomalies,
+      declineRisk,
     });
   } catch (e) {
     logError("GET /api/admin/analytics", e);

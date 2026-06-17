@@ -10,6 +10,7 @@ import {
   checkResidenceExpiry,
   checkFormats,
   compareExtraction,
+  checkDocLabel,
   type DocCheckItem,
   type DocExtraction,
 } from "@/lib/docCheck";
@@ -63,6 +64,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         try {
           extraction = JSON.parse(d.aiExtraction) as DocExtraction;
           comparison = compareExtraction(extraction, app);
+          const labelCheck = checkDocLabel(extraction, d.docType);
+          if (labelCheck) comparison.unshift(labelCheck);
         } catch {
           extraction = null;
         }

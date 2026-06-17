@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { ENV } from "@/lib/env";
 import { logError } from "@/lib/logger";
-import { compareExtraction, type DocExtraction } from "@/lib/docCheck";
+import { compareExtraction, checkDocLabel, type DocExtraction } from "@/lib/docCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +152,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     const comparison = compareExtraction(extraction, doc.application);
+    const labelCheck = checkDocLabel(extraction, doc.docType);
+    if (labelCheck) comparison.unshift(labelCheck);
 
     return NextResponse.json({
       extraction,

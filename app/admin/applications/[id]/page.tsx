@@ -13,6 +13,7 @@ import { useUI } from "@/components/ui/toast";
 import { Icon } from "@/components/ui/Icon";
 import { useCapabilities } from "@/lib/useCapabilities";
 import { InterviewFeedbackCard } from "@/components/admin/InterviewFeedbackCard";
+import { InterviewSummaryCard } from "@/components/admin/InterviewSummaryCard";
 import { DocCheckCard } from "@/components/admin/DocCheckCard";
 
 
@@ -2258,7 +2259,15 @@ export default function ApplicationDetailPage() {
 
             {/* 面接フィードバック */}
             {(application.status === "面接待ち" || application.status === "合格" || application.status === "補欠合格" || application.status === "不合格" || application.status === "保留") && (
-              <InterviewFeedbackCard applicationId={application.id} />
+              <>
+                <InterviewFeedbackCard applicationId={application.id} />
+                {/* 面接講評（AI・判断材料）— 合否を判断できる権限のみ。FBが無ければ自動で非表示 */}
+                {canDecide && (
+                  <div className="mt-4">
+                    <InterviewSummaryCard applicationId={application.id} />
+                  </div>
+                )}
+              </>
             )}
             </div>{/* end screening right tab */}
 

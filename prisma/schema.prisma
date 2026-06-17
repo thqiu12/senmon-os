@@ -204,6 +204,11 @@ model Application {
   adminMemo          String?
   adminNotes         AdminNote[]
 
+  // AI面接講評(複数フィードバックの合成)。キャッシュして再課金を防ぐ。
+  interviewSummary       String?   // { summary, recommendation, divergence, ... } の JSON
+  interviewSummaryAt     DateTime?
+  interviewSummaryModel  String?
+
   // 紹介エージェント
   agentId             String?
   agent               Agent?   @relation(fields: [agentId], references: [id])

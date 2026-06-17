@@ -37,7 +37,7 @@ export const DocTypeEnum = z.enum([
   "選考費振込証明書",
 ]);
 
-export const RoleEnum = z.enum(["super_admin", "admin", "sales", "interviewer"]);
+export const RoleEnum = z.enum(["super_admin", "admin", "sales", "academic", "interviewer"]);
 
 export const ApplicationCreateSchema = z.object({
   lastName: str(50),

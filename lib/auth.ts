@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ENV } from "@/lib/env";
 import crypto from "crypto";
 
-export type AdminRole = "super_admin" | "admin" | "sales" | "interviewer";
+export type AdminRole = "super_admin" | "admin" | "sales" | "academic" | "interviewer";
 
 export interface AdminSession {
   userId: string;
@@ -65,11 +65,14 @@ export async function getSession(request: NextRequest): Promise<AdminSession | n
   }
 }
 
-// 一般的な管理権限。営業(sales)もここに含む＝ほぼ全機能を利用可。
-// ただし「出願フォーム編集・選考操作」は isCoreAdmin、「アカウント管理」は
-// isSuperAdmin で別途制限する（営業はこれら3領域だけ不可）。
+// 一般的な管理権限（バックオフィス職員）。営業(sales)・教務(academic)もここに含む。
+// 個々の機微な操作は別レイヤーで制限する：
+//   - 合否決定/通知/書類審査/お知らせ/回次 … hasCapability（ロール別マトリクスで付与）
+//   - 出願フォーム編集・選考(回次)テンプレ … isCoreAdmin（営業・教務は不可）
+//   - アカウント/権限管理 … isSuperAdmin
+// 教務(academic)は選考・通知に必要な capability のみ既定付与し、UIはナビで絞る。
 export function isAdmin(session: AdminSession | null): boolean {
-  return session !== null && ["super_admin", "admin", "sales"].includes(session.role);
+  return session !== null && ["super_admin", "admin", "sales", "academic"].includes(session.role);
 }
 
 // 中核管理者（営業を除く）。出願フォーム編集・選考(コホート)操作に使う。

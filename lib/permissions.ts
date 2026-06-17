@@ -35,7 +35,7 @@ export const CAPABILITIES: CapabilityDef[] = [
 export const ALL_CAPS: string[] = CAPABILITIES.map((c) => c.key);
 
 // マトリクスで編集できるロール（super_admin は常に全権限なので対象外）
-export const MANAGEABLE_ROLES = ["admin", "sales", "interviewer"] as const;
+export const MANAGEABLE_ROLES = ["admin", "sales", "academic", "interviewer"] as const;
 export type ManageableRole = (typeof MANAGEABLE_ROLES)[number];
 
 // 超管理者固定の権限（マトリクスでは付与不可）
@@ -47,10 +47,12 @@ export const DECISION_STATUSES = ["合格", "不合格", "補欠合格", "保留
 // デフォルト権限（＝現状の挙動を保持。未設定時に適用）
 //   admin: アカウント管理以外すべて
 //   sales: フォーム編集・選考操作・アカウント管理 以外（従来の営業ロール）
+//   academic: 教務。選考（合否・書類・回次）と通知（案内/合否/お知らせ）を担当
 //   interviewer: 既定は空（従来どおりゲート操作不可。必要なら超管理者が付与）
 export const DEFAULT_ROLE_CAPS: Record<string, string[]> = {
   admin: ALL_CAPS.filter((c) => !SUPERADMIN_ONLY.includes(c)),
   sales: ["result.decide", "notification.send", "document.review", "enrollment.manage", "announcement.send", "data.export", "application.delete"],
+  academic: ["result.decide", "notification.send", "document.review", "announcement.send", "cohort.manage"],
   interviewer: [],
 };
 

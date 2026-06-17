@@ -7,6 +7,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   super_admin: { label: "スーパー管理者", color: "bg-purple-100 text-purple-800" },
   admin: { label: "管理者", color: "bg-blue-100 text-blue-800" },
+  academic: { label: "教務", color: "bg-teal-100 text-teal-800" },
   interviewer: { label: "面接官", color: "bg-green-100 text-green-800" },
 };
 
@@ -157,6 +158,7 @@ export default function AdminLoginPage() {
                   <span className="text-gray-400">
                     {role === "super_admin" && "全機能 + アカウント管理"}
                     {role === "admin" && "申請管理・合否・手続き・通知"}
+                    {role === "academic" && "選考（合否・書類）+ 通知 担当"}
                     {role === "interviewer" && "閲覧 + フィードバック入力"}
                   </span>
                 </div>

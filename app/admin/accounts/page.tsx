@@ -7,7 +7,7 @@ import { formatDateTimeJP } from "@/lib/utils";
 import { useUI } from "@/components/ui/toast";
 import { HelpTip } from "@/components/admin/HelpTip";
 
-type Role = "super_admin" | "admin" | "sales" | "interviewer";
+type Role = "super_admin" | "admin" | "sales" | "academic" | "interviewer";
 
 interface AdminUser {
   id: string;
@@ -23,6 +23,7 @@ const ROLE_CONFIG: Record<Role, { label: string; color: string; desc: string }> 
   super_admin: { label: "スーパー管理者", color: "bg-purple-100 text-purple-800 border-purple-200", desc: "全機能 + アカウント管理" },
   admin: { label: "管理者", color: "bg-blue-100 text-blue-800 border-blue-200", desc: "申請管理・合否・手続き・通知・フォーム/選考" },
   sales: { label: "営業", color: "bg-amber-100 text-amber-800 border-amber-200", desc: "ほぼ全機能（フォーム編集・選考操作・アカウント作成を除く）" },
+  academic: { label: "教務", color: "bg-teal-100 text-teal-800 border-teal-200", desc: "選考（合否・書類・回次）と通知（案内/合否/お知らせ）を担当" },
   interviewer: { label: "面接官", color: "bg-green-100 text-green-800 border-green-200", desc: "閲覧 + フィードバック入力" },
 };
 

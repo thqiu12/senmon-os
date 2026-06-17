@@ -11,6 +11,7 @@ interface CapabilityDef { key: string; label: string; group: string; desc: strin
 const ROLE_LABEL: Record<string, string> = {
   admin: "管理者",
   sales: "営業",
+  academic: "教務",
   interviewer: "面接官",
 };
 
@@ -106,7 +107,7 @@ export default function PermissionsPage() {
     <>
       <div className="wsdb-topbar">
         <div>
-          <h1 className="wsdb-topbar-title inline-flex items-center gap-2">権限設定<HelpTip text={"ロール（管理者・営業・面接官）ごとに操作の可否を設定します。スーパー管理者は常に全権限です。変更後は必ず「保存」してください。"} /></h1>
+          <h1 className="wsdb-topbar-title inline-flex items-center gap-2">権限設定<HelpTip text={"ロール（管理者・営業・教務・面接官）ごとに操作の可否を設定します。教務は選考（合否・書類）と通知を担当する中間権限です。スーパー管理者は常に全権限です。変更後は必ず「保存」してください。"} /></h1>
           <p className="wsdb-topbar-meta">ロールごとに操作の可否を設定（超管理者は常に全権限）</p>
         </div>
       </div>

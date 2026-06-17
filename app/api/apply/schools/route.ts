@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { FALLBACK_DEPARTMENTS } from "@/lib/schoolsFallback";
 
 // 常に動的レンダリング（キャッシュ無効）
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function GET() {
         departments = JSON.parse(s.departments);
       } catch {
         departments = [];
+      }
+      // DBが空なら正規データ（フォールバック）を返し、管理画面と表示を一致させる
+      if ((!Array.isArray(departments) || departments.length === 0) && FALLBACK_DEPARTMENTS[s.schoolKey]) {
+        departments = FALLBACK_DEPARTMENTS[s.schoolKey];
       }
       // id を schoolKey に統一（フォームとformConfigの schoolId と一致させる）
       return { ...s, id: s.schoolKey, departments };

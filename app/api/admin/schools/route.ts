@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { ApplySchoolUpsertSchema } from "@/lib/schemas";
+import { FALLBACK_DEPARTMENTS } from "@/lib/schoolsFallback";
 import { logError } from "@/lib/logger";
 
 type DeptInput = { name: string; duration?: string; courses?: string[] };
@@ -83,6 +84,12 @@ export async function GET(request: NextRequest) {
             }));
           }
         } catch { /* スナップショット不正時は空のまま */ }
+      }
+      // それでも空なら、出願フォームと同じ正規データを表示（保存でDBに確定）
+      if (departments.length === 0 && FALLBACK_DEPARTMENTS[s.schoolKey]) {
+        departments = FALLBACK_DEPARTMENTS[s.schoolKey].map((d) => ({
+          name: d.name, duration: d.duration, courses: [...d.courses],
+        }));
       }
       // 内部 FK は表に出さない
       return { ...s, departments, applyDepartments: undefined };

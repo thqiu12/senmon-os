@@ -84,6 +84,13 @@ export function isSuperAdmin(session: AdminSession | null): boolean {
   return session?.role === "super_admin";
 }
 
+// 面接官(interviewer)は「面接レビューの記入」専用ロール。バックオフィス(isAdmin)ではないため
+// 合否・通知・編集・削除等は一切できない。選考候補者の閲覧と面接フィードバックの記入のみ許可する。
+// （バックオフィス各ロールも選考の一環で面接レビューを扱うため isAdmin も許可に含める）
+export function canReviewInterviews(session: AdminSession | null): boolean {
+  return session !== null && (isAdmin(session) || session.role === "interviewer");
+}
+
 export function isAuthenticated(session: AdminSession | null): boolean {
   return session !== null && session.isValid;
 }

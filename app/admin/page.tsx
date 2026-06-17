@@ -40,7 +40,7 @@ export default function AdminLoginPage() {
         // ロールによってリダイレクト先を変える
         const role = data.user?.role;
         if (role === "interviewer") {
-          router.push("/admin/dashboard");
+          router.push("/admin/interviews");
         } else {
           router.push("/admin/dashboard");
         }

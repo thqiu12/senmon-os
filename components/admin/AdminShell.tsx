@@ -12,7 +12,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 
 type IconKey =
   | "home" | "clipboard" | "megaphone" | "edit" | "handshake"
-  | "graduation" | "book" | "chart" | "wrench" | "users" | "trash";
+  | "graduation" | "book" | "chart" | "wrench" | "users" | "trash" | "star";
 
 interface NavItem {
   href: string;
@@ -37,6 +37,7 @@ const NAV: NavSection[] = [
     label: "入学管理",
     items: [
       { href: "/admin/cohorts",       label: "選考管理",     icon: "clipboard" },
+      { href: "/admin/interviews",    label: "面接レビュー", icon: "star" },
       { href: "/admin/announcements", label: "お知らせ",     icon: "megaphone" },
       { href: "/admin/prospects",     label: "CRM管理",      icon: "edit", match: ["/admin/agents"] },
     ],
@@ -90,6 +91,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   };
 
   // accounts/permissions はスーパー管理者のみ。
+  // 面接官(interviewer)は「面接レビュー」専用画面のみ表示（他の操作は不可）。
   // 営業(sales)は「出願フォーム編集・選考操作」が不可なので該当ナビを隠す。
   // 教務(academic)は選考・通知に集中させ、CRM/手続き/設定/削除のナビを隠す
   //（API 上の機微な操作は capability で別途制限済み）。
@@ -104,6 +106,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const filteredNav = NAV.map((sec) => ({
     ...sec,
     items: sec.items.filter((it) => {
+      // 面接官は面接レビュー画面のみ
+      if (me?.role === "interviewer") return it.href === "/admin/interviews";
+      // 面接レビューは面接官専用（他ロールのナビには出さない）
+      if (it.href === "/admin/interviews") return false;
       if ((it.href === "/admin/accounts" || it.href === "/admin/permissions") && me?.role !== "super_admin") return false;
       if (me?.role === "sales" && salesHidden.has(it.href)) return false;
       if (me?.role === "academic" && academicHidden.has(it.href)) return false;
@@ -232,6 +238,10 @@ function NavIcon({ name }: { name: IconKey }) {
     case "trash":
       return (
         <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
+      );
+    case "star":
+      return (
+        <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.3 6.8 19l1-5.8-4.2-4.1 5.8-.8z" /></svg>
       );
   }
 }

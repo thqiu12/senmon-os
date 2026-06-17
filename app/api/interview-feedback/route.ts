@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, canReviewInterviews } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InterviewFeedbackSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   const session = await getSession(request);
-  if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const applicationId = searchParams.get("applicationId");
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await getSession(request);
-  if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const parsed = InterviewFeedbackSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const session = await getSession(request);
-  if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const session = await getSession(request);
-  if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

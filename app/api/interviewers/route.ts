@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, canReviewInterviews } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InterviewerCreateSchema, InterviewerPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   const session = await getSession(request);
-  if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  // 面接官は面接レビュー画面で面接官リストを参照するため GET は許可（作成/編集/削除は isAdmin のまま）
+  if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const interviewers = await prisma.interviewer.findMany({
       orderBy: { name: "asc" },

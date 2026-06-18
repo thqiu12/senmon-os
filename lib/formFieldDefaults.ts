@@ -1,3 +1,5 @@
+import { FOREIGN_ONLY_FIELDS, type ApplicantType } from "@/lib/applicantType";
+
 export interface FormFieldDefault {
   fieldKey: string;
   label: string;
@@ -67,3 +69,9 @@ export const FILE_FIELD_DEFAULTS: FormFieldDefault[] = [
   { fieldKey: "doc_jlpt",        label: "JLPT成績証明書",      section: "書類", isRequired: false, displayOrder: 105, fieldType: "file" },
   { fieldKey: "doc_other",       label: "その他書類",          section: "書類", isRequired: false, displayOrder: 106, fieldType: "file" },
 ];
+
+// タイプ別の既定 isEnabled（japanese は留学生専用項目をオフ）
+export function defaultEnabledFor(fieldKey: string, type: ApplicantType): boolean {
+  if (type === "japanese" && FOREIGN_ONLY_FIELDS.includes(fieldKey)) return false;
+  return true;
+}

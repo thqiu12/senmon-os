@@ -249,6 +249,9 @@ export async function PUT(request: NextRequest) {
         };
         // schoolId/applicantType に null を含み得るため、Prisma の compound unique upsert は使えない。
         // 従来どおり findFirst + update/create で (fieldKey, schoolId, applicantType) スコープを確定する。
+        // 既知の制約: SQLite は unique index 内の NULL を区別するため、null スコープ
+        // (全校共通/共通タイプ) では一意制約が効かず、同時保存で重複行が生じ得る。単一管理者・
+        // 1リクエスト=1スコープの運用前提で許容（厳密化が必要になれば sentinel 値かトランザクション直列化）。
         return prisma.formFieldConfig.findFirst({
           where: { fieldKey: item.fieldKey, schoolId, applicantType },
         }).then(existing => {

@@ -90,7 +90,6 @@ export function mergeFormConfig(
   };
 
   const map = new Map<string, OutputConfig>();
-  const tierMap = new Map<string, number>();
 
   // tier 0: 既定（type 別 isEnabled）
   for (const f of defaults) {
@@ -104,18 +103,16 @@ export function mergeFormConfig(
       section: f.section,
       description: null,
     });
-    tierMap.set(f.fieldKey, 0);
   }
 
   // DB 行を tier 昇順に適用（同 tier は入力順）。後勝ちで上書き。
+  // ascending tier => later writes always win; no per-key guard needed.
   const candidates = rows
     .map((r) => ({ r, tier: tierOf(r) }))
     .filter((x): x is { r: ConfigRow; tier: number } => x.tier !== null)
     .sort((a, b) => a.tier - b.tier);
 
-  for (const { r, tier } of candidates) {
-    const prevTier = tierMap.get(r.fieldKey);
-    if (prevTier !== undefined && prevTier > tier) continue; // 既に高優先で確定済み
+  for (const { r } of candidates) {
     map.set(r.fieldKey, {
       fieldKey: r.fieldKey,
       label: r.label,
@@ -126,7 +123,6 @@ export function mergeFormConfig(
       section: r.section,
       description: r.description,
     });
-    tierMap.set(r.fieldKey, tier);
   }
 
   return Array.from(map.values())

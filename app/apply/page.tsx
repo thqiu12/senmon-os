@@ -6,6 +6,8 @@ import { useUI } from "@/components/ui/toast";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { CompassMark } from "@/components/ui/CompassMark";
 import { isNoWrittenExamSchool } from "@/lib/examConfig";
+import { useT } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -191,13 +193,14 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
 }
 
 function FieldError({ msg }: { msg?: string }) {
+  const { t } = useT();
   if (!msg) return null;
   return (
     <p className="text-red-600 text-xs mt-1 flex items-center gap-1" role="alert">
       <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
         <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
       </svg>
-      {msg}
+      {t(msg)}
     </p>
   );
 }
@@ -205,20 +208,23 @@ function FieldError({ msg }: { msg?: string }) {
 function Field({ label, required, hint, error, children }: {
   label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode;
 }) {
+  const { t } = useT();
   return (
     <div>
-      <Label required={required}>{label}</Label>
+      <Label required={required}>{t(label)}</Label>
       {children}
-      {hint && !error && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
+      {hint && !error && <p className="text-xs text-gray-500 mt-1">{t(hint)}</p>}
       <FieldError msg={error} />
     </div>
   );
 }
 
-function Input({ error, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }) {
+function Input({ error, placeholder, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }) {
+  const { t } = useT();
   return (
     <input
       {...props}
+      placeholder={placeholder ? t(placeholder) : undefined}
       className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
         ${error ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
     />
@@ -238,12 +244,13 @@ function Select({ error, children, ...props }: React.SelectHTMLAttributes<HTMLSe
 }
 
 function SectionTitle({ icon, children }: { icon: IconName; children: React.ReactNode }) {
+  const { t } = useT();
   return (
     <div className="flex items-center gap-2.5 mb-5">
       <span className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
         <Icon name={icon} className="w-[18px] h-[18px]" />
       </span>
-      <h2 className="text-base font-bold text-gray-800">{children}</h2>
+      <h2 className="text-base font-bold text-gray-800">{typeof children === "string" ? t(children) : children}</h2>
     </div>
   );
 }
@@ -275,6 +282,7 @@ function DateSelect({ value, onChange, minYear, maxYear, hasError, testId }: {
 
 // ========== Step Indicator ==========
 function StepIndicator({ currentStep }: { currentStep: number }) {
+  const { t } = useT();
   return (
     <div className="flex items-center justify-between mb-8 px-2">
       {STEPS.map((step, index) => (
@@ -293,7 +301,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             <span className={`text-xs font-medium hidden sm:block whitespace-nowrap
               ${step.number === currentStep ? "text-blue-600" :
                 step.number < currentStep ? "text-green-600" : "text-gray-400"}`}>
-              {step.label}
+              {t(step.label)}
             </span>
           </div>
           {index < STEPS.length - 1 && (
@@ -1495,6 +1503,7 @@ const DRAFT_KEY = "application_draft";
 // ========== Main ==========
 function ApplyPageInner() {
   const { toast } = useUI();
+  const { t } = useT();
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -2116,7 +2125,10 @@ function ApplyPageInner() {
               <p className="text-xs text-gray-400 mt-0.5">入学出願システム · ステップ {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
             </div>
           </div>
-          <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">← トップへ</Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">← トップへ</Link>
+          </div>
         </div>
       </header>
 
@@ -2219,7 +2231,7 @@ function ApplyPageInner() {
               ) : (
                 <button onClick={handleBack} disabled={currentStep === 1 || submitting}
                   className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed">
-                  ← 前へ
+                  {t("← 前へ")}
                 </button>
               )}
               {currentStep < 5 ? (() => {
@@ -2238,12 +2250,12 @@ function ApplyPageInner() {
                         }`}
                     >
                       {submitting ? (
-                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 保存中...</>
-                      ) : currentStep === 4 ? "確認へ進む →" : "次へ進む →"}
+                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> {t("保存中...")}</>
+                      ) : currentStep === 4 ? t("確認へ進む →") : t("次へ進む →")}
                     </button>
                     {!valid && !submitting && (
                       <span className="text-[11px] text-amber-700 font-medium">
-                        必須項目を入力してから進んでください
+                        {t("必須項目を入力してから進んでください")}
                       </span>
                     )}
                   </div>
@@ -2251,7 +2263,7 @@ function ApplyPageInner() {
               })() : (
                 <button onClick={handleSubmit} disabled={submitting}
                   className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition shadow-sm shadow-green-200">
-                  {submitting ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 提出中...</> : <><Icon name="check" className="w-4 h-4" /> 提出する</>}
+                  {submitting ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> {t("提出中...")}</> : <><Icon name="check" className="w-4 h-4" /> {t("提出する")}</>}
                 </button>
               )}
             </div>

@@ -318,6 +318,7 @@ function Step1({ form, onChange, errors, formConfig }: {
   form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
   formConfig: FormFieldConfig[] | null;
 }) {
+  const { t } = useT();
   const isEnabled = (key: string) => {
     if (!formConfig || formConfig.length === 0) return true;
     const cfg = formConfig.find(c => c.fieldKey === key);
@@ -381,17 +382,17 @@ function Step1({ form, onChange, errors, formConfig }: {
             {isEnabled("gender") && (
               <Field label="性別" required={isRequired("gender")} error={errors.gender}>
                 <Select data-testid="apply-gender" value={form.gender} error={!!errors.gender} onChange={e => onChange("gender", e.target.value)}>
-                  <option value="">選択</option>
-                  <option value="男性">男性</option>
-                  <option value="女性">女性</option>
+                  <option value="">{t("選択")}</option>
+                  <option value="男性">{t("男性")}</option>
+                  <option value="女性">{t("女性")}</option>
                 </Select>
               </Field>
             )}
             {isEnabled("nationality") && (
               <Field label="国籍" required={isRequired("nationality")} error={errors.nationality}>
                 <Select data-testid="apply-nationality" value={form.nationality} error={!!errors.nationality} onChange={e => onChange("nationality", e.target.value)}>
-                  <option value="">選択</option>
-                  {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value="">{t("選択")}</option>
+                  {NATIONALITIES.map(n => <option key={n} value={n}>{t(n)}</option>)}
                 </Select>
               </Field>
             )}
@@ -432,8 +433,8 @@ function Step1({ form, onChange, errors, formConfig }: {
             {isEnabled("prefecture") && (
               <Field label="都道府県" required={isRequired("prefecture")} error={errors.prefecture}>
                 <Select data-testid="apply-prefecture" value={form.prefecture} error={!!errors.prefecture} onChange={e => onChange("prefecture", e.target.value)}>
-                  <option value="">選択</option>
-                  {PREFECTURES.map(p => <option key={p} value={p}>{p}</option>)}
+                  <option value="">{t("選択")}</option>
+                  {PREFECTURES.map(p => <option key={p} value={p}>{t(p)}</option>)}
                 </Select>
               </Field>
             )}
@@ -466,9 +467,9 @@ function Step1({ form, onChange, errors, formConfig }: {
             {isEnabled("residenceStatus") && (
               <Field label="在留資格（日本在住の方）" required={isRequired("residenceStatus", false)} error={errors.residenceStatus}>
                 <Select value={form.residenceStatus} error={!!errors.residenceStatus} onChange={e => onChange("residenceStatus", e.target.value)}>
-                  <option value="">{isRequired("residenceStatus", false) ? "選択してください" : "選択してください（任意）"}</option>
+                  <option value="">{isRequired("residenceStatus", false) ? t("選択してください") : t("選択してください（任意）")}</option>
                   {["留学","技術・人文知識・国際業務","特定技能","技能実習","永住者","定住者","日本人の配偶者等","家族滞在","その他"].map(v =>
-                    <option key={v} value={v}>{v}</option>)}
+                    <option key={v} value={v}>{t(v)}</option>)}
                 </Select>
               </Field>
             )}
@@ -481,13 +482,13 @@ function Step1({ form, onChange, errors, formConfig }: {
             {isEnabled("japaneseLevel") && (
               <Field label="日本語レベル" required={isRequired("japaneseLevel")} error={errors.japaneseLevel}>
                 <Select data-testid="apply-japaneseLevel" value={form.japaneseLevel} error={!!errors.japaneseLevel} onChange={e => onChange("japaneseLevel", e.target.value)}>
-                  <option value="">選択してください</option>
-                  <option value="N1">N1（最上級）</option>
+                  <option value="">{t("選択してください")}</option>
+                  <option value="N1">{t("N1（最上級）")}</option>
                   <option value="N2">N2</option>
                   <option value="N3">N3</option>
                   <option value="N4">N4</option>
-                  <option value="N5">N5（初級）</option>
-                  <option value="なし">資格なし</option>
+                  <option value="N5">{t("N5（初級）")}</option>
+                  <option value="なし">{t("資格なし")}</option>
                 </Select>
               </Field>
             )}
@@ -496,7 +497,7 @@ function Step1({ form, onChange, errors, formConfig }: {
                 <label className="flex items-center gap-3 h-[42px] cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-blue-600"
                     checked={form.jlptCertified} onChange={e => onChange("jlptCertified", e.target.checked)} />
-                  <span className="text-sm text-gray-700">JLPT合格証明書を持っている</span>
+                  <span className="text-sm text-gray-700">{t("JLPT合格証明書を持っている")}</span>
                 </label>
               </Field>
             )}
@@ -518,6 +519,7 @@ function SchoolDeptPicker({ school, department, course, onChange, errors, deptKe
   deptKey: string;
   courseKey: string;
 }) {
+  const { t } = useT();
   const selectedDept = school.departments.find(d => d.name === department);
   const durationColor: Record<string, string> = {
     "1年制": "bg-blue-100 text-blue-700",
@@ -526,7 +528,7 @@ function SchoolDeptPicker({ school, department, course, onChange, errors, deptKe
   };
   return (
     <div className="space-y-3">
-      <Label required>志望学科</Label>
+      <Label required>{t("志望学科")}</Label>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {school.departments.map(dept => {
           const sel = department === dept.name;
@@ -553,7 +555,7 @@ function SchoolDeptPicker({ school, department, course, onChange, errors, deptKe
       {selectedDept && selectedDept.courses && selectedDept.courses.length > 0 && (
         <Field label="志望コース" required error={errors[courseKey]}>
           <Select value={course} error={!!errors[courseKey]} onChange={e => onChange(courseKey, e.target.value)}>
-            <option value="">選択してください</option>
+            <option value="">{t("選択してください")}</option>
             {selectedDept.courses.map(c => <option key={c} value={c}>{c}</option>)}
           </Select>
         </Field>
@@ -574,6 +576,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   preselectedSchool?: boolean;
   enrollmentYears: string[];
 }) {
+  const { t } = useT();
   const isEnabled = (key: string) => {
     if (!formConfig || formConfig.length === 0) return true;
     const cfg = formConfig.find(c => c.fieldKey === key);
@@ -609,7 +612,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
             <p className="text-xs text-gray-500">{selectedSchool?.hojin ?? ""}</p>
             <p className="font-bold text-blue-700 text-base">{selectedSchool?.name ?? form.schoolName}</p>
           </div>
-          <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">第一志望</span>
+          <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">{t("第一志望")}</span>
         </div>
       </div>
 
@@ -639,11 +642,11 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
                   <p className="text-xs text-gray-500">{addSchool.hojin}</p>
                   <p className="font-bold text-gray-800">{addSchool.name}</p>
                 </div>
-                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-full">並願</span>
+                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded-full">{t("並願")}</span>
               </div>
               <button type="button" onClick={() => onRemoveAdditional(idx)}
                 className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition">
-                削除
+                {t("削除")}
               </button>
             </div>
             <SchoolDeptPicker
@@ -666,7 +669,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       {/* 並願追加ボタン */}
       {availableForAdditional.length > 0 && (
         <div className="border-2 border-dashed border-gray-200 rounded-xl p-4">
-          <p className="text-sm text-gray-500 mb-3">他の学校にも出願しますか？（並願）</p>
+          <p className="text-sm text-gray-500 mb-3">{t("他の学校にも出願しますか？（並願）")}</p>
           <div className="flex flex-wrap gap-2">
             {availableForAdditional.map(s => (
               <button key={s.id} type="button" onClick={() => onAddAdditional(s)}
@@ -685,13 +688,13 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="入学希望年" required error={errors.enrollmentYear}>
           <Select value={form.enrollmentYear} error={!!errors.enrollmentYear} onChange={e => onChange("enrollmentYear", e.target.value)}>
-            <option value="">選択してください</option>
-            {years.map(y => <option key={y} value={String(y)}>{y}年</option>)}
+            <option value="">{t("選択してください")}</option>
+            {years.map(y => <option key={y} value={String(y)}>{y}{t("年")}</option>)}
           </Select>
         </Field>
         <Field label="入学希望月">
           <div className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
-            4月（毎年4月入学）
+            {t("4月（毎年4月入学）")}
           </div>
         </Field>
       </div>
@@ -704,11 +707,11 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
             <textarea
               className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
                 ${errors.applicationReason ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
-              placeholder="志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。"
+              placeholder={t("志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。")}
               value={form.applicationReason} onChange={e => onChange("applicationReason", e.target.value)} />
             <div className="flex justify-end mt-1">
               <span className={`text-xs ${form.applicationReason.length >= 300 ? "text-green-600 font-semibold" : "text-gray-400"}`}>
-                {form.applicationReason.length} / 300文字
+                {form.applicationReason.length} {t("/ 300文字")}
               </span>
             </div>
           </Field>
@@ -733,8 +736,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
             {isEnabled("lastSchoolGraduate") && (
               <Field label="卒業状況" required={isRequired("lastSchoolGraduate")} error={errors.lastSchoolGraduate}>
                 <Select value={form.lastSchoolGraduate} error={!!errors.lastSchoolGraduate} onChange={e => onChange("lastSchoolGraduate", e.target.value)}>
-                  <option value="">選択してください</option>
-                  {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{v}</option>)}
+                  <option value="">{t("選択してください")}</option>
+                  {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{t(v)}</option>)}
                 </Select>
               </Field>
             )}
@@ -757,7 +760,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           {isEnabled("workExperience") && (
             <Field label="職務経歴（任意）" hint="直近の職務経歴をご記入ください">
               <textarea className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
-                placeholder="会社名、職種、期間などをご記入ください" value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
+                placeholder={t("会社名、職種、期間などをご記入ください")} value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
             </Field>
           )}
         </>
@@ -780,11 +783,11 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
               <span className={`mx-auto mb-1.5 w-10 h-10 rounded-full flex items-center justify-center ${sel ? "bg-accent text-white" : "bg-gray-100 text-gray-500"}`}>
                 <Icon name={mode.icon} className="w-5 h-5" />
               </span>
-              <p className={`font-bold text-sm mb-0.5 ${sel ? "text-blue-700" : "text-gray-700"}`}>{mode.label}</p>
-              <p className="text-xs text-gray-500">{mode.desc}</p>
+              <p className={`font-bold text-sm mb-0.5 ${sel ? "text-blue-700" : "text-gray-700"}`}>{t(mode.label)}</p>
+              <p className="text-xs text-gray-500">{t(mode.desc)}</p>
               <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${mode.exam ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                 <Icon name={mode.exam ? "pencil" : "ticket"} className="w-3 h-3" />
-                {mode.exam ? "筆記あり" : "筆記免除"}
+                {mode.exam ? t("筆記あり") : t("筆記免除")}
               </span>
             </label>
           );
@@ -797,8 +800,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           </Field>
           <Field label="推薦機関の種別">
             <Select value={form.referrerType} onChange={e => onChange("referrerType", e.target.value)}>
-              <option value="">選択してください（任意）</option>
-              {["エージェント","学校","個人","その他"].map(v => <option key={v} value={v}>{v === "エージェント" ? "留学エージェント" : v === "学校" ? "学校・教育機関" : v === "個人" ? "個人（恩師・知人など）" : v}</option>)}
+              <option value="">{t("選択してください（任意）")}</option>
+              {["エージェント","学校","個人","その他"].map(v => <option key={v} value={v}>{v === "エージェント" ? t("留学エージェント") : v === "学校" ? t("学校・教育機関") : v === "個人" ? t("個人（恩師・知人など）") : t(v)}</option>)}
             </Select>
           </Field>
         </div>
@@ -808,13 +811,13 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           <div className="flex items-start gap-3">
             <span className="shrink-0 w-9 h-9 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center"><Icon name="star" className="w-5 h-5" /></span>
             <div>
-              <p className="font-bold text-yellow-800 text-sm mb-1">特待生選考の要件</p>
+              <p className="font-bold text-yellow-800 text-sm mb-1">{t("特待生選考の要件")}</p>
               <p className="text-xs text-yellow-800 mb-2">
-                次のいずれかを満たす方が対象です。証明書類は次のステップでアップロードしてください（教務が内容を確認します）。
+                {t("次のいずれかを満たす方が対象です。証明書類は次のステップでアップロードしてください（教務が内容を確認します）。")}
               </p>
               <ul className="text-xs text-yellow-800 list-disc list-inside space-y-0.5">
-                <li>日本語能力試験 <strong>N1</strong> 合格証明書</li>
-                <li>出身校での出席率 <strong>90%以上</strong>（95%以上を推奨）を証明する書類</li>
+                <li>{t("日本語能力試験")} <strong>N1</strong> {t("合格証明書")}</li>
+                <li>{t("出身校での出席率")} <strong>{t("90%以上")}</strong>{t("（95%以上を推奨）を証明する書類")}</li>
               </ul>
             </div>
           </div>
@@ -827,8 +830,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center"><Icon name="ticket" className="w-5 h-5" /></span>
                 <div>
-                  <p className="font-bold text-green-800 text-sm mb-1">筆記試験はありません（面接のみ）</p>
-                  <p className="text-xs text-green-700">本校の一般選考は筆記試験を免除しています。書類審査通過後、面接を受けていただきます。日程は別途ご案内します。</p>
+                  <p className="font-bold text-green-800 text-sm mb-1">{t("筆記試験はありません（面接のみ）")}</p>
+                  <p className="text-xs text-green-700">{t("本校の一般選考は筆記試験を免除しています。書類審査通過後、面接を受けていただきます。日程は別途ご案内します。")}</p>
                 </div>
               </div>
             </div>
@@ -837,8 +840,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
             <div className="flex items-start gap-3">
               <span className="shrink-0 w-9 h-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center"><Icon name="pencil" className="w-5 h-5" /></span>
               <div>
-                <p className="font-bold text-orange-800 text-sm mb-1">一般選考は筆記試験があります</p>
-                <p className="text-xs text-orange-700">書類審査通過後、筆記試験（日本語・一般教養）と面接を受けていただきます。試験日程は別途ご案内します。</p>
+                <p className="font-bold text-orange-800 text-sm mb-1">{t("一般選考は筆記試験があります")}</p>
+                <p className="text-xs text-orange-700">{t("書類審査通過後、筆記試験（日本語・一般教養）と面接を受けていただきます。試験日程は別途ご案内します。")}</p>
               </div>
             </div>
           </div>
@@ -875,6 +878,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
   onUpload: (doc: UploadedDoc) => void; onDelete: (id: string) => void;
   formConfig: FormFieldConfig[] | null;
 }) {
+  const { t } = useT();
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -900,7 +904,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
   if (!applicationId) return (
     <div className="text-center py-12 text-gray-400">
       <Icon name="info" className="w-10 h-10 mx-auto mb-3" />
-      <p className="text-sm">申請情報が保存されていません。前のステップに戻ってください。</p>
+      <p className="text-sm">{t("申請情報が保存されていません。前のステップに戻ってください。")}</p>
     </div>
   );
 
@@ -913,7 +917,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-gray-800 inline-flex items-center gap-1.5"><Icon name="doc" className="w-4 h-4 text-gray-400" />{label}</p>
             {uploaded.length > 0 && (
-              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-0.5"><Icon name="check" className="w-3 h-3" />{uploaded.length}件</span>
+              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-0.5"><Icon name="check" className="w-3 h-3" />{uploaded.length}{t("件")}</span>
             )}
           </div>
           {description && (
@@ -926,7 +930,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                   <Icon name="doc" className="w-4 h-4 text-green-500 shrink-0" />
                   <span className="truncate">{u.originalName}</span>
                   <span className="shrink-0 text-gray-400">{formatSize(u.fileSize)}</span>
-                  <button onClick={() => handleDelete(u.id)} aria-label="削除" className="text-red-400 hover:text-red-600 shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
+                  <button onClick={() => handleDelete(u.id)} aria-label={t("削除")} className="text-red-400 hover:text-red-600 shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
                 </div>
               ))}
             </div>
@@ -938,17 +942,17 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
             onChange={e => {
               const file = e.target.files?.[0];
               if (!file || !applicationId) return;
-              if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
-              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${label}」：${overSizeMsg}`); e.target.value = ""; return; }
+              if (!applicationNo || !email) { setUploadError(t("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。")); return; }
+              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${label}」：${t(overSizeMsg)}`); e.target.value = ""; return; }
               setUploading(label); setUploadError(null);
               const fd = new FormData();
               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
               fd.append("applicationNo", applicationNo); fd.append("email", email);
               fetch("/api/upload", { method: "POST", body: fd })
-                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${label}」のアップロードに失敗しました：${data.error || "エラー"}`); })
-                .catch(() => setUploadError(`「${label}」：ネットワークエラー`)).finally(() => { setUploading(null); e.target.value = ""; });
+                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${label}」${t("のアップロードに失敗しました：")}${data.error || t("エラー")}`); })
+                .catch(() => setUploadError(`「${label}」：${t("ネットワークエラー")}`)).finally(() => { setUploading(null); e.target.value = ""; });
             }} />
-          {isUp ? "送信中..." : "+ 追加"}
+          {isUp ? t("送信中...") : t("+ 追加")}
         </label>
       </div>
     );
@@ -957,10 +961,10 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-800">
-        <p className="font-semibold mb-1 flex items-center gap-1.5"><Icon name="doc" className="w-4 h-4" />書類アップロードのご案内</p>
+        <p className="font-semibold mb-1 flex items-center gap-1.5"><Icon name="doc" className="w-4 h-4" />{t("書類アップロードのご案内")}</p>
         <ul className="list-disc list-inside space-y-0.5 text-blue-700 text-xs">
-          <li>対応形式：JPEG、PNG、PDF（各ファイル最大10MB）</li>
-          <li>書類は鮮明に撮影・スキャンしてください</li>
+          <li>{t("対応形式：JPEG、PNG、PDF（各ファイル最大10MB）")}</li>
+          <li>{t("書類は鮮明に撮影・スキャンしてください")}</li>
         </ul>
       </div>
       {uploadError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{uploadError}</div>}
@@ -970,8 +974,8 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
           {dynamicFileFields.filter(f => f.isRequired).length > 0 && (
             <div className="rounded-xl border p-4 bg-red-50 border-red-200">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">必須</span>
-                <h3 className="font-semibold text-gray-800 text-sm">必須書類</h3>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{t("必須")}</span>
+                <h3 className="font-semibold text-gray-800 text-sm">{t("必須書類")}</h3>
               </div>
               <div className="space-y-2">
                 {dynamicFileFields.filter(f => f.isRequired).map(field =>
@@ -984,8 +988,8 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
           {dynamicFileFields.filter(f => !f.isRequired).length > 0 && (
             <div className="rounded-xl border p-4 bg-gray-50 border-gray-200">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">任意</span>
-                <h3 className="font-semibold text-gray-800 text-sm">任意提出書類</h3>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{t("任意")}</span>
+                <h3 className="font-semibold text-gray-800 text-sm">{t("任意提出書類")}</h3>
               </div>
               <div className="space-y-2">
                 {dynamicFileFields.filter(f => !f.isRequired).map(field =>
@@ -1008,8 +1012,8 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
             return (
               <div key={cat.label} className={`rounded-xl border p-4 ${s.bg}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>{cat.required ? "必須" : "任意"}</span>
-                  <h3 className="font-semibold text-gray-800 text-sm">{cat.label}</h3>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.badge}`}>{cat.required ? t("必須") : t("任意")}</span>
+                  <h3 className="font-semibold text-gray-800 text-sm">{t(cat.label)}</h3>
                 </div>
                 <div className="space-y-2">
                   {cat.docs.map(doc => {
@@ -1019,12 +1023,12 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                       <div key={doc.type} className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-gray-800">{doc.type}</p>
+                            <p className="text-sm font-medium text-gray-800">{t(doc.type)}</p>
                             {uploaded.length > 0 && (
-                              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-0.5"><Icon name="check" className="w-3 h-3" />{uploaded.length}件</span>
+                              <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-0.5"><Icon name="check" className="w-3 h-3" />{uploaded.length}{t("件")}</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 mt-0.5">{doc.desc}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{t(doc.desc)}</p>
                           {uploaded.length > 0 && (
                             <div className="mt-1.5 space-y-1">
                               {uploaded.map(u => (
@@ -1032,7 +1036,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                                   <Icon name="doc" className="w-4 h-4 text-green-500 shrink-0" />
                                   <span className="truncate">{u.originalName}</span>
                                   <span className="shrink-0 text-gray-400">{formatSize(u.fileSize)}</span>
-                                  <button onClick={() => handleDelete(u.id)} aria-label="削除" className="text-red-400 hover:text-red-600 shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
+                                  <button onClick={() => handleDelete(u.id)} aria-label={t("削除")} className="text-red-400 hover:text-red-600 shrink-0"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg></button>
                                 </div>
                               ))}
                             </div>
@@ -1044,17 +1048,17 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
                             onChange={e => {
                               const file = e.target.files?.[0];
                               if (!file || !applicationId) return;
-                              if (!applicationNo || !email) { setUploadError("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。"); return; }
-                              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${doc.type}」：${overSizeMsg}`); e.target.value = ""; return; }
+                              if (!applicationNo || !email) { setUploadError(t("申請が確定していません。Step2 まで進めてから書類をアップロードしてください。")); return; }
+                              if (file.size > MAX_UPLOAD_BYTES) { setUploadError(`「${doc.type}」：${t(overSizeMsg)}`); e.target.value = ""; return; }
                               setUploading(doc.type); setUploadError(null);
                               const fd = new FormData();
                               fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
                               fd.append("applicationNo", applicationNo); fd.append("email", email);
                               fetch("/api/upload", { method: "POST", body: fd })
-                                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${doc.type}」のアップロードに失敗しました：${data.error || "エラー"}`); })
-                                .catch(() => setUploadError(`「${doc.type}」：ネットワークエラー`)).finally(() => { setUploading(null); e.target.value = ""; });
+                                .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(`「${doc.type}」${t("のアップロードに失敗しました：")}${data.error || t("エラー")}`); })
+                                .catch(() => setUploadError(`「${doc.type}」：${t("ネットワークエラー")}`)).finally(() => { setUploading(null); e.target.value = ""; });
                             }} />
-                          {isUp ? "送信中..." : "+ 追加"}
+                          {isUp ? t("送信中...") : t("+ 追加")}
                         </label>
                       </div>
                     );
@@ -1065,7 +1069,7 @@ function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, on
           });
         })()
       )}
-      <p className="text-sm text-gray-500 text-right">アップロード済み：<span className="font-bold text-blue-700">{uploadedDocs.length}件</span></p>
+      <p className="text-sm text-gray-500 text-right">{t("アップロード済み：")}<span className="font-bold text-blue-700">{uploadedDocs.length}{t("件")}</span></p>
     </div>
   );
 }
@@ -1078,6 +1082,7 @@ interface PaymentConfig {
 function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeStatus, onFeeStatusChange, schoolKey }: {
   applicationId: string | null; applicationNo: string | null; email: string; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void; schoolKey?: string;
 }) {
+  const { t } = useT();
   const fee = calcExamFee(schoolCount);
   const [uploading, setUploading] = useState(false);
   const [uploadedReceipt, setUploadedReceipt] = useState<{ name: string } | null>(null);
@@ -1102,8 +1107,8 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   // アップロード本体（ファイル選択・ドラッグ&ドロップ共通）
   const doReceiptUpload = async (file: File) => {
     if (!applicationId) return;
-    if (!applicationNo || !email) { setUploadError("申請が確定していません。"); return; }
-    if (file.size > MAX_UPLOAD_BYTES) { setUploadError(overSizeMsg); return; }
+    if (!applicationNo || !email) { setUploadError(t("申請が確定していません。")); return; }
+    if (file.size > MAX_UPLOAD_BYTES) { setUploadError(t(overSizeMsg)); return; }
     setUploading(true); setUploadError(null);
     const fd = new FormData();
     fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", "選考費振込証明書");
@@ -1123,7 +1128,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
         }),
       });
       onFeeStatusChange("確認中");
-    } catch (err) { setUploadError(err instanceof Error ? err.message : "エラー"); }
+    } catch (err) { setUploadError(err instanceof Error ? err.message : t("エラー")); }
     finally { setUploading(false); }
   };
   const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1140,25 +1145,25 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
   return (
     <div className="space-y-5">
       <div className="rounded-2xl p-6 text-white" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
-        <p className="text-blue-200 text-sm mb-1">選考費（{schoolCount}校 × 20,000円）</p>
-        <p className="text-4xl font-bold tracking-tight">¥{fee.toLocaleString()}<span className="text-lg font-normal text-blue-300 ml-2">税込</span></p>
+        <p className="text-blue-200 text-sm mb-1">{t("選考費（")}{schoolCount}{t("校 × 20,000円）")}</p>
+        <p className="text-4xl font-bold tracking-tight">¥{fee.toLocaleString()}<span className="text-lg font-normal text-blue-300 ml-2">{t("税込")}</span></p>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M4 10h16M5 10V7l7-4 7 4v3M6 10v8m4-8v8m4-8v8m4-8v8" /></svg>
-          振込先情報
+          {t("振込先情報")}
         </h3>
         {paymentConfig ? (
           paymentConfig.bankInfoText ? (
             // 選考管理で設定された受験料振込先（フリーテキスト）
             <button type="button" onClick={() => copyField("振込先", paymentConfig.bankInfoText as string)}
-              title="クリックでコピー"
+              title={t("クリックでコピー")}
               className="w-full text-left bg-gray-50 border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
               <p className="text-sm text-gray-900 whitespace-pre-line font-mono leading-relaxed">{paymentConfig.bankInfoText}</p>
               <span className={`mt-2 inline-flex items-center gap-0.5 text-[11px] font-bold ${copiedKey === "振込先" ? "text-green-600" : "text-blue-500"}`}>
                 {copiedKey === "振込先" && <Icon name="check" className="w-3 h-3" />}
-                {copiedKey === "振込先" ? "コピー済み" : "タップでコピー"}
+                {copiedKey === "振込先" ? t("コピー済み") : t("タップでコピー")}
               </span>
             </button>
           ) : (
@@ -1171,15 +1176,15 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
               ["振込期限", paymentConfig.deadline],
             ].map(([k, v]) => (
               <div key={k} className="contents">
-                <span className="text-gray-500">{k}</span>
+                <span className="text-gray-500">{t(k)}</span>
                 {v ? (
                   <button type="button" onClick={() => copyField(k, String(v))}
-                    title="クリックでコピー"
+                    title={t("クリックでコピー")}
                     className="font-semibold text-gray-900 text-left flex items-center gap-1.5 min-w-0 hover:text-blue-700 transition-colors">
                     <span className="truncate">{v}</span>
                     <span className={`text-[10px] shrink-0 font-bold inline-flex items-center gap-0.5 ${copiedKey === k ? "text-green-600" : "text-blue-500"}`}>
                       {copiedKey === k && <Icon name="check" className="w-3 h-3" />}
-                      {copiedKey === k ? "コピー済み" : "コピー"}
+                      {copiedKey === k ? t("コピー済み") : t("コピー")}
                     </span>
                   </button>
                 ) : (
@@ -1190,27 +1195,27 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
           </div>
           )
         ) : (
-          <p className="text-sm text-gray-400">読み込み中...</p>
+          <p className="text-sm text-gray-400">{t("読み込み中...")}</p>
         )}
         {paymentConfig?.examFeeQr && (
           <div className="mt-4 flex flex-col items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs font-bold text-gray-600">QRコードで支払う</p>
+            <p className="text-xs font-bold text-gray-600">{t("QRコードで支払う")}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={paymentConfig.examFeeQr} alt="受験料お支払いQRコード" className="w-44 h-44 object-contain bg-white rounded-lg border border-gray-200 p-1" />
-            <p className="text-[11px] text-gray-400">決済アプリでスキャンしてお支払いください</p>
+            <img src={paymentConfig.examFeeQr} alt={t("受験料お支払いQRコード")} className="w-44 h-44 object-contain bg-white rounded-lg border border-gray-200 p-1" />
+            <p className="text-[11px] text-gray-400">{t("決済アプリでスキャンしてお支払いください")}</p>
           </div>
         )}
         <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-          振込名義は必ず<strong>出願者本人のお名前（カタカナ）</strong>でお振込みください。
+          {t("振込名義は必ず")}<strong>{t("出願者本人のお名前（カタカナ）")}</strong>{t("でお振込みください。")}
         </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-1.5">
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 12.5l-7 7a4 4 0 01-5.66-5.66l8.49-8.49a2.5 2.5 0 113.54 3.54L9.4 17.4" /></svg>
-          振込証明書のアップロード
+          {t("振込証明書のアップロード")}
         </h3>
-        <p className="text-xs text-gray-400 mb-3">銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。</p>
+        <p className="text-xs text-gray-400 mb-3">{t("銀行振込の場合は、振込明細書・ATMレシートの写真をアップロードしてください。")}</p>
         {/* 手順ガイド */}
         <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
           {["銀行で振込", "明細をアップロード", "確認をお待ちください"].map((label, i) => (
@@ -1219,7 +1224,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
                 <svg className="w-3 h-3 text-gray-300 mr-1" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               )}
               <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[9px] shrink-0">{i + 1}</span>
-              {label}
+              {t(label)}
             </span>
           ))}
         </div>
@@ -1228,7 +1233,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
             <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
               <svg className="w-5 h-5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-green-800">アップロード完了</p>
+                <p className="text-sm font-semibold text-green-800">{t("アップロード完了")}</p>
                 <p className="text-xs text-green-600 truncate">{uploadedReceipt.name}</p>
               </div>
             </div>
@@ -1236,7 +1241,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
               <button type="button"
                 onClick={() => { setUploadedReceipt(null); setUploadError(null); }}
                 className="mt-2 text-xs text-blue-600 hover:underline">
-                別のファイルに差し替える
+                {t("別のファイルに差し替える")}
               </button>
             )}
           </div>
@@ -1257,8 +1262,8 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg>
                 )}
               </div>
-              <p className="text-sm text-gray-600 font-medium">{uploading ? "アップロード中..." : dragOver ? "ここにドロップ" : "クリック、またはドラッグ&ドロップでアップロード"}</p>
-              <p className="text-xs text-gray-400 mt-1">JPEG・PNG・PDF（最大10MB）</p>
+              <p className="text-sm text-gray-600 font-medium">{uploading ? t("アップロード中...") : dragOver ? t("ここにドロップ") : t("クリック、またはドラッグ&ドロップでアップロード")}</p>
+              <p className="text-xs text-gray-400 mt-1">{t("JPEG・PNG・PDF（最大10MB）")}</p>
             </div>
           </label>
         )}
@@ -1266,10 +1271,10 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
       </div>
 
       <div className="flex items-center justify-between bg-gray-50 rounded-xl border border-gray-200 px-5 py-4">
-        <span className="text-sm font-medium text-gray-700">現在の支払い状態</span>
+        <span className="text-sm font-medium text-gray-700">{t("現在の支払い状態")}</span>
         <span className={`text-sm font-bold px-3 py-1 rounded-full ${
           feeStatus === "確認済み" ? "bg-green-100 text-green-700" :
-          feeStatus === "確認中" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{feeStatus}</span>
+          feeStatus === "確認中" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{t(feeStatus)}</span>
       </div>
     </div>
   );
@@ -1277,15 +1282,16 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
 
 // ========== Step 5 確認 ==========
 function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedDoc[] }) {
+  const { t } = useT();
   const Row = ({ label, value }: { label: string; value: string | boolean | undefined | null }) => (
     <div className="flex gap-3 py-2.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400 w-28 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-800 font-medium flex-1">{value === true ? "あり" : value === false ? "なし" : value || "—"}</span>
+      <span className="text-xs text-gray-400 w-28 shrink-0 pt-0.5">{t(label)}</span>
+      <span className="text-sm text-gray-800 font-medium flex-1">{value === true ? t("あり") : value === false ? t("なし") : value || "—"}</span>
     </div>
   );
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="bg-white rounded-xl border border-gray-200 p-5 mb-3">
-      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{title}</h3>
+      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{t(title)}</h3>
       {children}
     </div>
   );
@@ -1293,7 +1299,7 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
     <div className="space-y-3">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 flex items-start gap-2">
         <Icon name="info" className="w-4 h-4 shrink-0" />
-        <p>以下の内容をご確認の上、「提出する」ボタンを押してください。提出後の内容変更はできません。</p>
+        <p>{t("以下の内容をご確認の上、「提出する」ボタンを押してください。提出後の内容変更はできません。")}</p>
       </div>
       <Section title="個人情報">
         <Row label="氏名" value={`${form.lastName} ${form.firstName}`} />
@@ -1319,12 +1325,12 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
         {form.course && <Row label="コース" value={form.course} />}
         {form.additionalSchools.map((add, idx) => (
           <div key={idx}>
-            <Row label={`並願校${idx + 1}`} value={add.schoolName} />
-            <Row label={`並願校${idx + 1} 学科`} value={add.department} />
-            {add.course && <Row label={`並願校${idx + 1} コース`} value={add.course} />}
+            <Row label={`${t("並願校")}${idx + 1}`} value={add.schoolName} />
+            <Row label={`${t("並願校")}${idx + 1} ${t("学科")}`} value={add.department} />
+            {add.course && <Row label={`${t("並願校")}${idx + 1} ${t("コース")}`} value={add.course} />}
           </div>
         ))}
-        <Row label="入学希望" value={`${form.enrollmentYear}年${form.enrollmentMonth}月`} />
+        <Row label="入学希望" value={`${form.enrollmentYear}${t("年")}${form.enrollmentMonth}${t("月")}`} />
         <Row label="志望動機" value={form.applicationReason} />
       </Section>
       <Section title="最終学歴・選考">
@@ -1335,13 +1341,13 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
         <Row label="選考区分" value={form.examMode} />
         {form.examMode === "指定推薦" && form.referrerName && <Row label="推薦機関" value={form.referrerName} />}
       </Section>
-      <Section title={`提出書類（${uploadedDocs.length}件）`}>
-        {uploadedDocs.length === 0 ? <p className="text-sm text-gray-400">書類なし</p> : (
+      <Section title={`${t("提出書類（")}${uploadedDocs.length}${t("件）")}`}>
+        {uploadedDocs.length === 0 ? <p className="text-sm text-gray-400">{t("書類なし")}</p> : (
           <div className="space-y-2">
             {uploadedDocs.map(doc => (
               <div key={doc.id} className="flex items-center gap-2 text-sm">
                 <Icon name="check" className="w-4 h-4 text-green-500 shrink-0" />
-                <span className="font-medium text-gray-700">{doc.docType}</span>
+                <span className="font-medium text-gray-700">{t(doc.docType)}</span>
                 <span className="text-gray-400 text-xs">— {doc.originalName}</span>
               </div>
             ))}
@@ -1364,40 +1370,40 @@ function ApplicationNoConfirm({
   onContinue: () => void;
   onSaveAndExit: () => void;
 }) {
+  const { t } = useT();
   return (
     <div className="space-y-6">
       <div className="text-center">
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600"><Icon name="check" className="w-8 h-8" strokeWidth={2.2} /></div>
-        <h2 className="text-xl font-bold text-gray-800 mb-1">出願番号が発行されました</h2>
-        <p className="text-sm text-gray-500">ステップ1・2の情報を受け付けました</p>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">{t("出願番号が発行されました")}</h2>
+        <p className="text-sm text-gray-500">{t("ステップ1・2の情報を受け付けました")}</p>
       </div>
 
       {/* 出願番号 */}
       <div className="rounded-2xl p-6 text-white text-center" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
-        <p className="text-blue-200 text-sm mb-2">出願番号</p>
+        <p className="text-blue-200 text-sm mb-2">{t("出願番号")}</p>
         <p className="text-4xl font-bold tracking-widest">{applicationNo}</p>
-        <p className="text-blue-300 text-xs mt-3">この番号は必ず控えてください</p>
+        <p className="text-blue-300 text-xs mt-3">{t("この番号は必ず控えてください")}</p>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-        <p className="font-semibold mb-1 flex items-center gap-1.5"><Icon name="lightbulb" className="w-4 h-4" />この番号でできること</p>
+        <p className="font-semibold mb-1 flex items-center gap-1.5"><Icon name="lightbulb" className="w-4 h-4" />{t("この番号でできること")}</p>
         <p className="text-xs text-blue-700">
-          この番号でいつでもログインして書類アップロード・選考料のお支払いができます。
-          後から続ける場合は{" "}
+          {t("この番号でいつでもログインして書類アップロード・選考料のお支払いができます。後から続ける場合は")}{" "}
           <Link
             href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
             className="font-bold text-blue-700 underline hover:text-blue-900"
           >
-            出願状況確認ページ
+            {t("出願状況確認ページ")}
           </Link>
-          {" "}（または{" "}
+          {" "}{t("（または")}{" "}
           <Link
             href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
             className="font-mono underline hover:text-blue-900"
           >
             /apply/status
           </Link>
-          ）にアクセスしてください。出願番号とメールアドレスは自動入力されます。
+          {t("）にアクセスしてください。出願番号とメールアドレスは自動入力されます。")}
         </p>
       </div>
 
@@ -1406,18 +1412,18 @@ function ApplicationNoConfirm({
           onClick={onContinue}
           className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition flex items-center justify-center gap-2"
         >
-          続けて書類をアップロードする →
+          {t("続けて書類をアップロードする →")}
         </button>
         <button
           onClick={onSaveAndExit}
           className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition"
         >
-          後で続きをする
+          {t("後で続きをする")}
         </button>
       </div>
 
       <p className="text-xs text-gray-400 text-center">
-        登録メールアドレス: <span className="font-medium text-gray-600">{email}</span>
+        {t("登録メールアドレス:")} <span className="font-medium text-gray-600">{email}</span>
       </p>
     </div>
   );
@@ -1425,6 +1431,7 @@ function ApplicationNoConfirm({
 
 // ========== 後で続きをする 完了画面 ==========
 function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; email: string }) {
+  const { t } = useT();
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 py-4 px-4">
@@ -1432,7 +1439,7 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
           <div>
             <p className="font-bold text-gray-800 leading-none">Compass</p>
-            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t("入学出願システム")}</p>
           </div>
         </div>
       </header>
@@ -1440,18 +1447,18 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
         <div className="max-w-md w-full">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600"><Icon name="clipboard" className="w-8 h-8" /></div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">出願を一時保存しました</h2>
-            <p className="text-gray-500 text-sm">後から書類アップロードを再開できます</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">{t("出願を一時保存しました")}</h2>
+            <p className="text-gray-500 text-sm">{t("後から書類アップロードを再開できます")}</p>
           </div>
 
           <div className="rounded-2xl p-6 mb-6 text-white" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
-            <p className="text-blue-200 text-sm mb-2">出願番号</p>
+            <p className="text-blue-200 text-sm mb-2">{t("出願番号")}</p>
             <p className="text-3xl font-bold tracking-widest">{applicationNo}</p>
-            <p className="text-blue-300 text-xs mt-2">この番号を必ず控えてください</p>
+            <p className="text-blue-300 text-xs mt-2">{t("この番号を必ず控えてください")}</p>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-3">
-            <h3 className="font-bold text-gray-800 text-sm">続きの手続き方法</h3>
+            <h3 className="font-bold text-gray-800 text-sm">{t("続きの手続き方法")}</h3>
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">1</span>
@@ -1460,20 +1467,20 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
                     href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
                     className="font-bold text-blue-700 underline hover:text-blue-900"
                   >
-                    出願状況確認ページ
+                    {t("出願状況確認ページ")}
                   </Link>
-                  {" "}（<span className="font-mono text-xs">/apply/status</span>）にアクセスします
+                  {" "}{t("（")}<span className="font-mono text-xs">/apply/status</span>{t("）にアクセスします")}
                 </p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">2</span>
-                <p>出願番号 <strong>{applicationNo}</strong> とメールアドレス <strong>{email}</strong> で検索します<br />
-                  <span className="text-xs text-gray-400">（上のリンクから入ると自動入力されます）</span>
+                <p>{t("出願番号")} <strong>{applicationNo}</strong> {t("とメールアドレス")} <strong>{email}</strong> {t("で検索します")}<br />
+                  <span className="text-xs text-gray-400">{t("（上のリンクから入ると自動入力されます）")}</span>
                 </p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="shrink-0 w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center justify-center font-bold mt-0.5">3</span>
-                <p>書類アップロードと選考料のお支払いを完了してください</p>
+                <p>{t("書類アップロードと選考料のお支払いを完了してください")}</p>
               </div>
             </div>
           </div>
@@ -1483,13 +1490,13 @@ function SaveAndExitScreen({ applicationNo, email }: { applicationNo: string; em
               href={`/apply/status?applicationNo=${encodeURIComponent(applicationNo)}&email=${encodeURIComponent(email)}`}
               className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition inline-flex items-center justify-center gap-1.5"
             >
-              <Icon name="clipboard" className="w-4 h-4" />出願を再開する
+              <Icon name="clipboard" className="w-4 h-4" />{t("出願を再開する")}
             </Link>
             <Link
               href="/"
               className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition text-center"
             >
-              トップへ戻る
+              {t("トップへ戻る")}
             </Link>
           </div>
         </div>
@@ -1866,7 +1873,7 @@ function ApplyPageInner() {
     if (!form.enrollmentYear) e.enrollmentYear = "入学希望年を選択してください";
     if (isFieldRequired("applicationReason")) {
       if (!form.applicationReason) e.applicationReason = "志望動機を入力してください";
-      else if (form.applicationReason.length < 300) e.applicationReason = `300文字以上入力してください（現在${form.applicationReason.length}文字）`;
+      else if (form.applicationReason.length < 300) e.applicationReason = `${t("300文字以上入力してください（現在")}${form.applicationReason.length}${t("文字）")}`;
     }
     if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) e.lastSchoolName = "学校名を入力してください";
     if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
@@ -1976,7 +1983,7 @@ function ApplyPageInner() {
         const requiredFileFields = formConfig.filter(c => c.fieldType === "file" && c.isEnabled && c.isRequired && c.section !== "入学手続き書類");
         const missingDocs = requiredFileFields.filter(f => !uploadedDocs.some(d => d.docType === f.label));
         if (missingDocs.length > 0) {
-          setErrors({ step3: `以下の必須書類をアップロードしてください：${missingDocs.map(f => f.label).join("、")}` });
+          setErrors({ step3: `${t("以下の必須書類をアップロードしてください：")}${missingDocs.map(f => f.label).join("、")}` });
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
         }
@@ -2056,24 +2063,24 @@ function ApplyPageInner() {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
             <div>
             <p className="font-bold text-gray-800 leading-none">Compass</p>
-            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t("入学出願システム")}</p>
           </div>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center">
             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">⏸</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">現在、出願受付期間外です</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">{t("現在、出願受付期間外です")}</h2>
             <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-              申し訳ございませんが、現在この学校の出願受付期間ではございません。<br/>
-              次回の選考情報は各校の入学相談室にお問い合わせください。
+              {t("申し訳ございませんが、現在この学校の出願受付期間ではございません。")}<br/>
+              {t("次回の選考情報は各校の入学相談室にお問い合わせください。")}
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800 text-left">
-              <p className="font-bold mb-1 flex items-center gap-1.5"><Icon name="phone" className="w-4 h-4" />お問い合わせ</p>
-              <p>各校の入学相談室（平日 9:00〜17:00）</p>
+              <p className="font-bold mb-1 flex items-center gap-1.5"><Icon name="phone" className="w-4 h-4" />{t("お問い合わせ")}</p>
+              <p>{t("各校の入学相談室（平日 9:00〜17:00）")}</p>
             </div>
             <a href="/" className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl transition-colors">
-              トップページへ戻る
+              {t("トップページへ戻る")}
             </a>
           </div>
         </div>
@@ -2089,23 +2096,23 @@ function ApplyPageInner() {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
             <div>
             <p className="font-bold text-gray-800 leading-none">Compass</p>
-            <p className="text-xs text-gray-400 mt-0.5">入学出願システム</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t("入学出願システム")}</p>
           </div>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600"><Icon name="check" className="w-10 h-10" strokeWidth={2.2} /></div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">出願が完了しました</h2>
-            <p className="text-gray-500 text-sm mb-8">書類を受付いたしました。審査結果はメールにてお知らせします。</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">{t("出願が完了しました")}</h2>
+            <p className="text-gray-500 text-sm mb-8">{t("書類を受付いたしました。審査結果はメールにてお知らせします。")}</p>
             <div className="rounded-2xl p-6 mb-8 text-white" style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2c5a82 100%)" }}>
-              <p className="text-blue-200 text-sm mb-2">申請番号</p>
+              <p className="text-blue-200 text-sm mb-2">{t("申請番号")}</p>
               <p className="text-3xl font-bold tracking-wider">{applicationNo}</p>
-              <p className="text-blue-300 text-xs mt-2">この番号は審査状況の確認に必要です</p>
+              <p className="text-blue-300 text-xs mt-2">{t("この番号は審査状況の確認に必要です")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/apply/status" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition">出願状況を確認する</Link>
-              <Link href="/" className="px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">トップへ戻る</Link>
+              <Link href="/apply/status" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition">{t("出願状況を確認する")}</Link>
+              <Link href="/" className="px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition">{t("トップへ戻る")}</Link>
             </div>
           </div>
         </div>
@@ -2122,12 +2129,12 @@ function ApplyPageInner() {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
             <div>
               <p className="font-bold text-gray-800 text-sm leading-none">Compass</p>
-              <p className="text-xs text-gray-400 mt-0.5">入学出願システム · ステップ {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t("入学出願システム")} · {t("ステップ")} {showAppNoConfirm ? "2+" : currentStep} / {STEPS.length}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">← トップへ</Link>
+            <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">{t("← トップへ")}</Link>
           </div>
         </div>
       </header>
@@ -2138,7 +2145,7 @@ function ApplyPageInner() {
           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
             <Icon name="pencil" className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800 mb-1">下書きが保存されています。続きから入力しますか？</p>
+              <p className="text-sm font-semibold text-amber-800 mb-1">{t("下書きが保存されています。続きから入力しますか？")}</p>
               <div className="flex gap-2 flex-wrap mt-2">
                 <button
                   type="button"
@@ -2156,14 +2163,14 @@ function ApplyPageInner() {
                   }}
                   className="px-4 py-2 text-sm font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
                 >
-                  続きから入力
+                  {t("続きから入力")}
                 </button>
                 <button
                   type="button"
                   onClick={() => { clearDraft(); setDraftBanner("hidden"); }}
                   className="px-4 py-2 text-sm font-semibold bg-white border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50 transition"
                 >
-                  新規入力
+                  {t("新規入力")}
                 </button>
               </div>
             </div>
@@ -2180,7 +2187,7 @@ function ApplyPageInner() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              <p className="text-gray-500 text-sm">出願情報を読み込んでいます...</p>
+              <p className="text-gray-500 text-sm">{t("出願情報を読み込んでいます...")}</p>
             </div>
           ) : showAppNoConfirm ? (
             // 出願番号発行確認画面
@@ -2192,7 +2199,7 @@ function ApplyPageInner() {
             />
           ) : (
             <>
-              <h1 className="text-lg font-bold text-gray-800 mb-6">{STEPS[currentStep - 1].label}</h1>
+              <h1 className="text-lg font-bold text-gray-800 mb-6">{t(STEPS[currentStep - 1].label)}</h1>
               {currentStep === 1 && <Step1 form={form} onChange={handleChange} errors={errors} formConfig={formConfig} />}
               {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} enrollmentYears={enrollmentYears} />}
               {currentStep === 3 && <>
@@ -2216,7 +2223,7 @@ function ApplyPageInner() {
 
         {submitError && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-            <Icon name="info" className="w-4 h-4 shrink-0" />{submitError}
+            <Icon name="info" className="w-4 h-4 shrink-0" />{t(submitError)}
           </div>
         )}
 
@@ -2272,10 +2279,10 @@ function ApplyPageInner() {
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => { saveDraftToStorage(form); toast("下書きを保存しました", "success"); }}
+                  onClick={() => { saveDraftToStorage(form); toast(t("下書きを保存しました"), "success"); }}
                   className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-4 py-2 rounded-lg bg-white transition flex items-center gap-1.5"
                 >
-                  <Icon name="save" className="w-4 h-4" />下書きを保存
+                  <Icon name="save" className="w-4 h-4" />{t("下書きを保存")}
                 </button>
               </div>
             )}

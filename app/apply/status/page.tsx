@@ -8,6 +8,7 @@ import { useUI } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
 import { CompassMark } from "@/components/ui/CompassMark";
+import { useT } from "@/lib/i18n";
 
 interface EnrollmentProcedure {
   instructions: string | null;
@@ -162,6 +163,7 @@ function SignatureCanvas({
   onSave: (dataUrl: string) => void;
   disabled?: boolean;
 }) {
+  const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -251,7 +253,7 @@ function SignatureCanvas({
           onTouchEnd={stopDrawing}
         />
       </div>
-      <p className="text-xs text-gray-400 mt-1 mb-3">↑ このエリアに署名してください（マウスまたはタッチ）</p>
+      <p className="text-xs text-gray-400 mt-1 mb-3">{t("↑ このエリアに署名してください（マウスまたはタッチ）")}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -259,7 +261,7 @@ function SignatureCanvas({
           disabled={disabled}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
-          クリア
+          {t("クリア")}
         </button>
         <button
           type="button"
@@ -267,7 +269,7 @@ function SignatureCanvas({
           disabled={disabled || !hasDrawn}
           className="flex-1 btn-primary text-sm disabled:opacity-50"
         >
-          署名を確定する
+          {t("署名を確定する")}
         </button>
       </div>
     </div>
@@ -295,6 +297,7 @@ const ATT_COLORS: Record<string, string> = {
 };
 
 function StudentPortalSection({ applicationNo, email }: { applicationNo: string; email: string }) {
+  const { t } = useT();
   const [portalData, setPortalData] = useState<PortalData | null>(null);
   const [tab, setTab] = useState<"attendance" | "timetable" | "leave" | "cert">("attendance");
   const [loading, setLoading] = useState(true);
@@ -321,7 +324,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
   }, [applicationNo, email]);
 
   const handleLeaveSubmit = async () => {
-    if (!leaveStart || !leaveEnd || !leaveReason) { setMsg("全項目を入力してください"); return; }
+    if (!leaveStart || !leaveEnd || !leaveReason) { setMsg(t("全項目を入力してください")); return; }
     setSubmitting(true);
     const res = await fetch("/api/student-portal", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -329,11 +332,11 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
     });
     const d = await res.json();
     if (d.success) {
-      setMsg("欠席届を提出しました"); setLeaveForm(false); setLeaveStart(""); setLeaveEnd(""); setLeaveReason("");
+      setMsg(t("欠席届を提出しました")); setLeaveForm(false); setLeaveStart(""); setLeaveEnd(""); setLeaveReason("");
       // 再取得
       const p = new URLSearchParams({ applicationNo, email });
       fetch(`/api/student-portal?${p}`).then(r => r.json()).then(d => setPortalData(d));
-    } else { setMsg(d.error || "提出に失敗しました"); }
+    } else { setMsg(d.error || t("提出に失敗しました")); }
     setSubmitting(false);
   };
 
@@ -345,18 +348,18 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
     });
     const d = await res.json();
     if (d.success) {
-      setMsg("証明書申請を受け付けました"); setCertForm(false);
+      setMsg(t("証明書申請を受け付けました")); setCertForm(false);
       const p = new URLSearchParams({ applicationNo, email });
       fetch(`/api/student-portal?${p}`).then(r => r.json()).then(d => setPortalData(d));
-    } else { setMsg(d.error || "申請に失敗しました"); }
+    } else { setMsg(d.error || t("申請に失敗しました")); }
     setSubmitting(false);
   };
 
-  if (loading) return <div className="text-center py-6 text-gray-400 text-sm">読み込み中...</div>;
+  if (loading) return <div className="text-center py-6 text-gray-400 text-sm">{t("読み込み中...")}</div>;
   if (!portalData?.enrolled) return (
     <div className="text-center py-8 text-gray-400">
       <svg className="w-9 h-9 mx-auto mb-2" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 10 12 5 2 10l10 5 10-5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 12v5c3 1.5 9 1.5 12 0v-5" /></svg>
-      <p className="text-sm">在籍登録が完了すると、出席・時間割・証明書などが確認できます</p>
+      <p className="text-sm">{t("在籍登録が完了すると、出席・時間割・証明書などが確認できます")}</p>
     </div>
   );
 
@@ -374,7 +377,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
           </div>
           <div className="text-right">
             <p className="font-mono text-sm text-navy-300">{s.studentNo}</p>
-            <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">{s.status}</span>
+            <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">{t(s.status)}</span>
           </div>
         </div>
       </div>
@@ -384,7 +387,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
         <div className="grid grid-cols-5 gap-2 mb-4">
           <div className={`col-span-1 rounded-xl p-3 text-center ${rate >= 80 ? "bg-green-50" : rate >= 70 ? "bg-yellow-50" : "bg-red-50"}`}>
             <p className={`text-2xl font-bold ${rate >= 80 ? "text-green-700" : rate >= 70 ? "text-yellow-700" : "text-red-700"}`}>{rate}%</p>
-            <p className="text-xs text-gray-500 mt-0.5">出席率</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t("出席率")}</p>
           </div>
           {[
             { label: "出席", val: portalData.attendanceSummary?.present, color: "text-green-700" },
@@ -394,7 +397,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
           ].map(({ label, val, color }) => (
             <div key={label} className="bg-gray-50 rounded-xl p-3 text-center">
               <p className={`text-xl font-bold ${color}`}>{val ?? 0}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t(label)}</p>
             </div>
           ))}
         </div>
@@ -409,11 +412,11 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
           { key: "timetable", label: "時間割", icon: "M4 5h16v14H4zM4 9h16M9 5v14" },
           { key: "leave", label: "欠席届", icon: "M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4" },
           { key: "cert", label: "証明書", icon: "M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2zM8 8h8M8 12h6" },
-        ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${tab === t.key ? "bg-white shadow text-navy-800" : "text-gray-500"}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={t.icon} /></svg>
-            {t.label}
+        ].map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key as typeof tab)}
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${tab === tb.key ? "bg-white shadow text-navy-800" : "text-gray-500"}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={tb.icon} /></svg>
+            {t(tb.label)}
           </button>
         ))}
       </div>
@@ -422,14 +425,14 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
       {tab === "attendance" && (
         <div className="space-y-1.5">
           {(portalData.recentAttendances || []).length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-6">出席記録がありません</p>
+            <p className="text-center text-gray-400 text-sm py-6">{t("出席記録がありません")}</p>
           ) : (portalData.recentAttendances || []).map((a, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-100">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500 w-20 shrink-0">{a.date}</span>
                 <span className="text-xs text-gray-700">{a.subject.name}</span>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ATT_COLORS[a.status] || "bg-gray-100 text-gray-600"}`}>{a.status}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ATT_COLORS[a.status] || "bg-gray-100 text-gray-600"}`}>{t(a.status)}</span>
             </div>
           ))}
         </div>
@@ -439,14 +442,14 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
       {tab === "timetable" && (
         <div>
           {(!portalData.timetable || portalData.timetable.length === 0) ? (
-            <p className="text-center text-gray-400 text-sm py-6">時間割が登録されていません</p>
+            <p className="text-center text-gray-400 text-sm py-6">{t("時間割が登録されていません")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-navy-800 text-white">
-                    <th className="px-2 py-2 text-center w-8">時限</th>
-                    {[1,2,3,4,5].map(d => <th key={d} className="px-3 py-2 text-center">{DAY_LABELS[d]}</th>)}
+                    <th className="px-2 py-2 text-center w-8">{t("時限")}</th>
+                    {[1,2,3,4,5].map(d => <th key={d} className="px-3 py-2 text-center">{t(DAY_LABELS[d])}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -482,43 +485,43 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
         <div>
           <div className="flex justify-end mb-3">
             <button onClick={() => setLeaveForm(!leaveForm)} className="text-xs btn-primary px-4 py-2">
-              {leaveForm ? "キャンセル" : "＋ 欠席届を提出"}
+              {leaveForm ? t("キャンセル") : t("＋ 欠席届を提出")}
             </button>
           </div>
           {leaveForm && (
             <div className="border-2 border-navy-200 rounded-xl p-4 bg-navy-50 mb-4">
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="form-label text-xs">種別</label>
+                  <label className="form-label text-xs">{t("種別")}</label>
                   <select className="form-input text-sm" value={leaveType} onChange={e => setLeaveType(e.target.value)}>
-                    {["欠席届", "遅刻届", "早退届"].map(t => <option key={t}>{t}</option>)}
+                    {["欠席届", "遅刻届", "早退届"].map(opt => <option key={opt} value={opt}>{t(opt)}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2 col-span-1">
-                  <div><label className="form-label text-xs">開始日</label><input type="date" className="form-input text-sm" value={leaveStart} onChange={e => setLeaveStart(e.target.value)} /></div>
-                  <div><label className="form-label text-xs">終了日</label><input type="date" className="form-input text-sm" value={leaveEnd} onChange={e => setLeaveEnd(e.target.value)} /></div>
+                  <div><label className="form-label text-xs">{t("開始日")}</label><input type="date" className="form-input text-sm" value={leaveStart} onChange={e => setLeaveStart(e.target.value)} /></div>
+                  <div><label className="form-label text-xs">{t("終了日")}</label><input type="date" className="form-input text-sm" value={leaveEnd} onChange={e => setLeaveEnd(e.target.value)} /></div>
                 </div>
               </div>
               <div className="mb-3">
-                <label className="form-label text-xs">理由</label>
-                <textarea className="form-input text-sm min-h-[70px]" placeholder="欠席・遅刻の理由を記入してください" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
+                <label className="form-label text-xs">{t("理由")}</label>
+                <textarea className="form-input text-sm min-h-[70px]" placeholder={t("欠席・遅刻の理由を記入してください")} value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
               </div>
               <button onClick={handleLeaveSubmit} disabled={submitting} className="w-full btn-primary text-sm disabled:opacity-50">
-                {submitting ? "送信中..." : "提出する"}
+                {submitting ? t("送信中...") : t("提出する")}
               </button>
             </div>
           )}
           <div className="space-y-2">
             {(portalData.leaveRequests || []).length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-6">提出した欠席届はありません</p>
+              <p className="text-center text-gray-400 text-sm py-6">{t("提出した欠席届はありません")}</p>
             ) : (portalData.leaveRequests || []).map(r => (
               <div key={r.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-lg px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{r.type}</p>
+                  <p className="text-sm font-semibold text-gray-800">{t(r.type)}</p>
                   <p className="text-xs text-gray-500">{r.startDate} 〜 {r.endDate} · {r.reason.slice(0, 30)}</p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.status === "承認" ? "bg-green-100 text-green-700" : r.status === "却下" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
-                  {r.status}
+                  {t(r.status)}
                 </span>
               </div>
             ))}
@@ -531,43 +534,43 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
         <div>
           <div className="flex justify-end mb-3">
             <button onClick={() => setCertForm(!certForm)} className="text-xs btn-primary px-4 py-2">
-              {certForm ? "キャンセル" : "＋ 証明書を申請"}
+              {certForm ? t("キャンセル") : t("＋ 証明書を申請")}
             </button>
           </div>
           {certForm && (
             <div className="border-2 border-navy-200 rounded-xl p-4 bg-navy-50 mb-4">
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="form-label text-xs">証明書の種類</label>
+                  <label className="form-label text-xs">{t("証明書の種類")}</label>
                   <select className="form-input text-sm" value={certType} onChange={e => setCertType(e.target.value)}>
-                    {CERT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    {CERT_TYPES.map(opt => <option key={opt} value={opt}>{t(opt)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label text-xs">通数</label>
+                  <label className="form-label text-xs">{t("通数")}</label>
                   <input type="number" min={1} max={10} className="form-input text-sm" value={certCopies} onChange={e => setCertCopies(parseInt(e.target.value) || 1)} />
                 </div>
               </div>
               <div className="mb-3">
-                <label className="form-label text-xs">使用目的（任意）</label>
-                <input type="text" className="form-input text-sm" placeholder="例：ビザ申請、アルバイト先提出" value={certPurpose} onChange={e => setCertPurpose(e.target.value)} />
+                <label className="form-label text-xs">{t("使用目的（任意）")}</label>
+                <input type="text" className="form-input text-sm" placeholder={t("例：ビザ申請、アルバイト先提出")} value={certPurpose} onChange={e => setCertPurpose(e.target.value)} />
               </div>
               <button onClick={handleCertSubmit} disabled={submitting} className="w-full btn-primary text-sm disabled:opacity-50">
-                {submitting ? "申請中..." : "申請する"}
+                {submitting ? t("申請中...") : t("申請する")}
               </button>
             </div>
           )}
           <div className="space-y-2">
             {(portalData.certRequests || []).length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-6">証明書の申請はありません</p>
+              <p className="text-center text-gray-400 text-sm py-6">{t("証明書の申請はありません")}</p>
             ) : (portalData.certRequests || []).map(r => (
               <div key={r.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-lg px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{r.type}</p>
-                  <p className="text-xs text-gray-500">{r.copies}通 · {new Date(r.createdAt).toLocaleDateString("ja-JP")}</p>
+                  <p className="text-sm font-semibold text-gray-800">{t(r.type)}</p>
+                  <p className="text-xs text-gray-500">{r.copies}{t("通")} · {new Date(r.createdAt).toLocaleDateString("ja-JP")}</p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.status === "発行済" ? "bg-green-100 text-green-700" : r.status === "却下" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                  {r.status}
+                  {t(r.status)}
                 </span>
               </div>
             ))}
@@ -581,6 +584,7 @@ function StudentPortalSection({ applicationNo, email }: { applicationNo: string;
 
 function StatusPageInner() {
   const { toast } = useUI();
+  const { t } = useT();
 
   const [applicationNo, setApplicationNo] = useState("");
   const [email, setEmail] = useState("");
@@ -636,8 +640,8 @@ function StatusPageInner() {
       const data = await res.json();
       if (!res.ok) {
         setError(res.status >= 500
-          ? "ただいま確認できませんでした。お手数ですが時間をおいて再度お試しください。"
-          : "出願番号またはメールアドレスが一致しません。入力内容（半角・大文字小文字）をご確認のうえ再度お試しください。解決しない場合は学校までお問い合わせください。");
+          ? t("ただいま確認できませんでした。お手数ですが時間をおいて再度お試しください。")
+          : t("出願番号またはメールアドレスが一致しません。入力内容（半角・大文字小文字）をご確認のうえ再度お試しください。解決しない場合は学校までお問い合わせください。"));
       } else {
         setResult(data);
         setStudentMemo(data.enrollmentProcedure?.studentMemo || "");
@@ -664,10 +668,12 @@ function StatusPageInner() {
         } catch { /* 失敗しても本体は表示する */ }
       }
     } catch {
-      setError("ネットワークエラーが発生しました。");
+      setError(t("ネットワークエラーが発生しました。"));
     } finally {
       setAutoLoading(false);
     }
+  // t は安定参照ではないが、再フェッチ挙動を変えないため依存に含めない
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -685,7 +691,7 @@ function StatusPageInner() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!applicationNo.trim() || !email.trim()) {
-      setError("申請番号とメールアドレスを入力してください");
+      setError(t("申請番号とメールアドレスを入力してください"));
       return;
     }
     setLoading(true);
@@ -707,8 +713,8 @@ function StatusPageInner() {
 
   const submitChangeRequest = async () => {
     if (!result) return;
-    if (!crFieldKey) { setCrError("項目を選択してください"); return; }
-    if (!crNewValue.trim()) { setCrError("新しい値を入力してください"); return; }
+    if (!crFieldKey) { setCrError(t("項目を選択してください")); return; }
+    if (!crNewValue.trim()) { setCrError(t("新しい値を入力してください")); return; }
     setCrSubmitting(true);
     setCrError(null);
     try {
@@ -725,14 +731,14 @@ function StatusPageInner() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setCrError(data.error || "申請に失敗しました");
+        setCrError(data.error || t("申請に失敗しました"));
         return;
       }
       setChangeRequests((prev) => [data, ...prev]);
       setShowChangeModal(false);
-      toast("変更申請を送信しました。管理者の確認をお待ちください。", "success");
+      toast(t("変更申請を送信しました。管理者の確認をお待ちください。"), "success");
     } catch {
-      setCrError("ネットワークエラー");
+      setCrError(t("ネットワークエラー"));
     } finally {
       setCrSubmitting(false);
     }
@@ -747,10 +753,10 @@ function StatusPageInner() {
     });
     if (res.ok) {
       setChangeRequests((prev) => prev.filter((r) => r.id !== reqId));
-      toast("申請を取り下げました", "info");
+      toast(t("申請を取り下げました"), "info");
     } else {
       const err = await res.json().catch(() => ({}));
-      toast(err.error || "取り下げに失敗しました", "error");
+      toast(err.error || t("取り下げに失敗しました"), "error");
     }
   };
 
@@ -772,7 +778,7 @@ function StatusPageInner() {
       });
       if (res.ok) {
         setEnrollSubmitted(true);
-        toast("入学手続きの完了を報告しました", "success");
+        toast(t("入学手続きの完了を報告しました"), "success");
         setResult((prev) =>
           prev
             ? {
@@ -785,10 +791,10 @@ function StatusPageInner() {
         );
       } else {
         const err = await res.json().catch(() => ({}));
-        toast(err.error || "報告に失敗しました。もう一度お試しください。", "error");
+        toast(err.error || t("報告に失敗しました。もう一度お試しください。"), "error");
       }
     } catch {
-      toast("ネットワークエラーが発生しました", "error");
+      toast(t("ネットワークエラーが発生しました"), "error");
     } finally {
       setEnrollSubmitting(false);
     }
@@ -802,11 +808,11 @@ function StatusPageInner() {
     const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png", "webp"];
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     if (!ALLOWED_EXT.includes(ext)) {
-      toast("PDF / JPG / PNG / WebP 形式のファイルを選択してください", "error");
+      toast(t("PDF / JPG / PNG / WebP 形式のファイルを選択してください"), "error");
       return;
     }
     if (file.size > MAX_MB * 1024 * 1024) {
-      toast(`ファイルサイズは ${MAX_MB}MB 以下にしてください（選択: ${(file.size / 1024 / 1024).toFixed(1)}MB）`, "error");
+      toast(`${t("ファイルサイズは")} ${MAX_MB}MB ${t("以下にしてください（選択:")} ${(file.size / 1024 / 1024).toFixed(1)}MB${t("）")}`, "error");
       return;
     }
 
@@ -853,14 +859,14 @@ function StatusPageInner() {
         });
 
         if (supersededIds.length > 0) {
-          toast("差し戻し書類を新しいファイルで置き換えました", "success");
+          toast(t("差し戻し書類を新しいファイルで置き換えました"), "success");
         }
       } else {
         const err = await res.json().catch(() => ({}));
-        toast(err.error || "アップロードに失敗しました", "error");
+        toast(err.error || t("アップロードに失敗しました"), "error");
       }
     } catch {
-      toast("ネットワークエラーが発生しました", "error");
+      toast(t("ネットワークエラーが発生しました"), "error");
     } finally {
       setUploadingDocType(null);
     }
@@ -868,11 +874,11 @@ function StatusPageInner() {
 
   const handleSignatureSave = async (dataUrl: string) => {
     if (!pledgeAgreed) {
-      setSignatureError("入学誓約書の内容を確認・同意してください");
+      setSignatureError(t("入学誓約書の内容を確認・同意してください"));
       return;
     }
     if (!result || !signerName.trim()) {
-      setSignatureError("署名者氏名を入力してください");
+      setSignatureError(t("署名者氏名を入力してください"));
       return;
     }
     setSignatureSaving(true);
@@ -904,10 +910,10 @@ function StatusPageInner() {
         );
       } else {
         const err = await res.json();
-        setSignatureError(err.error || "署名の保存に失敗しました");
+        setSignatureError(err.error || t("署名の保存に失敗しました"));
       }
     } catch {
-      setSignatureError("ネットワークエラーが発生しました");
+      setSignatureError(t("ネットワークエラーが発生しました"));
     } finally {
       setSignatureSaving(false);
     }
@@ -926,7 +932,7 @@ function StatusPageInner() {
   const formatDateOnly = (dateStr: string) => {
     const parts = dateStr.split("-");
     if (parts.length === 3) {
-      return `${parts[0]}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+      return `${parts[0]}${t("年")}${parseInt(parts[1])}${t("月")}${parseInt(parts[2])}${t("日")}`;
     }
     return dateStr;
   };
@@ -968,11 +974,11 @@ function StatusPageInner() {
             </div>
             <div className="leading-none">
               <p className="font-bold">Compass</p>
-              <p className="text-[11px] text-navy-200 mt-0.5">入学出願システム</p>
+              <p className="text-[11px] text-navy-200 mt-0.5">{t("入学出願システム")}</p>
             </div>
           </div>
           <Link href="/" className="text-navy-200 hover:text-white text-sm transition-colors">
-            ← トップへ戻る
+            {t("← トップへ戻る")}
           </Link>
         </div>
       </header>
@@ -1001,11 +1007,11 @@ function StatusPageInner() {
                 <div className="flex items-start gap-4">
                   <svg className="w-8 h-8 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-5a3 3 0 016 0v5M9 11h.01M15 11h.01" /></svg>
                   <div className="flex-1">
-                    <p className="font-bold text-lg mb-1">入学手続きを完了してください</p>
+                    <p className="font-bold text-lg mb-1">{t("入学手続きを完了してください")}</p>
                     <p className="text-green-100 text-sm mb-3">
                       {result.enrollmentProcedure.deadline
-                        ? `手続き期限：${result.enrollmentProcedure.deadline.split("-").join("/")} まで`
-                        : "下記の手続きを順番に完了してください"}
+                        ? `${t("手続き期限：")}${result.enrollmentProcedure.deadline.split("-").join("/")} ${t("まで")}`
+                        : t("下記の手続きを順番に完了してください")}
                     </p>
                     <div className="flex flex-wrap gap-2 text-sm">
                       {[
@@ -1015,7 +1021,7 @@ function StatusPageInner() {
                       ].map((s, i) => (
                         <span key={i} className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${s.done ? "bg-white/30 line-through opacity-70" : "bg-white text-green-700"}`}>
                           {s.done && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                          {s.label}
+                          {t(s.label)}
                         </span>
                       ))}
                     </div>
@@ -1031,15 +1037,15 @@ function StatusPageInner() {
                   <div className="w-14 h-14 mx-auto rounded-2xl bg-navy-800 text-white flex items-center justify-center mb-4 shadow-sm">
                     <CompassMark className="w-7 h-7" />
                   </div>
-                  <h2 className="text-2xl font-bold text-navy-900 tracking-tight">出願状況の確認</h2>
+                  <h2 className="text-2xl font-bold text-navy-900 tracking-tight">{t("出願状況の確認")}</h2>
                   <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-                    申請番号と登録メールアドレスで、審査状況の確認や、書類アップロード・選考料お支払いの続きができます。
+                    {t("申請番号と登録メールアドレスで、審査状況の確認や、書類アップロード・選考料お支払いの続きができます。")}
                   </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                   <form onSubmit={handleSearch} className="space-y-4">
                     <div>
-                      <label className="form-label">申請番号<span className="form-required">*</span></label>
+                      <label className="form-label">{t("申請番号")}<span className="form-required">*</span></label>
                       <input
                         type="text"
                         className="form-input font-mono"
@@ -1047,10 +1053,10 @@ function StatusPageInner() {
                         value={applicationNo}
                         onChange={(e) => setApplicationNo(e.target.value.toUpperCase())}
                       />
-                      <p className="form-helper">出願時にメールでお送りした番号です</p>
+                      <p className="form-helper">{t("出願時にメールでお送りした番号です")}</p>
                     </div>
                     <div>
-                      <label className="form-label">メールアドレス<span className="form-required">*</span></label>
+                      <label className="form-label">{t("メールアドレス")}<span className="form-required">*</span></label>
                       <input
                         type="email"
                         className="form-input"
@@ -1060,13 +1066,13 @@ function StatusPageInner() {
                       />
                     </div>
                     {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{t(error)}</div>
                     )}
                     <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2 active:scale-[0.99]">
                       {loading ? (
-                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>確認中...</>
+                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t("確認中...")}</>
                       ) : (
-                        <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-4-4" /></svg>状況を確認する</>
+                        <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="M21 21l-4-4" /></svg>{t("状況を確認する")}</>
                       )}
                     </button>
                   </form>
@@ -1076,14 +1082,14 @@ function StatusPageInner() {
               /* 結果表示中：コンパクトなヘッダー */
               <div className="flex items-center justify-between mb-4 px-1">
                 <div>
-                  <p className="text-xs text-gray-400">ログイン中</p>
+                  <p className="text-xs text-gray-400">{t("ログイン中")}</p>
                   <p className="font-mono text-sm font-bold text-navy-800">{result.applicationNo}</p>
                 </div>
                 <button
                   onClick={() => { setResult(null); setError(null); setApplicationNo(""); setEmail(""); }}
                   className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg"
                 >
-                  別の申請を確認
+                  {t("別の申請を確認")}
                 </button>
               </div>
             )}
@@ -1094,7 +1100,7 @@ function StatusPageInner() {
             <div className="card">
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">申請番号</p>
+                  <p className="text-sm text-gray-500 mb-1">{t("申請番号")}</p>
                   <p className="font-mono font-bold text-lg text-navy-800">
                     {result.applicationNo}
                   </p>
@@ -1108,13 +1114,13 @@ function StatusPageInner() {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
                         </svg>
-                        差し戻し中
+                        {t("差し戻し中")}
                       </span>
                     );
                   }
                   return (
                     <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(result.status)}`}>
-                      {result.status}
+                      {t(result.status)}
                     </span>
                   );
                 })()}
@@ -1124,10 +1130,10 @@ function StatusPageInner() {
               {result.status === "合格" && (
                 <div className="rounded-xl p-5 mb-6 bg-green-50 border-2 border-green-400 text-center">
                   <svg className="w-10 h-10 mx-auto mb-2 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.883l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
-                  <p className="text-green-800 text-xl font-bold mb-1">合格おめでとうございます！</p>
+                  <p className="text-green-800 text-xl font-bold mb-1">{t("合格おめでとうございます！")}</p>
                   <p className="text-green-700 text-sm mb-4">
-                    書類審査・面接の結果、合格と決定いたしました。<br />
-                    入学手続きに関するご案内をご確認ください。
+                    {t("書類審査・面接の結果、合格と決定いたしました。")}<br />
+                    {t("入学手続きに関するご案内をご確認ください。")}
                   </p>
                   {/* 合格通知書ダウンロード */}
                   <a
@@ -1139,7 +1145,7 @@ function StatusPageInner() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    合格通知書をダウンロード（PDF）
+                    {t("合格通知書をダウンロード（PDF）")}
                   </a>
                 </div>
               )}
@@ -1149,19 +1155,19 @@ function StatusPageInner() {
                 <div className="rounded-xl p-5 mb-6 bg-orange-50 border-2 border-orange-300">
                   <div className="flex items-center gap-3 mb-3">
                     <svg className="w-6 h-6 text-orange-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5h6a1 1 0 011 1v0a1 1 0 01-1 1H9a1 1 0 01-1-1v0a1 1 0 011-1zM8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2M9 12h6M9 16h4" /></svg>
-                    <p className="text-orange-800 text-lg font-bold">補欠合格のご通知</p>
+                    <p className="text-orange-800 text-lg font-bold">{t("補欠合格のご通知")}</p>
                   </div>
                   <p className="text-orange-700 text-sm leading-relaxed mb-3">
-                    審査の結果、あなたの実力は<strong>合格基準を十分に満たしています</strong>。<br />
-                    ただし、今回は定員の関係により、補欠合格という形でのご通知となりました。
+                    {t("審査の結果、あなたの実力は")}<strong>{t("合格基準を十分に満たしています")}</strong>{t("。")}<br />
+                    {t("ただし、今回は定員の関係により、補欠合格という形でのご通知となりました。")}
                   </p>
                   <div className="bg-orange-100 rounded-lg p-3 text-sm text-orange-800">
                     <p className="font-semibold mb-1 flex items-center gap-1.5">
                       <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v7m0 0l8 4v9H4v-9l8-4z" /></svg>
-                      今後の流れについて
+                      {t("今後の流れについて")}
                     </p>
                     <p className="leading-relaxed">
-                      他の合格者の入学辞退が発生した場合、<strong>速やかにご連絡し、正式合格をご案内</strong>いたします。
+                      {t("他の合格者の入学辞退が発生した場合、")}<strong>{t("速やかにご連絡し、正式合格をご案内")}</strong>{t("いたします。")}
                     </p>
                   </div>
                 </div>
@@ -1170,10 +1176,10 @@ function StatusPageInner() {
               {/* 不合格カード */}
               {result.status === "不合格" && (
                 <div className="rounded-xl p-5 mb-6 bg-gray-50 border border-gray-300">
-                  <p className="text-gray-700 text-base font-semibold mb-1">審査結果のご連絡</p>
+                  <p className="text-gray-700 text-base font-semibold mb-1">{t("審査結果のご連絡")}</p>
                   <p className="text-gray-500 text-sm leading-relaxed">
-                    慎重に審査を行いました結果、誠に残念ながら今回はご期待に添えない結果となりました。<br />
-                    今後のご活躍を心よりお祈り申し上げます。
+                    {t("慎重に審査を行いました結果、誠に残念ながら今回はご期待に添えない結果となりました。")}<br />
+                    {t("今後のご活躍を心よりお祈り申し上げます。")}
                   </p>
                 </div>
               )}
@@ -1184,27 +1190,27 @@ function StatusPageInner() {
                   <div className="flex items-center gap-3 mb-3">
                     <svg className="w-6 h-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5h6a1 1 0 011 1v0a1 1 0 01-1 1H9a1 1 0 01-1-1v0a1 1 0 011-1zM8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2M9 12h6M9 16h4" /></svg>
                     <div>
-                      <p className="font-bold text-amber-800 text-base">書類アップロード・選考料のお支払いが未完了です</p>
-                      <p className="text-amber-700 text-xs mt-0.5">出願番号が発行されています。続きの手続きを完了してください。</p>
+                      <p className="font-bold text-amber-800 text-base">{t("書類アップロード・選考料のお支払いが未完了です")}</p>
+                      <p className="text-amber-700 text-xs mt-0.5">{t("出願番号が発行されています。続きの手続きを完了してください。")}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-white rounded-lg border border-amber-200 p-3 text-center">
-                      <p className="text-xs text-gray-500 mb-1">書類</p>
+                      <p className="text-xs text-gray-500 mb-1">{t("書類")}</p>
                       <p className={`text-lg font-bold ${result.documents.length > 0 ? "text-green-600" : "text-amber-600"}`}>
-                        {result.documents.length > 0 ? `${result.documents.length}件提出済み` : "未提出"}
+                        {result.documents.length > 0 ? `${result.documents.length}${t("件提出済み")}` : t("未提出")}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg border border-amber-200 p-3 text-center">
-                      <p className="text-xs text-gray-500 mb-1">選考料</p>
-                      <p className="text-lg font-bold text-amber-600">未払い</p>
+                      <p className="text-xs text-gray-500 mb-1">{t("選考料")}</p>
+                      <p className="text-lg font-bold text-amber-600">{t("未払い")}</p>
                     </div>
                   </div>
                   <a
                     href={`/apply?resume=1&applicationNo=${result.applicationNo}&email=${encodeURIComponent(email)}`}
                     className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition"
                   >
-                    続きをする（書類アップロード・選考料）→
+                    {t("続きをする（書類アップロード・選考料）→")}
                   </a>
                 </div>
               )}
@@ -1222,12 +1228,12 @@ function StatusPageInner() {
                 return (
                   <div className="rounded-xl p-4 mb-6 bg-blue-50 border border-blue-200">
                     <p className="text-sm font-medium text-blue-800">
-                      {({
+                      {t(({
                         受付中: "申請を受け付けました。書類の確認を行います。",
                         書類確認中: "提出された書類を確認中です。",
                         面接待ち: "書類審査が完了しました。面接の日程をご確認ください。",
                         保留: "審査を保留しています。追加書類が必要な場合はご連絡します。",
-                      } as Record<string, string>)[result.status] || "審査中です。"}
+                      } as Record<string, string>)[result.status] || "審査中です。")}
                     </p>
                   </div>
                 );
@@ -1241,10 +1247,10 @@ function StatusPageInner() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.4-4 8-9 8a9.9 9.9 0 0 1-4.5-1L3 20l1-3.5A8 8 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8z" />
                     </svg>
                     <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
-                      事務局からのお知らせ
+                      {t("事務局からのお知らせ")}
                     </p>
                     <span className="ml-auto text-[10px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded-full ring-1 ring-emerald-200">
-                      {result.adminNotes.length}件
+                      {result.adminNotes.length}{t("件")}
                     </span>
                   </div>
                   <ul className="divide-y divide-emerald-100">
@@ -1275,7 +1281,7 @@ function StatusPageInner() {
                 const steps = ["受付", "書類審査", "面接", isHold ? "審査保留中" : "選考終了"];
                 return (
                   <div className="mb-6">
-                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-4">審査の進捗</p>
+                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-4">{t("審査の進捗")}</p>
                     <div className="relative">
                       <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-200" />
                       <div className={`absolute top-4 left-4 right-4 h-0.5 ${isHold ? "bg-amber-400" : "bg-gray-400"}`} />
@@ -1299,7 +1305,7 @@ function StatusPageInner() {
                                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                 )}
                               </div>
-                              <span className={`text-center leading-tight mt-1 ${isTerminal ? (isHold ? "text-amber-700 font-bold" : "text-gray-600 font-bold") : "text-navy-600"}`} style={{ fontSize: "10px" }}>{label}</span>
+                              <span className={`text-center leading-tight mt-1 ${isTerminal ? (isHold ? "text-amber-700 font-bold" : "text-gray-600 font-bold") : "text-navy-600"}`} style={{ fontSize: "10px" }}>{t(label)}</span>
                             </div>
                           );
                         })}
@@ -1320,14 +1326,14 @@ function StatusPageInner() {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4 gap-2">
                       <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">
-                        審査の進捗
+                        {t("審査の進捗")}
                       </p>
                       {hasRejection && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full ring-1 ring-red-200">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 4.5l9 15.5H3z" />
                           </svg>
-                          差し戻し対応中
+                          {t("差し戻し対応中")}
                         </span>
                       )}
                     </div>
@@ -1341,9 +1347,9 @@ function StatusPageInner() {
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-red-900">書類が差し戻されました（{rejectedDocs.length}件）</p>
+                          <p className="text-sm font-bold text-red-900">{t("書類が差し戻されました（")}{rejectedDocs.length}{t("件）")}</p>
                           <p className="text-xs text-red-700 mt-0.5">
-                            下の「提出書類」欄から修正版を再アップロードしてください。再提出されると審査が再開されます。
+                            {t("下の「提出書類」欄から修正版を再アップロードしてください。再提出されると審査が再開されます。")}
                           </p>
                         </div>
                       </div>
@@ -1404,7 +1410,7 @@ function StatusPageInner() {
                                 }`}
                                 style={{ fontSize: "10px" }}
                               >
-                                {label}
+                                {t(label)}
                               </span>
                             </div>
                           );
@@ -1417,7 +1423,7 @@ function StatusPageInner() {
 
               {/* 申請者情報 */}
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">申請者情報</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">{t("申請者情報")}</p>
                 {result.status !== "完了" && result.status !== "辞退" && result.status !== "不合格" && (
                   <button
                     type="button"
@@ -1427,26 +1433,26 @@ function StatusPageInner() {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    情報の変更を申請する
+                    {t("情報の変更を申請する")}
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                 <div>
-                  <p className="text-gray-500">氏名</p>
+                  <p className="text-gray-500">{t("氏名")}</p>
                   <p className="font-medium">{result.lastName} {result.firstName}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">志望校・学科</p>
+                  <p className="text-gray-500">{t("志望校・学科")}</p>
                   <p className="font-medium">{result.schoolName}</p>
                   <p className="text-gray-600">{result.department}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">入学希望</p>
-                  <p className="font-medium">{result.enrollmentYear}年{result.enrollmentMonth}月</p>
+                  <p className="text-gray-500">{t("入学希望")}</p>
+                  <p className="font-medium">{result.enrollmentYear}{t("年")}{result.enrollmentMonth}{t("月")}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">申請日</p>
+                  <p className="text-gray-500">{t("申請日")}</p>
                   <p className="font-medium">{formatDate(result.createdAt)}</p>
                 </div>
               </div>
@@ -1458,7 +1464,7 @@ function StatusPageInner() {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    基本情報の変更申請（{changeRequests.length}件）
+                    {t("基本情報の変更申請（")}{changeRequests.length}{t("件）")}
                   </p>
                   <ul className="space-y-1.5">
                     {changeRequests.map((r) => {
@@ -1469,17 +1475,17 @@ function StatusPageInner() {
                         <li key={r.id} className="bg-white rounded-lg px-3 py-2 text-xs border border-amber-100">
                           <div className="flex items-center justify-between gap-2 mb-0.5">
                             <span className="font-semibold text-gray-800 flex-1 min-w-0 truncate">
-                              {r.fieldLabel}: 「{r.oldValue ?? "(空欄)"}」→「{r.newValue}」
+                              {r.fieldLabel}: 「{r.oldValue ?? t("(空欄)")}」→「{r.newValue}」
                             </span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${badge}`}>{r.status}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${badge}`}>{t(r.status)}</span>
                           </div>
-                          {r.reason && <p className="text-gray-500 text-[11px]">理由: {r.reason}</p>}
-                          {r.reviewerNote && <p className="text-gray-500 text-[11px]">管理者: {r.reviewerNote}</p>}
+                          {r.reason && <p className="text-gray-500 text-[11px]">{t("理由:")} {r.reason}</p>}
+                          {r.reviewerNote && <p className="text-gray-500 text-[11px]">{t("管理者:")} {r.reviewerNote}</p>}
                           {r.status === "申請中" && (
                             <button
                               onClick={() => withdrawChangeRequest(r.id)}
                               className="mt-1 text-[10px] text-gray-500 hover:text-red-600"
-                            >取り下げる</button>
+                            >{t("取り下げる")}</button>
                           )}
                         </li>
                       );
@@ -1492,7 +1498,7 @@ function StatusPageInner() {
               {result.documents.filter(d => !d.docType.startsWith("入学手続き_")).length > 0 && (
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">
-                    提出書類（{result.documents.filter(d => !d.docType.startsWith("入学手続き_")).length}件）
+                    {t("提出書類（")}{result.documents.filter(d => !d.docType.startsWith("入学手続き_")).length}{t("件）")}
                   </p>
                   <div className="space-y-2">
                     {result.documents.filter(d => !d.docType.startsWith("入学手続き_")).map((doc) => {
@@ -1511,15 +1517,15 @@ function StatusPageInner() {
                       return (
                         <div key={doc.id} className={`border rounded-lg px-3 py-2 ${BAR[ds]}`}>
                           <div className="flex items-center gap-2 text-sm flex-wrap">
-                            <span className={`status-badge ${BADGE[ds]}`}>{ds}</span>
-                            <span className="font-medium text-gray-800">{doc.docType}</span>
+                            <span className={`status-badge ${BADGE[ds]}`}>{t(ds)}</span>
+                            <span className="font-medium text-gray-800">{t(doc.docType)}</span>
                             <span className="text-gray-400 text-xs truncate flex-1 min-w-0">— {doc.originalName}</span>
                           </div>
                           {ds === "差し戻し" && (
                             <div className="mt-2 space-y-2">
                               {doc.rejectReason && (
                                 <div className="text-xs text-red-800 bg-white rounded px-2 py-1.5 border border-red-200">
-                                  <span className="font-bold">差し戻し理由：</span>{doc.rejectReason}
+                                  <span className="font-bold">{t("差し戻し理由：")}</span>{doc.rejectReason}
                                 </div>
                               )}
                               {/* 再アップロード UI */}
@@ -1528,15 +1534,15 @@ function StatusPageInner() {
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
                                 </svg>
                                 <span className="text-xs text-gray-700 flex-1 min-w-0">
-                                  <span className="font-semibold text-red-700">修正版をアップロード</span>
-                                  <span className="text-gray-500 ml-1 block sm:inline">PDF / JPG / PNG・最大10MB</span>
+                                  <span className="font-semibold text-red-700">{t("修正版をアップロード")}</span>
+                                  <span className="text-gray-500 ml-1 block sm:inline">{t("PDF / JPG / PNG・最大10MB")}</span>
                                 </span>
                                 <label className={`shrink-0 cursor-pointer text-xs px-3 min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-lg border font-bold transition-colors ${
                                   isReuploading
                                     ? "opacity-50 bg-gray-100 border-gray-200 text-gray-400 cursor-wait"
                                     : "bg-red-600 border-red-600 text-white hover:bg-red-700"
                                 }`}>
-                                  {isReuploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>送信中...</>) : "再アップロード"}
+                                  {isReuploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t("送信中...")}</>) : t("再アップロード")}
                                   <input
                                     type="file"
                                     className="hidden"
@@ -1599,8 +1605,8 @@ function StatusPageInner() {
                 return (
                   <div className={`mt-4 p-4 border rounded-xl ${someCanDownload ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
                     <p className={`text-sm font-bold mb-2 flex items-center gap-1.5 ${someCanDownload ? "text-blue-900" : "text-gray-700"}`}>
-                      <Icon name="ticket" className="w-4 h-4" /> 受験票ダウンロード
-                      {tickets.length > 1 && <span className="ml-1 text-xs font-normal text-gray-500">（志望校ごと）</span>}
+                      <Icon name="ticket" className="w-4 h-4" /> {t("受験票ダウンロード")}
+                      {tickets.length > 1 && <span className="ml-1 text-xs font-normal text-gray-500">{t("（志望校ごと）")}</span>}
                     </p>
 
                     {!overallReady ? (
@@ -1609,45 +1615,45 @@ function StatusPageInner() {
                           <span className={isReady ? "text-green-600" : "text-gray-400"} aria-hidden="true">
                             <Icon name={isReady ? "check" : "info"} className="w-3.5 h-3.5" />
                           </span>
-                          書類審査通過
+                          {t("書類審査通過")}
                           <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isReady ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                            {isReady ? "完了" : "未完了"}
+                            {isReady ? t("完了") : t("未完了")}
                           </span>
-                          <span className="text-gray-400">(現在: {result.status})</span>
+                          <span className="text-gray-400">{t("(現在:")} {t(result.status)})</span>
                         </li>
                         <li className="flex items-center gap-1.5">
                           <span className={!hasRejection ? "text-green-600" : "text-red-600"} aria-hidden="true">
                             <Icon name={!hasRejection ? "check" : "info"} className="w-3.5 h-3.5" />
                           </span>
-                          差し戻し書類がない
+                          {t("差し戻し書類がない")}
                           <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${!hasRejection ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                            {!hasRejection ? "完了" : "未完了"}
+                            {!hasRejection ? t("完了") : t("未完了")}
                           </span>
-                          {hasRejection && <span className="text-red-600 ml-1">— 再提出が必要です</span>}
+                          {hasRejection && <span className="text-red-600 ml-1">{t("— 再提出が必要です")}</span>}
                         </li>
-                        <li className="text-gray-500 pt-1">条件が揃うとダウンロード可能になります。</li>
+                        <li className="text-gray-500 pt-1">{t("条件が揃うとダウンロード可能になります。")}</li>
                       </ul>
                     ) : (
                       <div className="space-y-2">
-                        {tickets.map((t) => {
-                          const can = t.hasSlot;
+                        {tickets.map((tk) => {
+                          const can = tk.hasSlot;
                           const params = new URLSearchParams({
                             applicationNo: result.applicationNo,
                             email,
-                            ...(t.id ? { schoolId: t.id } : { priority: String(t.priority) }),
+                            ...(tk.id ? { schoolId: tk.id } : { priority: String(tk.priority) }),
                           });
                           return (
-                            <div key={t.id || t.priority} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg ${can ? "bg-white border border-blue-200" : "bg-gray-50 border border-gray-200"}`}>
+                            <div key={tk.id || tk.priority} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg ${can ? "bg-white border border-blue-200" : "bg-gray-50 border border-gray-200"}`}>
                               <div className="min-w-0 flex-1">
-                                {t.label && (
+                                {tk.label && (
                                   <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded mb-0.5 ${
-                                    t.priority === 1 ? "bg-navy-800 text-white" : t.priority === 2 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
-                                  }`}>{t.label}</span>
+                                    tk.priority === 1 ? "bg-navy-800 text-white" : tk.priority === 2 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
+                                  }`}>{t(tk.label)}</span>
                                 )}
-                                <p className="text-xs font-semibold text-gray-800 truncate">{t.schoolName}</p>
+                                <p className="text-xs font-semibold text-gray-800 truncate">{tk.schoolName}</p>
                                 <p className="text-[11px] text-gray-500 truncate">
-                                  {t.department}
-                                  {t.date && <span className="ml-1">／ {t.date}{t.time ? ` ${t.time}` : ""}</span>}
+                                  {tk.department}
+                                  {tk.date && <span className="ml-1">／ {tk.date}{tk.time ? ` ${tk.time}` : ""}</span>}
                                 </p>
                               </div>
                               {can ? (
@@ -1657,10 +1663,10 @@ function StatusPageInner() {
                                   rel="noopener noreferrer"
                                   className="shrink-0 px-3 min-h-[36px] inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold rounded-lg whitespace-nowrap transition-all"
                                 >
-                                  <Icon name="ticket" className="w-3.5 h-3.5" /> 受験票
+                                  <Icon name="ticket" className="w-3.5 h-3.5" /> {t("受験票")}
                                 </a>
                               ) : (
-                                <span className="shrink-0 text-[11px] text-gray-400">日程未確定</span>
+                                <span className="shrink-0 text-[11px] text-gray-400">{t("日程未確定")}</span>
                               )}
                             </div>
                           );
@@ -1674,14 +1680,14 @@ function StatusPageInner() {
               {/* 結果公開待ちのお知らせ */}
               {result.resultEmbargoed && result.resultPublishedAt && (
                 <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-sm font-bold text-amber-900">⏳ 合否結果は <span className="font-mono">{new Date(result.resultPublishedAt).toLocaleString("ja-JP")}</span> に公開予定です</p>
-                  <p className="text-xs text-amber-700 mt-1">公開日時前は審査中と表示されます。公開後にこのページで結果をご確認いただけます。</p>
+                  <p className="text-sm font-bold text-amber-900">⏳ {t("合否結果は")} <span className="font-mono">{new Date(result.resultPublishedAt).toLocaleString("ja-JP")}</span> {t("に公開予定です")}</p>
+                  <p className="text-xs text-amber-700 mt-1">{t("公開日時前は審査中と表示されます。公開後にこのページで結果をご確認いただけます。")}</p>
                 </div>
               )}
 
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-xs text-gray-400">
-                  最終更新：{formatDate(result.updatedAt)}
+                  {t("最終更新：")}{formatDate(result.updatedAt)}
                 </p>
               </div>
             </div>
@@ -1740,7 +1746,7 @@ function StatusPageInner() {
 
               const renderSub = (kind: "written" | "interview", data: SubData & { exempted?: boolean }) => {
                 const isWritten = kind === "written";
-                const title = isWritten ? "筆記試験" : "面接試験";
+                const title = isWritten ? t("筆記試験") : t("面接試験");
                 const titleColor = isWritten ? "text-blue-800" : "text-amber-800";
                 const subtleText = isWritten ? "text-blue-700" : "text-amber-700";
                 const bg = isWritten ? "bg-blue-50 border-blue-200" : "bg-amber-50 border-amber-200";
@@ -1752,36 +1758,36 @@ function StatusPageInner() {
                     <p className={`text-xs font-bold ${titleColor} mb-2`}>{title}</p>
                     {isExempted ? (
                       <div className="text-center py-3 px-2 rounded-md border-2 border-dashed border-blue-300 bg-white">
-                        <p className="text-base font-bold text-blue-800 tracking-widest">免　除</p>
-                        <p className="text-[11px] text-blue-600 mt-1">この出願では筆記試験が免除されます</p>
+                        <p className="text-base font-bold text-blue-800 tracking-widest">{t("免　除")}</p>
+                        <p className="text-[11px] text-blue-600 mt-1">{t("この出願では筆記試験が免除されます")}</p>
                       </div>
                     ) : hasData ? (
                       <div className="space-y-1.5 text-xs">
                         <div className="flex gap-3">
-                          <span className={`${subtleText} w-14 flex-shrink-0`}>日付</span>
+                          <span className={`${subtleText} w-14 flex-shrink-0`}>{t("日付")}</span>
                           <span className="text-gray-900 font-semibold">{data.date ? formatDateOnly(data.date) : "—"}</span>
                         </div>
                         {data.time && (
                           <div className="flex gap-3">
-                            <span className={`${subtleText} w-14 flex-shrink-0`}>時間</span>
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>{t("時間")}</span>
                             <span className="text-gray-900 font-semibold">{data.time}</span>
                           </div>
                         )}
                         {data.place && (
                           <div className="flex gap-3">
-                            <span className={`${subtleText} w-14 flex-shrink-0`}>{isWritten ? "試験会場" : "面接会場"}</span>
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>{isWritten ? t("試験会場") : t("面接会場")}</span>
                             <span className="text-gray-900">{data.place}</span>
                           </div>
                         )}
                         {data.notes && (
                           <div className="flex gap-3 pt-1">
-                            <span className={`${subtleText} w-14 flex-shrink-0`}>注意</span>
+                            <span className={`${subtleText} w-14 flex-shrink-0`}>{t("注意")}</span>
                             <span className="text-gray-800 whitespace-pre-line break-words [overflow-wrap:anywhere]">{data.notes}</span>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-gray-500 italic text-center py-2">日程未定</p>
+                      <p className="text-[11px] text-gray-500 italic text-center py-2">{t("日程未定")}</p>
                     )}
                   </div>
                 );
@@ -1796,7 +1802,7 @@ function StatusPageInner() {
                       </svg>
                     </div>
                     <h3 className="font-bold text-blue-900">
-                      {usePerSchool ? "試験のご案内（志望校別）" : "試験のご案内"}
+                      {usePerSchool ? t("試験のご案内（志望校別）") : t("試験のご案内")}
                     </h3>
                   </div>
 
@@ -1807,7 +1813,7 @@ function StatusPageInner() {
                           <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               idx === 0 ? "bg-navy-800 text-white" : idx === 1 ? "bg-navy-200 text-navy-700" : "bg-gray-100 text-gray-600"
-                            }`}>{c.label}</span>
+                            }`}>{t(c.label)}</span>
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-gray-900 truncate">{c.schoolName}</p>
                               <p className="text-[11px] text-gray-600 truncate">{c.department}</p>
@@ -1832,10 +1838,10 @@ function StatusPageInner() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="font-bold text-green-900">入学手続きのご案内</h3>
+                  <h3 className="font-bold text-green-900">{t("入学手続きのご案内")}</h3>
                   {result.enrollmentProcedure.status === "完了" && (
                     <span className="ml-auto text-xs bg-green-600 text-white px-2 py-1 rounded-full">
-                      手続き完了
+                      {t("手続き完了")}
                     </span>
                   )}
                 </div>
@@ -1875,8 +1881,8 @@ function StatusPageInner() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.01M10.34 4.66l-7.1 12.3A1.5 1.5 0 004.55 19.5h14.9a1.5 1.5 0 001.31-2.54l-7.1-12.3a1.5 1.5 0 00-2.62 0z" />
                       </svg>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-red-800">{label}の提出期限を超過しています</p>
-                        <p className="text-xs text-red-700 mt-0.5">このままでは手続きを受け付けられない場合があります。お手数ですが入学相談室までお問い合わせください。</p>
+                        <p className="text-sm font-bold text-red-800">{t(label)}{t("の提出期限を超過しています")}</p>
+                        <p className="text-xs text-red-700 mt-0.5">{t("このままでは手続きを受け付けられない場合があります。お手数ですが入学相談室までお問い合わせください。")}</p>
                       </div>
                     </div>
                   );
@@ -1892,12 +1898,12 @@ function StatusPageInner() {
                               {step1Done ? "✓" : "1"}
                             </div>
                             <p className={`text-sm font-bold ${step1Done ? "text-green-700" : "text-blue-800"}`}>
-                              学費の納入（振込）
+                              {t("学費の納入（振込）")}
                             </p>
                           </div>
                           {ep.step1Deadline && (
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${step1Done ? "bg-green-100 text-green-600" : step1Expired ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              {step1Expired ? "期限超過" : `期限：${formatDateOnly(ep.step1Deadline)}`}
+                              {step1Expired ? t("期限超過") : `${t("期限：")}${formatDateOnly(ep.step1Deadline)}`}
                             </span>
                           )}
                         </div>
@@ -1905,16 +1911,16 @@ function StatusPageInner() {
                           {/* 振込先（選考管理の個別設定 > 支払い設定の全体設定の順で優先。QRは全体設定） */}
                           {(ep.tuitionBankInfo || payCfg?.tuitionBankInfo || payCfg?.tuitionQr) && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                              <p className="text-xs font-bold text-blue-800 mb-1">振込先情報</p>
+                              <p className="text-xs font-bold text-blue-800 mb-1">{t("振込先情報")}</p>
                               {(ep.tuitionBankInfo || payCfg?.tuitionBankInfo) && (
                                 <p className="text-xs text-blue-900 whitespace-pre-line font-mono leading-relaxed">{ep.tuitionBankInfo || payCfg?.tuitionBankInfo}</p>
                               )}
                               {payCfg?.tuitionQr && (
                                 <div className="mt-3 flex flex-col items-center gap-1.5 pt-3 border-t border-blue-200">
-                                  <p className="text-[11px] font-bold text-blue-700">QRコードで支払う</p>
+                                  <p className="text-[11px] font-bold text-blue-700">{t("QRコードで支払う")}</p>
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={payCfg.tuitionQr} alt="学費お支払いQRコード" className="w-40 h-40 object-contain bg-white rounded-lg border border-blue-200 p-1" />
-                                  <p className="text-[10px] text-blue-400">決済アプリでスキャンしてお支払いください</p>
+                                  <img src={payCfg.tuitionQr} alt={t("学費お支払いQRコード")} className="w-40 h-40 object-contain bg-white rounded-lg border border-blue-200 p-1" />
+                                  <p className="text-[10px] text-blue-400">{t("決済アプリでスキャンしてお支払いください")}</p>
                                 </div>
                               )}
                             </div>
@@ -1922,24 +1928,24 @@ function StatusPageInner() {
                           {/* 金額 */}
                           <div className={`rounded-lg p-3 mb-3 ${ep.tuitionPlan === "分割（2期）" ? "bg-purple-50 border border-purple-200" : "bg-gray-50 border border-gray-200"}`}>
                             <p className="text-xs font-bold text-gray-700 mb-2">
-                              {ep.tuitionPlan === "分割（2期）" ? "分割払い（2期）" : "全額一括払い"}
+                              {ep.tuitionPlan === "分割（2期）" ? t("分割払い（2期）") : t("全額一括払い")}
                             </p>
                             {ep.tuitionAmount && (
                               <div className="flex justify-between items-center text-sm mb-1">
-                                <span className="text-gray-600">{ep.tuitionPlan === "分割（2期）" ? "第1期" : "金額"}</span>
+                                <span className="text-gray-600">{ep.tuitionPlan === "分割（2期）" ? t("第1期") : t("金額")}</span>
                                 <span className="font-bold text-gray-900">{ep.tuitionAmount}</span>
                               </div>
                             )}
                             {ep.tuitionPlan === "分割（2期）" && ep.tuitionAmount2 && (
                               <div className="flex justify-between items-center text-sm">
-                                <span className="text-gray-600">第2期{ep.tuitionDeadline2 ? `（${formatDateOnly(ep.tuitionDeadline2)}まで）` : ""}</span>
+                                <span className="text-gray-600">{t("第2期")}{ep.tuitionDeadline2 ? `（${formatDateOnly(ep.tuitionDeadline2)}${t("まで）")}` : ""}</span>
                                 <span className="font-bold text-gray-900">{ep.tuitionAmount2}</span>
                               </div>
                             )}
                           </div>
                           {/* 振込証明書アップロード */}
                           <div>
-                            <p className="text-xs font-medium text-gray-600 mb-2">振込完了後、振込証明書（レシート・明細）をアップロードしてください</p>
+                            <p className="text-xs font-medium text-gray-600 mb-2">{t("振込完了後、振込証明書（レシート・明細）をアップロードしてください")}</p>
                             {step1Expired ? expiredBanner("学費納入") : (() => {
                               const docKey = "入学手続き_振込証明書";
                               const isUploaded = uploadedDocs[docKey] || false;
@@ -1950,10 +1956,10 @@ function StatusPageInner() {
                                     {isUploaded && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                                   </div>
                                   <span className={`flex-1 text-sm ${isUploaded ? "text-green-700 font-medium" : "text-gray-700"}`}>
-                                    振込証明書{isUploaded ? "（アップロード済み）" : ""}
+                                    {t("振込証明書")}{isUploaded ? t("（アップロード済み）") : ""}
                                   </span>
                                   <label className={`shrink-0 cursor-pointer text-xs px-3 min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-lg border transition-colors ${isUploading ? "opacity-50 bg-gray-100 border-gray-200 text-gray-400 cursor-wait" : isUploaded ? "bg-white border-gray-300 text-gray-600" : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700"}`}>
-                                    {isUploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>送信中...</>) : isUploaded ? "再アップロード" : "ファイルを選択"}
+                                    {isUploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t("送信中...")}</>) : isUploaded ? t("再アップロード") : t("ファイルを選択")}
                                     <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={isUploading}
                                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(docKey, f); e.target.value = ""; }} />
                                   </label>
@@ -1972,17 +1978,17 @@ function StatusPageInner() {
                               {step2Done ? "✓" : "2"}
                             </div>
                             <p className={`text-sm font-bold ${step2Done ? "text-green-700" : "text-purple-800"}`}>
-                              必要書類の提出
+                              {t("必要書類の提出")}
                             </p>
                           </div>
                           {ep.step2Deadline && (
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${step2Done ? "bg-green-100 text-green-600" : step2Expired ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              {step2Expired ? "期限超過" : `期限：${formatDateOnly(ep.step2Deadline)}`}
+                              {step2Expired ? t("期限超過") : `${t("期限：")}${formatDateOnly(ep.step2Deadline)}`}
                             </span>
                           )}
                         </div>
                         <div className="p-4">
-                          {!step1Done && <p className="text-xs text-gray-400 text-center py-2">STEP 1（学費納入）を完了してから進んでください</p>}
+                          {!step1Done && <p className="text-xs text-gray-400 text-center py-2">{t("STEP 1（学費納入）を完了してから進んでください")}</p>}
                           {step1Done && (step2Expired ? expiredBanner("書類提出") : (
                             <div className="divide-y divide-gray-100">
                               {checklistItems.map((item, i) => {
@@ -1996,10 +2002,10 @@ function StatusPageInner() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <span className={`text-sm ${isUploaded ? "text-green-700 font-medium" : "text-gray-700"}`}>{item.name}</span>
-                                      {item.required && !isUploaded && <span className="ml-1.5 text-xs text-red-600 font-semibold">必須</span>}
+                                      {item.required && !isUploaded && <span className="ml-1.5 text-xs text-red-600 font-semibold">{t("必須")}</span>}
                                     </div>
                                     <label className={`shrink-0 cursor-pointer text-xs px-3 min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-lg border ${isUploading ? "opacity-50 bg-gray-100 border-gray-200 text-gray-400 cursor-wait" : isUploaded ? "bg-white border-gray-300 text-gray-600" : "bg-purple-600 border-purple-600 text-white hover:bg-purple-700"}`}>
-                                      {isUploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>送信中...</>) : isUploaded ? "再UP" : "選択"}
+                                      {isUploading ? (<><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>{t("送信中...")}</>) : isUploaded ? t("再UP") : t("選択")}
                                       <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={isUploading}
                                         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(docKey, f); e.target.value = ""; }} />
                                     </label>
@@ -2019,24 +2025,24 @@ function StatusPageInner() {
                               {step3Done ? "✓" : "3"}
                             </div>
                             <p className={`text-sm font-bold ${step3Done ? "text-green-700" : "text-teal-800"}`}>
-                              入学誓約書への電子署名
+                              {t("入学誓約書への電子署名")}
                             </p>
                           </div>
                           {ep.step3Deadline && (
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${step3Done ? "bg-green-100 text-green-600" : step3Expired ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              {step3Expired ? "期限超過" : `期限：${formatDateOnly(ep.step3Deadline)}`}
+                              {step3Expired ? t("期限超過") : `${t("期限：")}${formatDateOnly(ep.step3Deadline)}`}
                             </span>
                           )}
                         </div>
                         <div className="p-4">
-                          {(!step1Done || !step2Done) && <p className="text-xs text-gray-400 text-center py-2">STEP 1・2を完了してから進んでください</p>}
+                          {(!step1Done || !step2Done) && <p className="text-xs text-gray-400 text-center py-2">{t("STEP 1・2を完了してから進んでください")}</p>}
                           {step1Done && step2Done && (
                             step3Done ? (
                               <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                                 <div className="flex items-center gap-3">
                                   <svg className="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                                   <div>
-                                    <p className="text-sm font-medium text-green-700">署名完了</p>
+                                    <p className="text-sm font-medium text-green-700">{t("署名完了")}</p>
                                     {result.enrollmentSignature && <p className="text-xs text-green-600">{result.enrollmentSignature.signerName} · {formatDate(result.enrollmentSignature.signedAt)}</p>}
                                   </div>
                                 </div>
@@ -2046,33 +2052,33 @@ function StatusPageInner() {
                                   className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" /></svg>
-                                  入学誓約書（PDF）をダウンロード
+                                  {t("入学誓約書（PDF）をダウンロード")}
                                 </a>
                               </div>
                             ) : step3Expired ? expiredBanner("電子署名") : (
                               <>
                                 {/* 誓約書の全文（署名前に必ず表示） */}
                                 <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                  <p className="text-sm font-bold text-gray-800 text-center mb-1">入学誓約書</p>
-                                  <p className="text-xs text-gray-500 mb-2">{result.schoolName}　御中</p>
-                                  <p className="text-xs text-gray-700 leading-relaxed mb-2">{PLEDGE_INTRO}</p>
+                                  <p className="text-sm font-bold text-gray-800 text-center mb-1">{t("入学誓約書")}</p>
+                                  <p className="text-xs text-gray-500 mb-2">{result.schoolName}　{t("御中")}</p>
+                                  <p className="text-xs text-gray-700 leading-relaxed mb-2">{t(PLEDGE_INTRO)}</p>
                                   <ol className="list-decimal list-inside space-y-1 text-xs text-gray-700 leading-relaxed">
-                                    {PLEDGE_ITEMS.map((item, i) => <li key={i}>{item}</li>)}
+                                    {PLEDGE_ITEMS.map((item, i) => <li key={i}>{t(item)}</li>)}
                                   </ol>
-                                  <p className="text-[11px] text-gray-400 mt-2">署名すると、上記の内容で入学誓約書（PDF）が作成されます。</p>
+                                  <p className="text-[11px] text-gray-400 mt-2">{t("署名すると、上記の内容で入学誓約書（PDF）が作成されます。")}</p>
                                 </div>
                                 <label className="flex items-start gap-2 mb-3 cursor-pointer">
                                   <input type="checkbox" className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0" checked={pledgeAgreed} onChange={(e) => setPledgeAgreed(e.target.checked)} disabled={signatureSaving} />
-                                  <span className="text-xs text-gray-700">上記の入学誓約書の内容を確認し、同意します。</span>
+                                  <span className="text-xs text-gray-700">{t("上記の入学誓約書の内容を確認し、同意します。")}</span>
                                 </label>
                                 <div className="mb-3">
-                                  <label className="block text-xs font-medium text-gray-600 mb-1">署名者氏名（フルネーム）</label>
-                                  <input type="text" className="form-input text-sm" placeholder="例：山田 太郎" value={signerName} onChange={(e) => setSignerName(e.target.value)} disabled={signatureSaving} />
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">{t("署名者氏名（フルネーム）")}</label>
+                                  <input type="text" className="form-input text-sm" placeholder={t("例：山田 太郎")} value={signerName} onChange={(e) => setSignerName(e.target.value)} disabled={signatureSaving} />
                                 </div>
-                                {!pledgeAgreed && <p className="text-[11px] text-amber-600 mb-2">※ 内容を確認・同意のうえ署名してください。</p>}
+                                {!pledgeAgreed && <p className="text-[11px] text-amber-600 mb-2">{t("※ 内容を確認・同意のうえ署名してください。")}</p>}
                                 <SignatureCanvas onSave={handleSignatureSave} disabled={signatureSaving || !pledgeAgreed} />
-                                {signatureError && <p className="text-xs text-red-500 mt-2">{signatureError}</p>}
-                                {signatureSaving && <p className="text-xs text-gray-400 mt-2 text-center">保存中...</p>}
+                                {signatureError && <p className="text-xs text-red-500 mt-2">{t(signatureError)}</p>}
+                                {signatureSaving && <p className="text-xs text-gray-400 mt-2 text-center">{t("保存中...")}</p>}
                               </>
                             )
                           )}
@@ -2087,22 +2093,22 @@ function StatusPageInner() {
                               {enrollSubmitted ? "✓" : "4"}
                             </div>
                             <p className={`text-sm font-bold ${enrollSubmitted ? "text-green-700" : "text-gray-700"}`}>
-                              手続き完了を報告する
+                              {t("手続き完了を報告する")}
                             </p>
                           </div>
                         </div>
                         <div className="p-4">
                           {!allDone && !enrollSubmitted && (
-                            <p className="text-xs text-gray-400 text-center py-2">STEP 1〜3をすべて完了してから報告できます</p>
+                            <p className="text-xs text-gray-400 text-center py-2">{t("STEP 1〜3をすべて完了してから報告できます")}</p>
                           )}
                           {(allDone || enrollSubmitted) && (
                             <>
                               {!enrollSubmitted && (
-                                <p className="text-xs text-gray-500 mb-3">すべての手続きが完了しました。報告ボタンを押して手続きを締めてください。</p>
+                                <p className="text-xs text-gray-500 mb-3">{t("すべての手続きが完了しました。報告ボタンを押して手続きを締めてください。")}</p>
                               )}
                               <textarea
                                 className="form-input text-sm min-h-[70px] resize-y mb-3"
-                                placeholder="例：振込・書類・署名すべて完了しました。"
+                                placeholder={t("例：振込・書類・署名すべて完了しました。")}
                                 value={studentMemo}
                                 onChange={(e) => setStudentMemo(e.target.value)}
                                 disabled={enrollSubmitted}
@@ -2112,20 +2118,20 @@ function StatusPageInner() {
                                 disabled={enrollSubmitting || enrollSubmitted}
                                 className={`btn-primary w-full text-sm ${enrollSubmitted ? "opacity-60 cursor-not-allowed" : ""}`}
                               >
-                                {enrollSubmitting ? "送信中..." : enrollSubmitted ? (
+                                {enrollSubmitting ? t("送信中...") : enrollSubmitted ? (
                                   <span className="flex items-center justify-center gap-1.5">
                                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                    手続き完了を報告しました
+                                    {t("手続き完了を報告しました")}
                                   </span>
                                 ) : (
                                   <span className="flex items-center justify-center gap-1.5">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    手続き完了を報告する
+                                    {t("手続き完了を報告する")}
                                   </span>
                                 )}
                               </button>
                               {enrollSubmitted && result.enrollmentProcedure?.completedAt && (
-                                <p className="text-xs text-green-600 mt-2 text-center">完了報告日：{formatDate(result.enrollmentProcedure.completedAt)}</p>
+                                <p className="text-xs text-green-600 mt-2 text-center">{t("完了報告日：")}{formatDate(result.enrollmentProcedure.completedAt)}</p>
                               )}
                             </>
                           )}
@@ -2154,12 +2160,12 @@ function StatusPageInner() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-bold text-amber-800">学校確認中</p>
-                      <p className="text-xs text-amber-600">手続き内容を確認しています。しばらくお待ちください。</p>
+                      <p className="font-bold text-amber-800">{t("学校確認中")}</p>
+                      <p className="text-xs text-amber-600">{t("手続き内容を確認しています。しばらくお待ちください。")}</p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 bg-amber-50 rounded-lg p-3">
-                    確認が完了すると、入学許可書が発行されます。通常2〜5営業日以内にご連絡いたします。
+                    {t("確認が完了すると、入学許可書が発行されます。通常2〜5営業日以内にご連絡いたします。")}
                   </p>
                 </div>
               ) : (
@@ -2171,8 +2177,8 @@ function StatusPageInner() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-bold text-green-800">入学手続き完了</p>
-                      <p className="text-xs text-green-600">学校承認が完了しました。入学許可書を発行しました。</p>
+                      <p className="font-bold text-green-800">{t("入学手続き完了")}</p>
+                      <p className="text-xs text-green-600">{t("学校承認が完了しました。入学許可書を発行しました。")}</p>
                     </div>
                   </div>
                   <a
@@ -2184,7 +2190,7 @@ function StatusPageInner() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    入学許可書をダウンロード（PDF）
+                    {t("入学許可書をダウンロード（PDF）")}
                   </a>
                 </div>
               )}
@@ -2194,18 +2200,18 @@ function StatusPageInner() {
                 <div className="card border-l-4 border-blue-500">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 21V4a1 1 0 011-1h0a1 1 0 011 1v17M7 5h11l-2.5 3L18 11H7" /></svg>
-                    <p className="font-bold text-blue-800">入学式のご案内</p>
+                    <p className="font-bold text-blue-800">{t("入学式のご案内")}</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-4 space-y-2 text-sm">
                     {result.enrollmentProcedure.ceremonyDate && (
                       <div className="flex gap-3">
-                        <span className="text-blue-600 font-medium w-12 shrink-0">日時</span>
+                        <span className="text-blue-600 font-medium w-12 shrink-0">{t("日時")}</span>
                         <span className="text-blue-900 font-bold">{formatDateOnly(result.enrollmentProcedure.ceremonyDate)}</span>
                       </div>
                     )}
                     {result.enrollmentProcedure.ceremonyPlace && (
                       <div className="flex gap-3">
-                        <span className="text-blue-600 font-medium w-12 shrink-0">会場</span>
+                        <span className="text-blue-600 font-medium w-12 shrink-0">{t("会場")}</span>
                         <span className="text-blue-900">{result.enrollmentProcedure.ceremonyPlace}</span>
                       </div>
                     )}
@@ -2225,7 +2231,7 @@ function StatusPageInner() {
                 <div className="card border-l-4 border-purple-500">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1zM12 8a2 2 0 100 4 2 2 0 000-4zM9 16h6" /></svg>
-                    <p className="font-bold text-purple-800">ビザ・在留資格 更新手続きのご案内</p>
+                    <p className="font-bold text-purple-800">{t("ビザ・在留資格 更新手続きのご案内")}</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
                     {result.enrollmentProcedure.visaGuideNotes ? (
@@ -2234,8 +2240,8 @@ function StatusPageInner() {
                       </p>
                     ) : (
                       <p className="text-purple-700 text-sm">
-                        在留資格の更新・変更手続きについては、入学相談室までご相談ください。<br />
-                        （平日9:00〜17:00）
+                        {t("在留資格の更新・変更手続きについては、入学相談室までご相談ください。")}<br />
+                        {t("（平日9:00〜17:00）")}
                       </p>
                     )}
                   </div>
@@ -2250,7 +2256,7 @@ function StatusPageInner() {
         {/* お問い合わせ */}
         <div className="mt-10 text-center">
           <p className="text-gray-500 text-sm">
-            ご不明な点がございましたら、入学相談室（平日9:00〜17:00）までお問い合わせください。
+            {t("ご不明な点がございましたら、入学相談室（平日9:00〜17:00）までお問い合わせください。")}
           </p>
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
             <Link
@@ -2258,7 +2264,7 @@ function StatusPageInner() {
               className="inline-flex items-center gap-1.5 text-navy-700 hover:text-navy-900 text-sm font-semibold transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" /></svg>
-              新規出願はこちら
+              {t("新規出願はこちら")}
             </Link>
             <span className="hidden sm:inline-block w-px h-4 bg-gray-300" aria-hidden />
             <Link
@@ -2266,7 +2272,7 @@ function StatusPageInner() {
               className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 text-sm font-semibold transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 10 12 5 2 10l10 5 10-5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 12v5c3 1.5 9 1.5 12 0v-5" /></svg>
-              在籍学生の方はこちら（学生My Page）
+              {t("在籍学生の方はこちら（学生My Page）")}
             </Link>
           </div>
         </div>
@@ -2280,38 +2286,38 @@ function StatusPageInner() {
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="基本情報の変更を申請"
+          aria-label={t("基本情報の変更を申請")}
           onClick={() => setShowChangeModal(false)}
           onKeyDown={(e) => { if (e.key === "Escape") setShowChangeModal(false); }}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-navy-800">基本情報の変更を申請</h3>
+              <h3 className="text-lg font-bold text-navy-800">{t("基本情報の変更を申請")}</h3>
               <button
                 onClick={() => setShowChangeModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-                aria-label="閉じる"
+                aria-label={t("閉じる")}
               >×</button>
             </div>
             <div className="px-6 py-5 space-y-4">
               {crError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  {crError}
+                  {t(crError)}
                 </div>
               )}
 
               <p className="text-xs text-gray-600 leading-relaxed">
-                変更したい項目を選び、新しい値と理由を入力してください。管理者が確認後、承認されると反映されます。
+                {t("変更したい項目を選び、新しい値と理由を入力してください。管理者が確認後、承認されると反映されます。")}
               </p>
 
               <div>
-                <label className="form-label">変更する項目 <span className="form-required">*</span></label>
+                <label className="form-label">{t("変更する項目")} <span className="form-required">*</span></label>
                 <select
                   className="form-input"
                   value={crFieldKey}
                   onChange={(e) => openChangeModal(e.target.value)}
                 >
-                  <option value="">選択してください</option>
+                  <option value="">{t("選択してください")}</option>
                   {changeFieldDefs.map((f) => (
                     <option key={f.key} value={f.key}>{f.label}</option>
                   ))}
@@ -2320,11 +2326,11 @@ function StatusPageInner() {
 
               {crFieldKey && (
                 <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <p className="text-xs text-gray-500">現在の値</p>
+                  <p className="text-xs text-gray-500">{t("現在の値")}</p>
                   <p className="text-sm font-medium text-gray-700 break-words">
                     {(() => {
                       const v = (result as unknown as Record<string, unknown>)[crFieldKey];
-                      return v == null || v === "" ? <span className="text-gray-400">(未設定)</span> : String(v);
+                      return v == null || v === "" ? <span className="text-gray-400">{t("(未設定)")}</span> : String(v);
                     })()}
                   </p>
                 </div>
@@ -2332,10 +2338,10 @@ function StatusPageInner() {
 
               {crFieldKey && currentFieldDef && (
                 <div>
-                  <label className="form-label">新しい値 <span className="form-required">*</span></label>
+                  <label className="form-label">{t("新しい値")} <span className="form-required">*</span></label>
                   {currentFieldDef.type === "select" && currentFieldDef.options ? (
                     <select className="form-input" value={crNewValue} onChange={(e) => setCrNewValue(e.target.value)}>
-                      <option value="">選択してください</option>
+                      <option value="">{t("選択してください")}</option>
                       {currentFieldDef.options.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -2354,10 +2360,10 @@ function StatusPageInner() {
 
               {crFieldKey && (
                 <div>
-                  <label className="form-label">変更理由（任意）</label>
+                  <label className="form-label">{t("変更理由（任意）")}</label>
                   <textarea
                     className="form-input min-h-[80px]"
-                    placeholder="例：転居のため住所を変更したい"
+                    placeholder={t("例：転居のため住所を変更したい")}
                     value={crReason}
                     onChange={(e) => setCrReason(e.target.value)}
                     maxLength={500}
@@ -2368,12 +2374,12 @@ function StatusPageInner() {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
                 <p className="font-bold mb-0.5 flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.01M10.34 4.66l-7.1 12.3A1.5 1.5 0 004.55 19.5h14.9a1.5 1.5 0 001.31-2.54l-7.1-12.3a1.5 1.5 0 00-2.62 0z" /></svg>
-                  注意事項
+                  {t("注意事項")}
                 </p>
                 <ul className="space-y-0.5 list-disc list-inside">
-                  <li>管理者の承認後に反映されます（即時には変わりません）</li>
-                  <li>同じ項目を複数同時に申請することはできません</li>
-                  <li>志望校・学科の変更は本機能では受け付けていません</li>
+                  <li>{t("管理者の承認後に反映されます（即時には変わりません）")}</li>
+                  <li>{t("同じ項目を複数同時に申請することはできません")}</li>
+                  <li>{t("志望校・学科の変更は本機能では受け付けていません")}</li>
                 </ul>
               </div>
             </div>
@@ -2382,12 +2388,12 @@ function StatusPageInner() {
                 onClick={() => setShowChangeModal(false)}
                 disabled={crSubmitting}
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >キャンセル</button>
+              >{t("キャンセル")}</button>
               <button
                 onClick={submitChangeRequest}
                 disabled={crSubmitting || !crFieldKey || !crNewValue.trim()}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-lg"
-              >{crSubmitting ? "送信中..." : "変更を申請する"}</button>
+              >{crSubmitting ? t("送信中...") : t("変更を申請する")}</button>
             </div>
           </div>
         </div>

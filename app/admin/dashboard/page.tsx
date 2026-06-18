@@ -8,6 +8,7 @@ import { SkeletonList } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/Icon";
 import { HelpTip } from "@/components/admin/HelpTip";
+import { APPLICANT_TYPE_LABEL } from "@/lib/applicantType";
 
 const STATUSES = ["all", "受付中", "書類確認中", "面接待ち", "結果待ち", "合格", "補欠合格", "不合格", "保留"];
 const JAPANESE_LEVELS = ["all", "N1", "N2", "N3", "N4", "N5", "なし"];
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
+  const [applicantTypeFilter, setApplicantTypeFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
   const [cohortFilter, setCohortFilter] = useState("all");
@@ -209,6 +211,7 @@ export default function AdminDashboard() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (applicantTypeFilter !== "all") params.set("applicantType", applicantTypeFilter);
       if (levelFilter !== "all") params.set("japaneseLevel", levelFilter);
       if (agentFilter !== "all") params.set("agentId", agentFilter);
       if (cohortFilter !== "all") params.set("cohortId", cohortFilter);
@@ -225,7 +228,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, levelFilter, agentFilter, cohortFilter, search, todayOnly, router]);
+  }, [page, pageSize, statusFilter, applicantTypeFilter, levelFilter, agentFilter, cohortFilter, search, todayOnly, router]);
 
   useEffect(() => {
     fetchApplications();
@@ -511,6 +514,13 @@ export default function AdminDashboard() {
               {STATUSES.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
+            {/* 出願者タイプ */}
+            <select className="form-input w-full sm:w-32" value={applicantTypeFilter} onChange={e => { setApplicantTypeFilter(e.target.value); setPage(1); }}>
+              <option value="all">全ての区分</option>
+              <option value="japanese">{APPLICANT_TYPE_LABEL.japanese}</option>
+              <option value="foreign">{APPLICANT_TYPE_LABEL.foreign}</option>
+            </select>
+
             {/* 日本語レベル */}
             <select className="form-input w-full sm:w-36" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
               <option value="all">全日本語レベル</option>
@@ -586,17 +596,18 @@ export default function AdminDashboard() {
           </div>
 
           {/* アクティブフィルター表示 */}
-          {(statusFilter !== "all" || levelFilter !== "all" || agentFilter !== "all" || cohortFilter !== "all" || todayOnly || search) && (
+          {(statusFilter !== "all" || applicantTypeFilter !== "all" || levelFilter !== "all" || agentFilter !== "all" || cohortFilter !== "all" || todayOnly || search) && (
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
               <span className="text-xs text-gray-400 self-center">フィルター:</span>
               {todayOnly && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">今日のみ <button onClick={() => { setTodayOnly(false); setPage(1); }} className="ml-1 hover:text-orange-900">×</button></span>}
               {statusFilter !== "all" && <span className="text-xs bg-navy-100 text-navy-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{statusFilter} <button onClick={() => { setStatusFilter("all"); setPage(1); }} className="ml-1 hover:text-navy-900">×</button></span>}
+              {applicantTypeFilter !== "all" && <span className={`text-xs px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 ${applicantTypeFilter === "japanese" ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700"}`}>{APPLICANT_TYPE_LABEL[applicantTypeFilter as "japanese" | "foreign"] ?? applicantTypeFilter} <button onClick={() => { setApplicantTypeFilter("all"); setPage(1); }} className="ml-1 hover:opacity-70">×</button></span>}
               {levelFilter !== "all" && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{levelFilter} <button onClick={() => { setLevelFilter("all"); setPage(1); }} className="ml-1 hover:text-purple-900">×</button></span>}
               {cohortFilter !== "all" && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{cohorts.find(c => c.id === cohortFilter)?.name ?? cohortFilter} <button onClick={() => { setCohortFilter("all"); setPage(1); }} className="ml-1 hover:text-indigo-900">×</button></span>}
               {agentFilter !== "all" && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">{agents.find(a => a.id === agentFilter)?.name ?? agentFilter} <button onClick={() => { setAgentFilter("all"); setPage(1); }} className="ml-1 hover:text-blue-900">×</button></span>}
               {search && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">"{search}" <button onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }} className="ml-1 hover:text-gray-900">×</button></span>}
               <button
-                onClick={() => { setStatusFilter("all"); setLevelFilter("all"); setAgentFilter("all"); setCohortFilter("all"); setTodayOnly(false); setSearch(""); setSearchInput(""); setPage(1); }}
+                onClick={() => { setStatusFilter("all"); setApplicantTypeFilter("all"); setLevelFilter("all"); setAgentFilter("all"); setCohortFilter("all"); setTodayOnly(false); setSearch(""); setSearchInput(""); setPage(1); }}
                 className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-0.5 rounded-full hover:bg-red-50 transition"
               >
                 すべてクリア

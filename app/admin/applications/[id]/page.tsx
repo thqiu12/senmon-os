@@ -16,6 +16,7 @@ import { InterviewFeedbackCard } from "@/components/admin/InterviewFeedbackCard"
 import { InterviewSummaryCard } from "@/components/admin/InterviewSummaryCard";
 import { EmailDraftCard } from "@/components/admin/EmailDraftCard";
 import { DocCheckCard } from "@/components/admin/DocCheckCard";
+import { APPLICANT_TYPE_LABEL, isApplicantType } from "@/lib/applicantType";
 
 
 const STATUSES = ["受付中", "書類確認中", "面接待ち", "結果待ち", "合格", "補欠合格", "不合格", "保留", "辞退"];
@@ -113,6 +114,7 @@ interface Application {
   firstNameKana: string;
   birthDate: string;
   gender: string;
+  applicantType: string;
   nationality: string;
   phone: string;
   email: string;
@@ -1322,6 +1324,14 @@ export default function ApplicationDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {(() => {
+              const at = isApplicantType(application.applicantType) ? application.applicantType : "foreign";
+              return (
+                <span className={`rounded-full text-sm px-3 py-1 font-medium ${at === "japanese" ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700"}`}>
+                  {APPLICANT_TYPE_LABEL[at]}
+                </span>
+              );
+            })()}
             <span className={`status-badge text-sm px-3 py-1 ${getStatusStyle(application.status)}`}>
               {application.status}
             </span>

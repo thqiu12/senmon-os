@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
+import { getSession, isAdmin as checkAdmin, verifyApplicationStudentAccess } from "@/lib/auth";
 
 // GET: 申請詳細取得（管理者 or 申請番号+メールで本人確認）
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get("email");
+    const applicationNo = searchParams.get("applicationNo");
     const session = await getSession(request);
     const isAdmin = checkAdmin(session);
 
     const application = await prisma.application.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         documents: true,
         adminNotes: {
@@ -38,9 +40,13 @@ export async function GET(
       );
     }
 
-    // 本人確認（管理者でない場合はメールアドレスで確認）
+    // 本人確認（管理者でない場合は申請番号 + メール + 対象IDをすべて照合）
     if (!isAdmin) {
-      if (!email || application.email !== email) {
+      if (
+        !applicationNo ||
+        !email ||
+        !(await verifyApplicationStudentAccess(id, applicationNo, email))
+      ) {
         return NextResponse.json(
           { error: "アクセスが拒否されました" },
           { status: 403 }
@@ -76,8 +82,9 @@ export async function GET(
 // PATCH: 申請の更新（管理者のみ）
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSession(request);
   try {
     if (!checkAdmin(session)) {
@@ -119,7 +126,7 @@ export async function PATCH(
     if (body.referrerType !== undefined) updateData.referrerType = body.referrerType;
 
     const application = await prisma.application.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         documents: true,
@@ -135,12 +142,12 @@ export async function PATCH(
     // 合格・補欠合格になった場合、入学手続きを自動作成・公開
     if (status === "合格" || status === "補欠合格") {
       const existing = await prisma.enrollmentProcedure.findUnique({
-        where: { applicationId: params.id },
+        where: { applicationId: id },
       });
       if (!existing) {
         // 申請に紐づくCohortのデフォルト設定を取得
         const appWithCohort = await prisma.application.findUnique({
-          where: { id: params.id },
+          where: { id },
           include: { cohort: true },
         });
         const cohort = appWithCohort?.cohort;
@@ -156,7 +163,7 @@ export async function PATCH(
         await prisma.enrollmentProcedure.create({
           data: {
             id: crypto.randomUUID(),
-            applicationId: params.id,
+            applicationId: id,
             instructions: "おめでとうございます！入学手続きを以下の手順で完了してください。\n\n① 学費をお振込みください\n② 必要書類をアップロードしてください\n③ 入学誓約書に電子署名してください\n④ すべて完了したら「手続き完了を報告する」ボタンを押してください\n\nご不明な点は入学相談室（平日9:00〜17:00）までお問い合わせください。",
             status: "案内済み",
             publishedAt: new Date(),
@@ -175,7 +182,7 @@ export async function PATCH(
         });
       } else if (!existing.publishedAt) {
         await prisma.enrollmentProcedure.update({
-          where: { applicationId: params.id },
+          where: { applicationId: id },
           data: { publishedAt: new Date(), status: "案内済み" },
         });
       }
@@ -186,7 +193,7 @@ export async function PATCH(
       await prisma.adminNote.create({
         data: {
           id: crypto.randomUUID(),
-          applicationId: params.id,
+          applicationId: id,
           content: addNote,
           author: "管理者",
         },
@@ -206,8 +213,9 @@ export async function PATCH(
 // DELETE: 申請の削除（管理者のみ）
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSession(request);
   try {
     if (!checkAdmin(session)) {
@@ -215,7 +223,7 @@ export async function DELETE(
     }
 
     await prisma.application.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

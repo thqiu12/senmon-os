@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { verifyStudentOwnership, checkRateLimit } from "@/lib/auth";
+import { verifyStudentOwnership, checkRateLimit, getClientIp } from "@/lib/auth";
 
 const STUDENT_INCLUDE = {
   school: { select: { id: true, name: true } },
@@ -92,7 +92,7 @@ async function getStudentData(student: { id: string }) {
 
 // GET: 学生ポータルデータ取得
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`portal:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
   }
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 
 // POST: 欠席届・証明書申請
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`portal-post:${ip}`, 10, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
   }

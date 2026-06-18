@@ -3,7 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { getSession, isAdmin, checkRateLimit } from "@/lib/auth";
+import { getSession, isAdmin, checkRateLimit, getClientIp } from "@/lib/auth";
 import { docPhysicalPath, docDownloadUrl, STORAGE_ROOT } from "@/lib/storage";
 
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || "10") * 1024 * 1024;
@@ -21,7 +21,7 @@ function sniffMime(buf: Buffer): string | null {
 
 export async function POST(request: NextRequest) {
   // レートリミット（IP単位: 1分20ファイルまで）
-  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const ip = getClientIp(request);
   if (!checkRateLimit(`upload:${ip}`, 20, 60_000)) {
     return NextResponse.json({ error: "アップロード制限を超えました。しばらく後に再試行してください" }, { status: 429 });
   }
@@ -72,9 +72,6 @@ export async function POST(request: NextRequest) {
       });
       if (!app) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
       resolvedApplicationId = app.id;
-    } else if (applicationId) {
-      // 出願ウィザード：推測不能な applicationId を保持する本人のみ（存在は下で検証）
-      resolvedApplicationId = applicationId;
     } else {
       return NextResponse.json({ error: "認証情報が必要です" }, { status: 400 });
     }
@@ -151,7 +148,7 @@ export async function DELETE(request: NextRequest) {
     const document = await prisma.document.findUnique({ where: { id: documentId } });
     if (!document) return NextResponse.json({ error: "ドキュメントが見つかりません" }, { status: 404 });
 
-    // 認証：管理者 or 本人（applicationNo+email、または出願ウィザードの applicationId capability）
+    // 認証：管理者 or 本人（applicationNo+email）
     const session = await getSession(request);
     if (!isAdmin(session)) {
       let ownerId: string | null = null;
@@ -161,8 +158,6 @@ export async function DELETE(request: NextRequest) {
           select: { id: true },
         });
         ownerId = app?.id ?? null;
-      } else if (applicationId) {
-        ownerId = applicationId;
       }
       if (!ownerId || ownerId !== document.applicationId) {
         return NextResponse.json({ error: "この書類を削除する権限がありません" }, { status: 403 });

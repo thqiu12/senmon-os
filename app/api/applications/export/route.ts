@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { escapeCsv, formatDateTimeJP } from "@/lib/utils";
 import { getSession, isAdmin } from "@/lib/auth";
 
+const EXPORT_MAX_ROWS = 5000;
+
 export async function GET(request: NextRequest) {
   const session = await getSession(request);
   try {
@@ -15,6 +17,14 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (status && status !== "all") where.status = status;
+
+    const total = await prisma.application.count({ where });
+    if (total > EXPORT_MAX_ROWS) {
+      return NextResponse.json(
+        { error: `対象件数が多すぎます（最大${EXPORT_MAX_ROWS}件）。条件で絞り込んでください。` },
+        { status: 413 }
+      );
+    }
 
     const applications = await prisma.application.findMany({
       where,

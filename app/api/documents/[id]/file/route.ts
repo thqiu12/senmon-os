@@ -12,11 +12,12 @@ const SAFE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application
 // 管理者、または「出願番号 + メール」で本人確認できた申請者のみ取得可能。
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const document = await prisma.document.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { application: { select: { applicationNo: true, email: true } } },
     });
     if (!document) {

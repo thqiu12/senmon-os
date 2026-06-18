@@ -5,8 +5,9 @@ import { getSession, isAdmin } from "@/lib/auth";
 // PATCH: エージェント更新
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSession(request);
   try {
     if (!isAdmin(session)) {
@@ -22,7 +23,7 @@ export async function PATCH(
     if (notes !== undefined) data.notes = notes;
     if (isActive !== undefined) data.isActive = isActive;
 
-    const agent = await prisma.agent.update({ where: { id: params.id }, data });
+    const agent = await prisma.agent.update({ where: { id }, data });
     return NextResponse.json({ success: true, agent });
   } catch (error) {
     console.error("PATCH /api/agents/[id] error:", error);
@@ -33,8 +34,9 @@ export async function PATCH(
 // DELETE: エージェント削除
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSession(request);
   try {
     if (!isAdmin(session)) {
@@ -42,10 +44,10 @@ export async function DELETE(
     }
     // 申請が紐づいていたら agentId を null に
     await prisma.application.updateMany({
-      where: { agentId: params.id },
+      where: { agentId: id },
       data: { agentId: null },
     });
-    await prisma.agent.delete({ where: { id: params.id } });
+    await prisma.agent.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/agents/[id] error:", error);

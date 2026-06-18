@@ -6,8 +6,9 @@ import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 // POST: 志望校追加
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -21,9 +22,9 @@ export async function POST(
 
     // 同じpriorityが存在する場合は上書き
     const school = await prisma.applicationSchool.upsert({
-      where: { applicationId_priority: { applicationId: params.id, priority: priority || 1 } },
+      where: { applicationId_priority: { applicationId: id, priority: priority || 1 } },
       update: { schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null },
-      create: { id: crypto.randomUUID(), applicationId: params.id, priority: priority || 1, schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null, updatedAt: new Date() },
+      create: { id: crypto.randomUUID(), applicationId: id, priority: priority || 1, schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null, updatedAt: new Date() },
     });
 
     return NextResponse.json(school, { status: 201 });
@@ -36,8 +37,9 @@ export async function POST(
 // PATCH: 志望校更新（result変更など）
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  await params;
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -59,8 +61,9 @@ export async function PATCH(
 // DELETE: 志望校削除
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  await params;
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 

@@ -3,11 +3,22 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 export type AdminRole = "super_admin" | "admin" | "interviewer";
+export const ADMIN_ROLES: AdminRole[] = ["super_admin", "admin", "interviewer"];
 
 export interface AdminSession {
   userId: string;
   role: AdminRole;
   isValid: boolean;
+}
+
+export function isAdminRole(role: unknown): role is AdminRole {
+  return typeof role === "string" && (ADMIN_ROLES as string[]).includes(role);
+}
+
+export function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
+  return request.headers.get("x-real-ip") || "unknown";
 }
 
 // セッションの有効期間（発行時刻から）
@@ -77,6 +88,7 @@ export async function getSession(request: NextRequest): Promise<AdminSession | n
   try {
     const user = await prisma.adminUser.findUnique({ where: { id: parsed.userId } });
     if (!user || !user.isActive) return null;
+    if (!isAdminRole(user.role)) return null;
     return { userId: user.id, role: user.role as AdminRole, isValid: true };
   } catch {
     return null;
@@ -118,7 +130,7 @@ export async function verifyStudentOwnership(
   if (!applicationNo || !email) return { valid: false };
   try {
     const app = await prisma.application.findFirst({
-      where: { applicationNo, email: email },
+      where: { applicationNo: applicationNo.trim(), email: email.trim() },
       select: { id: true },
     });
     if (!app) return { valid: false };
@@ -126,6 +138,16 @@ export async function verifyStudentOwnership(
   } catch {
     return { valid: false };
   }
+}
+
+export async function verifyApplicationStudentAccess(
+  applicationId: string,
+  applicationNo: string,
+  email: string
+): Promise<boolean> {
+  if (!applicationId || !applicationNo || !email) return false;
+  const ownership = await verifyStudentOwnership(applicationNo, email);
+  return ownership.valid && ownership.applicationId === applicationId;
 }
 
 // ---- レートリミット（メモリ、シンプル版）----

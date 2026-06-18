@@ -7,12 +7,13 @@ const STUDENT_SELF_REPORT_STATUS = new Set(["確認中", "未払い"]);
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const application = await prisma.application.findUnique({
-      where: { id: params.id },
-      select: { id: true },
+      where: { id },
+      select: { id: true, applicationNo: true, email: true },
     });
     if (!application) {
       return NextResponse.json({ error: "出願が見つかりません" }, { status: 404 });
@@ -22,7 +23,7 @@ export async function PATCH(
     const admin = isAdmin(session);
 
     const body = await request.json();
-    const { examFeeStatus, examFeeAmount, examFeeReceiptUrl, examFeeNote } = body;
+    const { examFeeStatus, examFeeAmount, examFeeReceiptUrl, examFeeNote, applicationNo, email } = body;
 
     const data: Record<string, unknown> = {};
 
@@ -33,8 +34,11 @@ export async function PATCH(
       if (examFeeReceiptUrl !== undefined) data.examFeeReceiptUrl = examFeeReceiptUrl;
       if (examFeeNote !== undefined) data.examFeeNote = examFeeNote;
     } else {
-      // 申請者（推測不能な applicationId を保持＝本人）：自己申告のみ。
+      // 申請者：申請番号 + メール + 対象IDを照合できた本人のみ自己申告可能。
       // 「確認済み」等の確定ステータスや管理メモは設定できない。
+      if (!applicationNo || !email || application.applicationNo !== applicationNo || application.email !== email) {
+        return NextResponse.json({ error: "アクセスが拒否されました" }, { status: 403 });
+      }
       if (examFeeStatus !== undefined) {
         if (!STUDENT_SELF_REPORT_STATUS.has(examFeeStatus)) {
           return NextResponse.json(
@@ -49,7 +53,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.application.update({
-      where: { id: params.id },
+      where: { id },
       data,
       select: { id: true, examFeeStatus: true, examFeeAmount: true, examFeeReceiptUrl: true },
     });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession, isSuperAdmin } from "@/lib/auth";
+import { getSession, isAdminRole, isSuperAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import crypto from "crypto";
 
@@ -68,9 +68,39 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const data: Record<string, unknown> = {};
     if (body.displayName !== undefined) data.displayName = body.displayName;
-    if (body.role !== undefined) data.role = body.role;
+    if (body.role !== undefined) {
+      if (!isAdminRole(body.role)) {
+        return NextResponse.json({ error: "無効なロールです" }, { status: 400 });
+      }
+      data.role = body.role;
+    }
     if (body.isActive !== undefined) data.isActive = body.isActive;
-    if (body.password) data.passwordHash = await hashPassword(body.password);
+    if (body.password) {
+      if (typeof body.password !== "string" || body.password.length < 8) {
+        return NextResponse.json({ error: "パスワードは8文字以上にしてください" }, { status: 400 });
+      }
+      data.passwordHash = await hashPassword(body.password);
+    }
+
+    const target = await prisma.adminUser.findUnique({
+      where: { id },
+      select: { id: true, role: true, isActive: true },
+    });
+    if (!target) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+    const willRemoveSuperAdmin =
+      target.role === "super_admin" &&
+      (data.role !== undefined && data.role !== "super_admin" || data.isActive === false);
+    if (willRemoveSuperAdmin) {
+      const activeSuperAdminCount = await prisma.adminUser.count({
+        where: { role: "super_admin", isActive: true },
+      });
+      if (activeSuperAdminCount <= 1) {
+        return NextResponse.json(
+          { error: "最後のsuper_adminは降格または無効化できません" },
+          { status: 400 }
+        );
+      }
+    }
     const user = await prisma.adminUser.update({
       where: { id },
       data,
@@ -96,6 +126,22 @@ export async function DELETE(request: NextRequest) {
     // 自分自身は削除不可
     if (id === session?.userId) {
       return NextResponse.json({ error: "自分自身のアカウントは削除できません" }, { status: 400 });
+    }
+    const target = await prisma.adminUser.findUnique({
+      where: { id },
+      select: { role: true, isActive: true },
+    });
+    if (!target) return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+    if (target.role === "super_admin" && target.isActive) {
+      const activeSuperAdminCount = await prisma.adminUser.count({
+        where: { role: "super_admin", isActive: true },
+      });
+      if (activeSuperAdminCount <= 1) {
+        return NextResponse.json(
+          { error: "最後のsuper_adminは削除できません" },
+          { status: 400 }
+        );
+      }
     }
     await prisma.adminUser.delete({ where: { id } });
     return NextResponse.json({ success: true });

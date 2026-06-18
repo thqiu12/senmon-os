@@ -30,8 +30,9 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
-  experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "puppeteer-core"],
+  serverExternalPackages: ["@prisma/client", "puppeteer-core"],
+  turbopack: {
+    root: process.cwd(),
   },
   async headers() {
     return [

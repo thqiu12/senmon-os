@@ -6,26 +6,28 @@ import { getSession, isAdmin } from "@/lib/auth";
 // 学生が出願を最終提出（書類待ち → 受付中）するためのエンドポイント
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const body = await request.json().catch(() => ({} as { email?: string; consent?: boolean }));
+    const body = await request.json().catch(() => ({} as { applicationNo?: string; email?: string; consent?: boolean }));
+    const applicationNo = body?.applicationNo;
     const email = body?.email;
     const consent = body?.consent === true;
 
     const application = await prisma.application.findUnique({
-      where: { id: params.id },
-      select: { id: true, status: true, email: true, consentAt: true },
+      where: { id },
+      select: { id: true, applicationNo: true, status: true, email: true, consentAt: true },
     });
 
     if (!application) {
       return NextResponse.json({ error: "出願が見つかりません" }, { status: 404 });
     }
 
-    // 本人確認：管理者、またはメールアドレス一致の本人のみ提出可能
+    // 本人確認：管理者、または申請番号 + メール + 対象ID一致の本人のみ提出可能
     const session = await getSession(request);
     const admin = isAdmin(session);
-    if (!admin && (!email || application.email !== email)) {
+    if (!admin && (!applicationNo || !email || application.applicationNo !== applicationNo || application.email !== email)) {
       return NextResponse.json({ error: "アクセスが拒否されました" }, { status: 403 });
     }
 
@@ -45,7 +47,7 @@ export async function POST(
     }
 
     const updated = await prisma.application.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: "受付中",
         // 同意日時を記録（未記録かつ同意ありの場合）

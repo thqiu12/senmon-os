@@ -632,7 +632,8 @@ function StatusPageInner() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("applicationId", result.id);
+      formData.append("applicationNo", result.applicationNo);
+      formData.append("email", email.trim());
       formData.append("docType", docType);
 
       const res = await fetch("/api/upload", {

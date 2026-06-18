@@ -785,8 +785,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
 }
 
 // ========== Step 3 ==========
-function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: {
-  applicationId: string | null; uploadedDocs: UploadedDoc[];
+function Step3({ applicationId, applicationNo, email, uploadedDocs, onUpload, onDelete, formConfig }: {
+  applicationId: string | null; applicationNo: string | null; email: string; uploadedDocs: UploadedDoc[];
   onUpload: (doc: UploadedDoc) => void; onDelete: (id: string) => void;
   formConfig: FormFieldConfig[] | null;
 }) {
@@ -794,7 +794,12 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
-    try { const r = await fetch(`/api/upload?id=${id}&applicationId=${applicationId ?? ""}`, { method: "DELETE" }); if (r.ok) onDelete(id); } catch { /* ignore */ }
+    const params = new URLSearchParams({
+      id,
+      applicationNo: applicationNo ?? "",
+      email,
+    });
+    try { const r = await fetch(`/api/upload?${params}`, { method: "DELETE" }); if (r.ok) onDelete(id); } catch { /* ignore */ }
   };
 
   const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1024 / 1024).toFixed(1)}MB`;
@@ -848,7 +853,7 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
               if (!file || !applicationId) return;
               setUploading(label); setUploadError(null);
               const fd = new FormData();
-              fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", label);
+              fd.append("file", file); fd.append("applicationNo", applicationNo ?? ""); fd.append("email", email); fd.append("docType", label);
               fetch("/api/upload", { method: "POST", body: fd })
                 .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
                 .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
@@ -951,7 +956,7 @@ function Step3({ applicationId, uploadedDocs, onUpload, onDelete, formConfig }: 
                               if (!file || !applicationId) return;
                               setUploading(doc.type); setUploadError(null);
                               const fd = new FormData();
-                              fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", doc.type);
+                              fd.append("file", file); fd.append("applicationNo", applicationNo ?? ""); fd.append("email", email); fd.append("docType", doc.type);
                               fetch("/api/upload", { method: "POST", body: fd })
                                 .then(r => r.json()).then(data => { if (data.document) onUpload(data.document); else setUploadError(data.error || "エラー"); })
                                 .catch(() => setUploadError("ネットワークエラー")).finally(() => { setUploading(null); e.target.value = ""; });
@@ -977,8 +982,8 @@ interface PaymentConfig {
   bankName: string; accountType: string; accountNumber: string; accountHolder: string; deadline: string;
 }
 
-function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange }: {
-  applicationId: string | null; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void;
+function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeStatus, onFeeStatusChange }: {
+  applicationId: string | null; applicationNo: string | null; email: string; schoolCount: number; feeStatus: string; onFeeStatusChange: (s: string) => void;
 }) {
   const fee = calcExamFee(schoolCount);
   const [uploading, setUploading] = useState(false);
@@ -995,7 +1000,7 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
     if (!file || !applicationId) return;
     setUploading(true); setUploadError(null);
     const fd = new FormData();
-    fd.append("file", file); fd.append("applicationId", applicationId); fd.append("docType", "選考費振込証明書");
+    fd.append("file", file); fd.append("applicationNo", applicationNo ?? ""); fd.append("email", email); fd.append("docType", "選考費振込証明書");
     try {
       const r = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await r.json();
@@ -1003,7 +1008,7 @@ function Step4Payment({ applicationId, schoolCount, feeStatus, onFeeStatusChange
       setUploadedReceipt({ name: file.name });
       await fetch(`/api/applications/${applicationId}/fee`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examFeeStatus: "確認中", examFeeAmount: fee, examFeeReceiptUrl: data.document?.filePath }),
+        body: JSON.stringify({ applicationNo, email, examFeeStatus: "確認中", examFeeAmount: fee, examFeeReceiptUrl: data.document?.filePath }),
       });
       onFeeStatusChange("確認中");
     } catch (err) { setUploadError(err instanceof Error ? err.message : "エラー"); }
@@ -1678,7 +1683,7 @@ function ApplyPageInner() {
       if (applicationId) {
         await fetch(`/api/applications/${applicationId}/fee`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ examFeeAmount: calcExamFee(schoolCount) }),
+          body: JSON.stringify({ applicationNo, email: form.email, examFeeAmount: calcExamFee(schoolCount) }),
         });
       }
       setCurrentStep(4);
@@ -1693,7 +1698,7 @@ function ApplyPageInner() {
       const res = await fetch(`/api/applications/${applicationId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, consent }),
+        body: JSON.stringify({ applicationNo, email: form.email, consent }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -1875,12 +1880,12 @@ function ApplyPageInner() {
                     <span>⚠️</span><span>{errors.step3}</span>
                   </div>
                 )}
-                <Step3 applicationId={applicationId} uploadedDocs={uploadedDocs}
+                <Step3 applicationId={applicationId} applicationNo={applicationNo} email={form.email} uploadedDocs={uploadedDocs}
                   onUpload={doc => { setUploadedDocs(p => [...p, doc]); setErrors(p => { const n={...p}; delete n.step3; return n; }); }}
                   onDelete={id => setUploadedDocs(p => p.filter(d => d.id !== id))}
                   formConfig={formConfig} />
               </>}
-              {currentStep === 4 && <Step4Payment applicationId={applicationId} schoolCount={schoolCount}
+              {currentStep === 4 && <Step4Payment applicationId={applicationId} applicationNo={applicationNo} email={form.email} schoolCount={schoolCount}
                 feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
               {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} consent={consent} onConsentChange={setConsent} />}
             </>

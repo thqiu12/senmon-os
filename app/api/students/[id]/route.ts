@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const student = await prisma.student.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         school: { select: { id: true, name: true } },
         class: {
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -34,7 +36,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     ["classId", "status", "phone", "email", "enrolledAt", "graduatedAt", "studentNo"].forEach(f => {
       if (body[f] !== undefined) data[f] = body[f];
     });
-    const student = await prisma.student.update({ where: { id: params.id }, data });
+    const student = await prisma.student.update({ where: { id }, data });
     return NextResponse.json(student);
   } catch (e) {
     console.error(e);

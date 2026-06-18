@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIp } from "@/lib/auth";
 
 // GET: 申請番号とメールで状態確認
 export async function GET(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    if (!checkRateLimit(`application-status:${ip}`, 20, 60_000)) {
+      return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const applicationNo = searchParams.get("applicationNo");
     const email = searchParams.get("email");

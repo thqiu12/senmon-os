@@ -72,7 +72,9 @@ export const ApplicationCreateSchema = z.object({
   priorAttendanceRate: optStr(20),
   workExperience: optStr(2000),
   examMode: ExamModeEnum.optional(),
-  applicantType: z.enum(["japanese", "foreign"]).default("foreign"),
+  // 未指定・空文字・不正値はすべて foreign（従来動作）に倒す。.default は undefined のみ、
+  // .catch は enum 不一致（""含む）も拾うため、公開出願経路で混乱する 400 を防ぐ。
+  applicantType: z.enum(["japanese", "foreign"]).catch("foreign"),
   referrerName: optStr(100),
   referrerType: optStr(50),
   status: z.string().max(20).optional(),

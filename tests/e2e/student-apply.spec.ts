@@ -13,6 +13,8 @@ import { test, expect } from "@playwright/test";
 test.describe("学生出願フロー Step 1", () => {
   test("未入力時は『次へ進む』ボタンが disabled", async ({ page }) => {
     await page.goto("/apply?school=chuo-seminar");
+    // 出願者タイプ選択ゲート: 留学生（foreign）を選んで Step 1 へ進む
+    await page.getByTestId("applicant-type-foreign").click();
     const nextBtn = page.getByTestId("apply-next");
     await expect(nextBtn).toBeVisible({ timeout: 10_000 });
     await expect(nextBtn).toBeDisabled();
@@ -22,6 +24,8 @@ test.describe("学生出願フロー Step 1", () => {
 
   test("必須項目を埋めると『次へ進む』が enable になる", async ({ page }) => {
     await page.goto("/apply?school=chuo-seminar");
+    // 出願者タイプ選択ゲート: 留学生（foreign）を選んで Step 1 へ進む
+    await page.getByTestId("applicant-type-foreign").click();
 
     // form-config の API が返るのを待つために少し待機
     await expect(page.getByTestId("apply-lastName")).toBeVisible({ timeout: 10_000 });

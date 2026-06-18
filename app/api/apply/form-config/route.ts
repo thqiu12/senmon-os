@@ -155,16 +155,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(merged);
     }
 
-    // type 未指定/無効: 従来挙動（共通のみ）
+    // type 未指定/無効: 従来挙動（共通のみ）。
+    // applicantType:null で絞り、type別行(admin が後から作成し得る)を共通結果に混入させない。
     const [globalConfigs, schoolConfigs] = await Promise.all([
       prisma.formFieldConfig.findMany({
-        where: { schoolId: null, isEnabled: true },
+        where: { schoolId: null, applicantType: null, isEnabled: true },
         orderBy: { displayOrder: "asc" },
         select: SELECT,
       }),
       schoolId
         ? prisma.formFieldConfig.findMany({
-            where: { schoolId },
+            where: { schoolId, applicantType: null },
             orderBy: { displayOrder: "asc" },
             select: SELECT,
           })

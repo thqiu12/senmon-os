@@ -4,7 +4,7 @@ export type ApplicantType = (typeof APPLICANT_TYPES)[number];
 
 export const APPLICANT_TYPE_LABEL: Record<ApplicantType, string> = {
   foreign: "留学生",
-  japanese: "日本人",
+  japanese: "日本人学生",
 };
 
 export function isApplicantType(v: unknown): v is ApplicantType {

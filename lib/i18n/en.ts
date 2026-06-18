@@ -700,6 +700,7 @@ export const EN: Record<string, string> = {
   "いずれかを選ぶと出願フォームが始まります": "Choosing one will start the application form",
   "留学生": "International Student",
   "日本人": "Japanese National",
+  "日本人学生": "Japanese Student",
   "在留資格をお持ちの方・これから来日される方": "For those who hold a residence status or plan to come to Japan",
   "日本国籍をお持ちの方": "For those who hold Japanese nationality",
 };

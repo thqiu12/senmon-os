@@ -2168,7 +2168,7 @@ function ApplyPageInner() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {([
               { value: "foreign" as ApplicantType, label: "留学生", desc: "在留資格をお持ちの方・これから来日される方", icon: "globe" as IconName },
-              { value: "japanese" as ApplicantType, label: "日本人", desc: "日本国籍をお持ちの方", icon: "user" as IconName },
+              { value: "japanese" as ApplicantType, label: "日本人学生", desc: "日本国籍をお持ちの方", icon: "user" as IconName },
             ]).map(opt => (
               <button
                 key={opt.value}

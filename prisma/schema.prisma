@@ -209,6 +209,9 @@ model Application {
   interviewSummaryAt     DateTime?
   interviewSummaryModel  String?
 
+  // 出願者タイプ: japanese / foreign（既定=foreign＝従来動作）
+  applicantType   String   @default("foreign")
+
   // 紹介エージェント
   agentId             String?
   agent               Agent?   @relation(fields: [agentId], references: [id])
@@ -785,7 +788,8 @@ model FormFieldConfig {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([fieldKey, schoolId])
+  applicantType String?  // null=共通 / "japanese" / "foreign"
+  @@unique([fieldKey, schoolId, applicantType])
 }
 
 model ApplySchool {

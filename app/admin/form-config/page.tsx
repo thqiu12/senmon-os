@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SCHOOLS } from "@/lib/formFieldDefaults";
 import { SchoolsManager } from "@/app/admin/components/SchoolsManager";
 import { PaymentSettingsPanel } from "@/app/admin/components/PaymentSettingsPanel";
 import { useUI } from "@/components/ui/toast";
 import { HelpTip } from "@/components/admin/HelpTip";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
+import { APPLICANT_TYPE_LABEL, type ApplicantType } from "@/lib/applicantType";
 
 interface FormFieldConfig {
   id: string;
@@ -39,11 +39,10 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   file: "ファイル",
 };
 
-// School tabs: null = 全校共通
-const SCHOOL_TABS: { id: string | null; name: string }[] = [
-  { id: null, name: "全校共通" },
-  ...SCHOOLS.map(s => ({ id: s.id, name: s.name })),
-];
+// School tabs (null = 全校共通) は ApplySchool 一覧から動的に構築する。
+// タブ id は schoolKey（旧ハードコード SCHOOLS[].id と一致 → 既存の校別設定を保持）。
+type SchoolTab = { id: string | null; name: string };
+const GLOBAL_TAB: SchoolTab = { id: null, name: "全校共通" };
 
 interface AddFieldForm {
   label: string;
@@ -116,6 +115,10 @@ export default function FormConfigPage() {
     if (t === "form" || t === "schools" || t === "general" || t === "payment") setActiveTab(t);
   }, []);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  // null = 共通スコープ（従来挙動）
+  const [selectedApplicantType, setSelectedApplicantType] = useState<ApplicantType | null>(null);
+  // 学校タブ: ApplySchool 一覧から動的構築。取得失敗時は 全校共通 のみにフォールバック。
+  const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([GLOBAL_TAB]);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -137,13 +140,15 @@ export default function FormConfigPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ fieldKey: string; label: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchConfigs = useCallback(async (schoolId: string | null) => {
+  const fetchConfigs = useCallback(async (schoolId: string | null, applicantType: ApplicantType | null) => {
     setLoading(true);
     setError(null);
     try {
-      const url = schoolId
-        ? `/api/admin/form-config?schoolId=${encodeURIComponent(schoolId)}`
-        : "/api/admin/form-config";
+      const params = new URLSearchParams();
+      if (schoolId) params.set("schoolId", schoolId);
+      if (applicantType) params.set("applicantType", applicantType);
+      const qs = params.toString();
+      const url = qs ? `/api/admin/form-config?${qs}` : "/api/admin/form-config";
       const res = await fetch(url);
       if (res.status === 401) {
         router.push("/admin");
@@ -160,11 +165,37 @@ export default function FormConfigPage() {
   }, [router]);
 
   useEffect(() => {
-    fetchConfigs(selectedSchoolId);
-  }, [fetchConfigs, selectedSchoolId]);
+    fetchConfigs(selectedSchoolId, selectedApplicantType);
+  }, [fetchConfigs, selectedSchoolId, selectedApplicantType]);
+
+  // マウント時に ApplySchool 一覧を取得してタブを構築（id=schoolKey）。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/schools");
+        if (!res.ok) return; // 失敗時は 全校共通 のみのフォールバックを維持
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data)) return;
+        const mapped: SchoolTab[] = data
+          .filter((s) => s && typeof s.schoolKey === "string")
+          .map((s) => ({ id: s.schoolKey as string, name: String(s.name ?? s.schoolKey) }));
+        setSchoolTabs([GLOBAL_TAB, ...mapped]);
+      } catch {
+        /* フォールバック維持 */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSchoolChange = (schoolId: string | null) => {
     setSelectedSchoolId(schoolId);
+    setSuccessMsg(null);
+    setError(null);
+  };
+
+  const handleApplicantTypeChange = (t: ApplicantType | null) => {
+    setSelectedApplicantType(t);
     setSuccessMsg(null);
     setError(null);
   };
@@ -174,10 +205,11 @@ export default function FormConfigPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      // Attach the current schoolId to each config item
+      // Attach the current schoolId + applicantType to each config item
       const payload = configs.map(c => ({
         ...c,
         schoolId: selectedSchoolId,
+        applicantType: selectedApplicantType,
       }));
       const res = await fetch("/api/admin/form-config", {
         method: "PUT",
@@ -190,7 +222,7 @@ export default function FormConfigPage() {
       }
       setSuccessMsg("保存しました");
       // Reload to reflect isCustom state
-      await fetchConfigs(selectedSchoolId);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -253,7 +285,7 @@ export default function FormConfigPage() {
       setShowAddModal(false);
       setAddForm(emptyAddForm);
       setSuccessMsg("フィールドを追加しました");
-      await fetchConfigs(selectedSchoolId);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType);
     } catch (e) {
       setAddError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -279,7 +311,7 @@ export default function FormConfigPage() {
       }
       setDeleteConfirm(null);
       setSuccessMsg(`「${deleteConfirm.label}」を削除しました`);
-      await fetchConfigs(selectedSchoolId);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType);
     } catch (e) {
       setError(e instanceof Error ? e.message : "削除エラー");
       setDeleteConfirm(null);
@@ -300,7 +332,7 @@ export default function FormConfigPage() {
     s => !SECTIONS.includes(s)
   );
 
-  const selectedSchoolName = SCHOOL_TABS.find(t => t.id === selectedSchoolId)?.name ?? "全校共通";
+  const selectedSchoolName = schoolTabs.find(t => t.id === selectedSchoolId)?.name ?? "全校共通";
   const isGlobal = selectedSchoolId === null;
   const customCount = configs.filter(c => c.isCustom).length;
 
@@ -362,7 +394,7 @@ export default function FormConfigPage() {
         {/* School Tabs */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
           <div className="flex overflow-x-auto">
-            {SCHOOL_TABS.map(tab => {
+            {schoolTabs.map(tab => {
               const active = tab.id === selectedSchoolId;
               return (
                 <button
@@ -380,6 +412,28 @@ export default function FormConfigPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* 出願者タイプ切替（共通 / 日本人 / 留学生） */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-semibold text-gray-500 mr-1">出願者タイプ</span>
+          {([null, "japanese", "foreign"] as (ApplicantType | null)[]).map(t => {
+            const active = t === selectedApplicantType;
+            const label = t === null ? "共通" : APPLICANT_TYPE_LABEL[t];
+            return (
+              <button
+                key={t ?? "__common__"}
+                onClick={() => handleApplicantTypeChange(t)}
+                className={`px-3 py-1.5 text-sm font-semibold rounded-full border transition-colors
+                  ${active
+                    ? "border-navy-700 text-navy-800 bg-navy-50"
+                    : "border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Context info */}
@@ -424,7 +478,7 @@ export default function FormConfigPage() {
                   });
                   if (!ok) return;
                   const res = await fetch(`/api/admin/form-config?resetSchoolId=${encodeURIComponent(selectedSchoolId)}`, { method: "PATCH" });
-                  if (res.ok) { setSuccessMsg("全校共通の設定に戻しました"); fetchConfigs(selectedSchoolId); }
+                  if (res.ok) { setSuccessMsg("全校共通の設定に戻しました"); fetchConfigs(selectedSchoolId, selectedApplicantType); }
                   else setError("リセットに失敗しました");
                 }}
                 className="px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 text-sm font-semibold rounded-lg hover:bg-orange-200 transition flex items-center gap-1.5"

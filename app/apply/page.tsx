@@ -8,6 +8,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 import { isNoWrittenExamSchool } from "@/lib/examConfig";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
+import { type ApplicantType, isApplicantType } from "@/lib/applicantType";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -163,6 +164,7 @@ interface FormData {
   enrollmentYear: string; enrollmentMonth: string; applicationReason: string;
   lastSchoolName: string; lastSchoolCountry: string; lastSchoolGraduate: string; lastSchoolGraduatedOn: string; priorAttendanceRate: string; workExperience: string;
   examMode: string; referrerName: string; referrerType: string;
+  applicantType: ApplicantType | "";
 }
 
 interface UploadedDoc {
@@ -179,6 +181,7 @@ const initialForm: FormData = {
   enrollmentYear: "", enrollmentMonth: "4", applicationReason: "",
   lastSchoolName: "", lastSchoolCountry: "", lastSchoolGraduate: "", lastSchoolGraduatedOn: "", priorAttendanceRate: "", workExperience: "",
   examMode: "一般", referrerName: "", referrerType: "",
+  applicantType: "",
 };
 
 // ========== UI Primitives ==========
@@ -1625,7 +1628,7 @@ function ApplyPageInner() {
               schoolName: found.name,
             }));
             setPreselectedSchool(true);
-            fetchFormConfig(found.id);
+            fetchFormConfig(found.id, form.applicantType);
             // 受付チェック（activeCohorts がロード済みなら即チェック）
             setActiveCohorts(prev => {
               const cohorts = prev ?? [];
@@ -1650,11 +1653,13 @@ function ApplyPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // フォームフィールド設定を取得（schoolId に応じて切り替え）
-  const fetchFormConfig = (schoolId?: string) => {
-    const url = schoolId
-      ? `/api/apply/form-config?schoolId=${encodeURIComponent(schoolId)}`
-      : "/api/apply/form-config";
+  // フォームフィールド設定を取得（schoolId / 出願者タイプ に応じて切り替え）
+  const fetchFormConfig = (schoolId?: string, type?: ApplicantType | "") => {
+    const params = new URLSearchParams();
+    if (schoolId) params.set("schoolId", schoolId);
+    if (type && isApplicantType(type)) params.set("type", type);
+    const qs = params.toString();
+    const url = qs ? `/api/apply/form-config?${qs}` : "/api/apply/form-config";
     fetch(url)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -1785,8 +1790,20 @@ function ApplyPageInner() {
     });
     setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
     if (field === "schoolId" && typeof value === "string") {
-      fetchFormConfig(value || undefined);
+      fetchFormConfig(value || undefined, form.applicantType);
     }
+  };
+
+  // 出願者タイプ選択（ゲート画面）。選択後、タイプ反映済みの全体設定を取得して
+  // Step1 の留学生専用フィールド表示/非表示を切り替える。
+  const handleSelectApplicantType = (type: ApplicantType) => {
+    setForm(prev => {
+      const updated = { ...prev, applicantType: type };
+      if (!applicationId && !isResumed && !submitted) saveDraftToStorage(updated);
+      return updated;
+    });
+    // 既に学校が選択されていればその学校設定を、なければ全体設定を取得（いずれもタイプ付き）
+    fetchFormConfig(form.schoolId || undefined, type);
   };
 
   // 並願校ハンドラ
@@ -2116,6 +2133,59 @@ function ApplyPageInner() {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // ===== 出願者タイプ選択ゲート =====
+  // 新規出願で、まだタイプ未選択のときだけ表示。
+  // resume フロー（isResumed / applicationId 設定済み）や読込中は表示しない。
+  const showTypeGate =
+    !form.applicantType && !isResumed && !applicationId && !resumeLoading && !showAppNoConfirm;
+  if (showTypeGate) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><CompassMark className="w-5 h-5" /></div>
+              <div>
+                <p className="font-bold text-gray-800 text-sm leading-none">Compass</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t("入学出願システム")}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <Link href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">{t("← トップへ")}</Link>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-3xl mx-auto px-4 py-10">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">{t("出願者の区分を選択してください")}</h1>
+            <p className="text-sm text-gray-500">{t("いずれかを選ぶと出願フォームが始まります")}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {([
+              { value: "foreign" as ApplicantType, label: "留学生", desc: "在留資格をお持ちの方・これから来日される方", icon: "globe" as IconName },
+              { value: "japanese" as ApplicantType, label: "日本人", desc: "日本国籍をお持ちの方", icon: "user" as IconName },
+            ]).map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                data-testid={`applicant-type-${opt.value}`}
+                onClick={() => handleSelectApplicantType(opt.value)}
+                className="cursor-pointer rounded-2xl border-2 border-gray-200 bg-white p-8 text-center transition-all hover:border-blue-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              >
+                <span className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center bg-blue-50 text-blue-600">
+                  <Icon name={opt.icon} className="w-8 h-8" />
+                </span>
+                <p className="font-bold text-lg text-gray-800 mb-1">{t(opt.label)}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{t(opt.desc)}</p>
+              </button>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }

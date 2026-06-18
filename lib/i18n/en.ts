@@ -694,4 +694,12 @@ export const EN: Record<string, string> = {
   "同じ項目を複数同時に申請することはできません": "You cannot request the same item multiple times at once",
   "志望校・学科の変更は本機能では受け付けていません": "Changes to school or department are not accepted via this feature",
   "変更を申請する": "Submit change request",
+
+  // --- 出願者タイプ選択ゲート ---
+  "出願者の区分を選択してください": "Please select your applicant category",
+  "いずれかを選ぶと出願フォームが始まります": "Choosing one will start the application form",
+  "留学生": "International Student",
+  "日本人": "Japanese National",
+  "在留資格をお持ちの方・これから来日される方": "For those who hold a residence status or plan to come to Japan",
+  "日本国籍をお持ちの方": "For those who hold Japanese nationality",
 };

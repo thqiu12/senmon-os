@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
-import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
+import { FORM_FIELD_DEFAULTS, defaultEnabledFor } from "@/lib/formFieldDefaults";
+import { isApplicantType, type ApplicantType } from "@/lib/applicantType";
 
 // schoolId=xxx -> school-specific merged with global
 // schoolId not provided -> global only
+// applicantType=japanese|foreign -> その (schoolId, applicantType) スコープの設定行を返す
+// applicantType 未指定（共通）-> applicantType=null。共通スコープは従来挙動を一切変えない。
 export async function GET(request: NextRequest) {
   const session = await getSession(request);
   if (!checkAdmin(session)) {
@@ -15,10 +18,15 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId") || null;
+    // クエリ applicantType を読む。未指定 or 不正値は null（共通）として扱う。
+    const applicantTypeParam = searchParams.get("applicantType");
+    const applicantType: ApplicantType | null = isApplicantType(applicantTypeParam)
+      ? applicantTypeParam
+      : null;
 
-    // 不足しているデフォルトフィールドを一括挿入
+    // 不足しているデフォルトフィールドを一括挿入（共通ベースライン = schoolId:null, applicantType:null）
     const existingKeys = await prisma.formFieldConfig.findMany({
-      where: { schoolId: null },
+      where: { schoolId: null, applicantType: null },
       select: { fieldKey: true },
     });
     const existingKeySet = new Set(existingKeys.map((e) => e.fieldKey));
@@ -34,13 +42,60 @@ export async function GET(request: NextRequest) {
           displayOrder: f.displayOrder,
           fieldType: f.fieldType,
           schoolId: null,
+          applicantType: null,
         })),
       });
     }
 
-    // Always fetch global configs (schoolId IS NULL)
+    // 特定の applicantType が指定された場合: その (schoolId, applicantType) スコープを返す。
+    // 保存済み行があればそれを、無ければ FORM_FIELD_DEFAULTS から defaultEnabledFor で補完。
+    if (applicantType) {
+      const scopedConfigs = await prisma.formFieldConfig.findMany({
+        where: { schoolId, applicantType },
+        orderBy: { displayOrder: "asc" },
+      });
+      const scopedMap = new Map(scopedConfigs.map((c) => [c.fieldKey, c]));
+
+      const allFieldKeys = new Set([
+        ...FORM_FIELD_DEFAULTS.map((f) => f.fieldKey),
+        ...Array.from(scopedMap.keys()),
+      ]);
+
+      const result = Array.from(allFieldKeys).map((fieldKey) => {
+        const stored = scopedMap.get(fieldKey);
+        if (stored) {
+          // EXACT (schoolId, applicantType) スコープに保存行あり -> isCustom: true
+          return { ...stored, isCustom: true };
+        }
+        const def = FORM_FIELD_DEFAULTS.find((f) => f.fieldKey === fieldKey);
+        if (def) {
+          return {
+            id: "",
+            fieldKey: def.fieldKey,
+            schoolId,
+            applicantType,
+            label: def.label,
+            section: def.section,
+            fieldType: def.fieldType,
+            // japanese は留学生専用項目を既定オフにする
+            isEnabled: defaultEnabledFor(def.fieldKey, applicantType),
+            isRequired: def.isRequired,
+            displayOrder: def.displayOrder,
+            isCustom: false,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      result.sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));
+      return NextResponse.json(result);
+    }
+
+    // ===== 以下、applicantType 未指定（共通）= 従来挙動を維持 =====
+
+    // Always fetch global configs (schoolId IS NULL, applicantType IS NULL)
     const globalConfigs = await prisma.formFieldConfig.findMany({
-      where: { schoolId: null },
+      where: { schoolId: null, applicantType: null },
       orderBy: { displayOrder: "asc" },
     });
 
@@ -49,9 +104,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(globalConfigs);
     }
 
-    // Fetch school-specific overrides
+    // Fetch school-specific overrides (applicantType IS NULL = 共通)
     const schoolConfigs = await prisma.formFieldConfig.findMany({
-      where: { schoolId },
+      where: { schoolId, applicantType: null },
       orderBy: { displayOrder: "asc" },
     });
 
@@ -171,6 +226,7 @@ export async function PUT(request: NextRequest) {
       body.map((item: {
         fieldKey: string;
         schoolId?: string | null;
+        applicantType?: string | null;
         label: string;
         section: string;
         fieldType?: string;
@@ -180,6 +236,8 @@ export async function PUT(request: NextRequest) {
         description?: string | null;
       }) => {
         const schoolId = item.schoolId ?? null;
+        // applicantType: 非nullかつ不正値は安全側で null（共通）に丸める。
+        const applicantType = isApplicantType(item.applicantType) ? item.applicantType : null;
         const updateData = {
           label: item.label,
           section: item.section,
@@ -189,15 +247,16 @@ export async function PUT(request: NextRequest) {
           displayOrder: item.displayOrder,
           description: item.description ?? null,
         };
-        // schoolId=null の場合、Prisma の compound unique upsert が使えないため findFirst + update/create
+        // schoolId/applicantType に null を含み得るため、Prisma の compound unique upsert は使えない。
+        // 従来どおり findFirst + update/create で (fieldKey, schoolId, applicantType) スコープを確定する。
         return prisma.formFieldConfig.findFirst({
-          where: { fieldKey: item.fieldKey, schoolId },
+          where: { fieldKey: item.fieldKey, schoolId, applicantType },
         }).then(existing => {
           if (existing) {
             return prisma.formFieldConfig.update({ where: { id: existing.id }, data: updateData });
           }
           return prisma.formFieldConfig.create({
-            data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, updatedAt: new Date(), ...updateData },
+            data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, updatedAt: new Date(), ...updateData },
           });
         });
       })

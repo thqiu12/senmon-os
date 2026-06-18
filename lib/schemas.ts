@@ -72,6 +72,7 @@ export const ApplicationCreateSchema = z.object({
   priorAttendanceRate: optStr(20),
   workExperience: optStr(2000),
   examMode: ExamModeEnum.optional(),
+  applicantType: z.enum(["japanese", "foreign"]).default("foreign"),
   referrerName: optStr(100),
   referrerType: optStr(50),
   status: z.string().max(20).optional(),

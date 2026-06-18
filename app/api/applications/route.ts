@@ -212,9 +212,11 @@ export async function GET(request: NextRequest) {
     const agentId = searchParams.get("agentId");
     const cohortId = searchParams.get("cohortId");
     const todayOnly = searchParams.get("todayOnly") === "1";
+    const applicantType = searchParams.get("applicantType");
 
     const where: Record<string, unknown> = { deletedAt: null };
     if (status && status !== "all") where.status = status;
+    if (applicantType && applicantType !== "all") where.applicantType = applicantType;
     if (nationality) where.nationality = { contains: nationality };
     if (japaneseLevel && japaneseLevel !== "all") where.japaneseLevel = japaneseLevel;
     if (agentId === "none") where.agentId = null;
@@ -387,6 +389,7 @@ export async function POST(request: NextRequest) {
         priorAttendanceRate: body.priorAttendanceRate || null,
         workExperience: body.workExperience || null,
         examMode: body.examMode || "一般",
+        applicantType: body.applicantType,
         referrerName: body.referrerName || null,
         referrerType: body.referrerType || null,
         applySchoolId: primary.applySchoolId,

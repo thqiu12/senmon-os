@@ -1,6 +1,24 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
+// CSP（まず Report-Only で本番のみ）。Next.js はハイドレーションで inline script を使うため
+// script/style は 'unsafe-inline' を許容しつつ、危険な指示子（object/base/form/frame）は締める。
+// 違反は Report-Only としてブラウザ/Sentry に報告されるだけで、画面は壊れない。
+// 本番ログで違反が無いことを確認したら Content-Security-Policy（enforce）へ切り替える。
+const cspReportOnly = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+  "frame-src 'self'",
+].join("; ");
+
 const securityHeaders = [
   // SAMEORIGIN: 自サイト内（書類プレビューの iframe 等）は許可しつつ、
   // 他サイトからのフレーム埋め込み（クリックジャッキング）は引き続き拒否。
@@ -9,7 +27,10 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   ...(process.env.NODE_ENV === "production"
-    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
+    ? [
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+      ]
     : []),
 ];
 

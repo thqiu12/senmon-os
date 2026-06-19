@@ -6,6 +6,7 @@ import { fileTypeFromBuffer } from "file-type";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
+import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 import { ENV } from "@/lib/env";
 import { DocTypeEnum } from "@/lib/schemas";
 import { FILE_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   // 共有IP(学校PCルーム)から多数が複数ファイルを一斉アップロードするため上限を大きく。
   // 1ファイルあたりのサイズは別途 MAX_FILE_SIZE_MB で制限済み。
-  if (!checkRateLimit(`upload:${ip}`, 300, 60_000)) {
+  if (!checkRateLimit(`upload:${ip}`, APPLY_RATE_LIMITS.upload.max, APPLY_RATE_LIMITS.upload.windowMs)) {
     return NextResponse.json(
       { error: "アップロード制限を超えました。しばらく後に再試行してください" },
       { status: 429 },

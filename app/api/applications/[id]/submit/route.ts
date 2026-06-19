@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
+import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 
 export async function POST(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function POST(
 ) {
   const ip = getClientIp(request);
   // 共有IP(学校PCルーム)から多数が同時に最終送信するため上限を緩める。
-  if (!checkRateLimit(`submit:${ip}`, 100, 60_000)) {
+  if (!checkRateLimit(`submit:${ip}`, APPLY_RATE_LIMITS.submit.max, APPLY_RATE_LIMITS.submit.windowMs)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
   }
 

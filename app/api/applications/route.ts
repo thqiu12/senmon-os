@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
 import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
+import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 import { ApplicationCreateSchema } from "@/lib/schemas";
 import { ENV } from "@/lib/env";
 import { resolveSchoolFk } from "@/lib/school-fk";
@@ -286,7 +287,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   // 学校PCルーム等は全員が同一グローバルIP(NAT)から一斉に出願するため、IP上限は緩めに。
   // 1人あたりの乱用は下の「同一メール5分以内は409」で別途防いでいる。
-  if (!checkRateLimit(`apply:${ip}`, 100, 10 * 60 * 1000)) {
+  if (!checkRateLimit(`apply:${ip}`, APPLY_RATE_LIMITS.create.max, APPLY_RATE_LIMITS.create.windowMs)) {
     return NextResponse.json({ error: "申請の送信が多すぎます。しばらく後に再試行してください" }, { status: 429 });
   }
   try {

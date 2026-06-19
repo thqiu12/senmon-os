@@ -21,7 +21,9 @@ function uploadRoot(): string {
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  if (!checkRateLimit(`upload:${ip}`, 20, 60_000)) {
+  // 共有IP(学校PCルーム)から多数が複数ファイルを一斉アップロードするため上限を大きく。
+  // 1ファイルあたりのサイズは別途 MAX_FILE_SIZE_MB で制限済み。
+  if (!checkRateLimit(`upload:${ip}`, 300, 60_000)) {
     return NextResponse.json(
       { error: "アップロード制限を超えました。しばらく後に再試行してください" },
       { status: 429 },

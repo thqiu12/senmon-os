@@ -8,7 +8,8 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   const ip = getClientIp(request);
-  if (!checkRateLimit(`submit:${ip}`, 10, 60_000)) {
+  // 共有IP(学校PCルーム)から多数が同時に最終送信するため上限を緩める。
+  if (!checkRateLimit(`submit:${ip}`, 100, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
   }
 

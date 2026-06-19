@@ -284,7 +284,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  if (!checkRateLimit(`apply:${ip}`, 5, 60 * 60 * 1000)) {
+  // 学校PCルーム等は全員が同一グローバルIP(NAT)から一斉に出願するため、IP上限は緩めに。
+  // 1人あたりの乱用は下の「同一メール5分以内は409」で別途防いでいる。
+  if (!checkRateLimit(`apply:${ip}`, 100, 10 * 60 * 1000)) {
     return NextResponse.json({ error: "申請の送信が多すぎます。しばらく後に再試行してください" }, { status: 429 });
   }
   try {

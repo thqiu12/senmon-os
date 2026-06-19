@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/Icon";
 import { HelpTip } from "@/components/admin/HelpTip";
 import { APPLICANT_TYPE_LABEL } from "@/lib/applicantType";
+import { IN_PROGRESS_STATUSES, IN_PROGRESS_FILTER } from "@/lib/schemas";
 
 const STATUSES = ["all", "受付中", "書類確認中", "面接待ち", "結果待ち", "合格", "補欠合格", "不合格", "保留"];
 const JAPANESE_LEVELS = ["all", "N1", "N2", "N3", "N4", "N5", "なし"];
@@ -304,15 +305,13 @@ export default function AdminDashboard() {
           </div>
           <div
             style={{ "--reveal-delay": "140ms", "--wsdb-accent": "#7c3aed" } as CSSProperties}
-            className={`reveal-up wsdb-stat ${["受付中", "書類確認中", "面接待ち"].includes(statusFilter) ? "active" : ""}`}
-            onClick={() => { setStatusFilter("面接待ち"); setTodayOnly(false); setPage(1); }}
+            className={`reveal-up wsdb-stat ${statusFilter === IN_PROGRESS_FILTER ? "active" : ""}`}
+            onClick={() => { setStatusFilter(IN_PROGRESS_FILTER); setTodayOnly(false); setPage(1); }}
           >
             <div className="wsdb-stat-body">
               <div className="wsdb-stat-label">進行中</div>
               <div className="wsdb-stat-value">
-                {(globalStats?.statusCounts["受付中"] ?? 0) +
-                 (globalStats?.statusCounts["書類確認中"] ?? 0) +
-                 (globalStats?.statusCounts["面接待ち"] ?? 0)}
+                {IN_PROGRESS_STATUSES.reduce((sum, s) => sum + (globalStats?.statusCounts[s] ?? 0), 0)}
               </div>
               <div className="wsdb-stat-sub">受付 + 書類 + 面接</div>
             </div>
@@ -511,6 +510,7 @@ export default function AdminDashboard() {
             {/* ステータス */}
             <select className="form-input w-full sm:w-40" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="all">全ての状態</option>
+              <option value={IN_PROGRESS_FILTER}>進行中（受付+書類+面接）</option>
               {STATUSES.slice(1).map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 

@@ -4,7 +4,7 @@ import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
 import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
-import { ApplicationCreateSchema } from "@/lib/schemas";
+import { ApplicationCreateSchema, statusWhere } from "@/lib/schemas";
 import { ENV } from "@/lib/env";
 import { resolveSchoolFk } from "@/lib/school-fk";
 import { isNoWrittenExamSchool } from "@/lib/examConfig";
@@ -216,7 +216,8 @@ export async function GET(request: NextRequest) {
     const applicantType = searchParams.get("applicantType");
 
     const where: Record<string, unknown> = { deletedAt: null };
-    if (status && status !== "all") where.status = status;
+    const sw = statusWhere(status);
+    if (sw !== undefined) where.status = sw;
     if (applicantType && applicantType !== "all") where.applicantType = applicantType;
     if (nationality) where.nationality = { contains: nationality };
     if (japaneseLevel && japaneseLevel !== "all") where.japaneseLevel = japaneseLevel;

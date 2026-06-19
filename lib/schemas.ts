@@ -206,6 +206,26 @@ export const ApplicationStatusEnum = z.enum([
   "辞退",
 ]);
 
+// 「進行中」= 受付中 + 書類確認中 + 面接待ち。
+// ダッシュボードの集計カードの数字と、クリック時の一覧/エクスポート絞り込みで
+// 同じ集合を使うための単一の真実（ここを変えると両方に反映され、ドリフトしない）。
+export const IN_PROGRESS_STATUSES = ["受付中", "書類確認中", "面接待ち"] as const;
+export const IN_PROGRESS_FILTER = "進行中";
+
+/**
+ * 一覧/エクスポートAPIの status クエリ → Prisma `where.status` 断片。
+ *  - "all"/空        → undefined（絞り込みなし）
+ *  - "進行中"        → { in: [受付中, 書類確認中, 面接待ち] }（集計カードの数字と一致）
+ *  - それ以外        → 完全一致（単一ステータス）
+ */
+export function statusWhere(
+  status: string | null | undefined,
+): string | { in: string[] } | undefined {
+  if (!status || status === "all") return undefined;
+  if (status === IN_PROGRESS_FILTER) return { in: [...IN_PROGRESS_STATUSES] };
+  return status;
+}
+
 export const ApplicationPatchSchema = z
   .object({
     status: ApplicationStatusEnum.optional(),

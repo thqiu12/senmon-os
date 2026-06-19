@@ -5,6 +5,7 @@ import { escapeCsv, formatDateTimeJP } from "@/lib/utils";
 import { getSession } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { logError } from "@/lib/logger";
+import { statusWhere } from "@/lib/schemas";
 
 const HEADERS = [
   "申請番号","状態","申請日時","姓","名","姓（カナ）","名（カナ）","生年月日","性別","国籍",
@@ -29,7 +30,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const where: Record<string, unknown> = { deletedAt: null };
-    if (status && status !== "all") where.status = status;
+    const sw = statusWhere(status);
+    if (sw !== undefined) where.status = sw;
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {

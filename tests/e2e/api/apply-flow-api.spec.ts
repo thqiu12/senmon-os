@@ -110,3 +110,29 @@ test.describe("POST /api/upload 入力検証", () => {
     expect(res.status()).toBe(400);
   });
 });
+
+test.describe("ダッシュボード「進行中」フィルタ（受付中+書類確認中+面接待ち）", () => {
+  test("status=進行中 は受付中の出願を含み、status=面接待ち は含まない", async ({ request }) => {
+    // status 未指定の作成は「受付中」になる（route 既定）。
+    const email = `inprog-${Date.now()}@example.com`;
+    const create = await request.post("/api/applications", { data: { ...baseApplicant, email } });
+    expect(create.status()).toBe(201);
+    const { id } = await create.json();
+
+    const login = await request.post("/api/admin/login", {
+      data: { username: "admin", password: "TestAdmin2026!" },
+    });
+    if (!login.ok()) test.skip(true, "admin seed が無い");
+
+    // 「進行中」= 受付中/書類確認中/面接待ち の IN。受付中の当該出願を含むはず。
+    const inprog = await request.get(`/api/applications?status=${encodeURIComponent("進行中")}&limit=200`);
+    expect(inprog.ok()).toBeTruthy();
+    const inIds = ((await inprog.json()).applications ?? []).map((a: { id: string }) => a.id);
+    expect(inIds).toContain(id);
+
+    // 旧バグ再現防止: 受付中の出願は「面接待ち」単独フィルタには出ない。
+    const mensetsu = await request.get(`/api/applications?status=${encodeURIComponent("面接待ち")}&limit=200`);
+    const mIds = ((await mensetsu.json()).applications ?? []).map((a: { id: string }) => a.id);
+    expect(mIds).not.toContain(id);
+  });
+});

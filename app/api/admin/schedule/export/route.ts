@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/logger";
+import { statusWhere } from "@/lib/schemas";
 
 /**
  * 全体日程表（試験スケジュール）CSV エクスポート
@@ -70,8 +71,9 @@ export async function GET(request: NextRequest) {
     const includeExempted = searchParams.get("includeExempted") === "1";
 
     // 試験日が設定されているスロットを持つ申請を取得（per-school と Application-level の両方をスキャン）
+    const sw = statusWhere(statusFilter);
     const applications = await prisma.application.findMany({
-      where: statusFilter ? { status: statusFilter, deletedAt: null } : { deletedAt: null },
+      where: sw !== undefined ? { status: sw, deletedAt: null } : { deletedAt: null },
       orderBy: [{ createdAt: "asc" }],
       include: {
         applicationSchools: {

@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
   // SAMEORIGIN: 自サイト内（書類プレビューの iframe 等）は許可しつつ、
@@ -18,6 +20,8 @@ const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "puppeteer-core", "bcrypt"],
+    // instrumentation.ts（Sentry 初期化）を有効化（Next 14 では experimental）。
+    instrumentationHook: true,
   },
   async headers() {
     return [
@@ -34,4 +38,11 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry でラップ。DSN 未設定でも各 sentry.*.config の enabled:false で no-op。
+// org/project/authToken 未設定なら source map アップロードはスキップ（ビルドは通る）。
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+});

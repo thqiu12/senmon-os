@@ -56,7 +56,9 @@ export const ApplicationCreateSchema = z.object({
   addressDetail: optStr(200),
   residenceStatus: optStr(50),
   residenceExpiry: optStr(20),
-  japaneseLevel: JapaneseLevelEnum,
+  // 日本人出願者はフォームで日本語レベルを非表示にするため空で届く。API 層では空文字を許容する
+  // （留学生向けの必須チェックは UI 側のタイプ別フォームで担保。DB は NOT NULL なので "" を保存）。
+  japaneseLevel: JapaneseLevelEnum.or(z.literal("")).default(""),
   jlptCertified: z.boolean().optional(),
   schoolName: str(100),
   department: str(100),

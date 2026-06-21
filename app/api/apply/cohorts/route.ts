@@ -33,13 +33,29 @@ export async function GET(request: NextRequest) {
       orderBy: [{ schoolKey: "asc" }, { round: "asc" }],
     });
 
+    const includeUpcoming = searchParams.get("includeUpcoming") === "1";
+
     const active = cohorts.filter((c) => {
       if (c.acceptStart && new Date(c.acceptStart) > now) return false;
       if (c.acceptEnd && new Date(c.acceptEnd) < now) return false;
       return true;
     });
 
-    return NextResponse.json(active);
+    // 既定（パラメータ無し）は従来どおり「受付中のみ」を返す。
+    // ← apply フォーム側はこれで受付可否を判定しているため、挙動を変えない。
+    if (!includeUpcoming) {
+      return NextResponse.json(active);
+    }
+
+    // includeUpcoming=1: トップページ用に「次回」（status=受付中 だが acceptStart がまだ未来）も
+    // 付帯して返す。受付中=upcoming:false / 次回=upcoming:true で区別する。
+    const upcoming = cohorts.filter(
+      (c) => c.acceptStart && new Date(c.acceptStart) > now,
+    );
+    return NextResponse.json([
+      ...active.map((c) => ({ ...c, upcoming: false })),
+      ...upcoming.map((c) => ({ ...c, upcoming: true })),
+    ]);
   } catch {
     return NextResponse.json([], { status: 200 });
   }

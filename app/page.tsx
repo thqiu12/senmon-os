@@ -146,26 +146,37 @@ interface ActiveCohort {
   acceptEnd: string | null;
   examDate: string | null;
   deadline: string | null;
+  upcoming?: boolean; // includeUpcoming=1 のとき: true=次回(受付開始が未来) / false=受付中
 }
 
 export default function HomePage() {
   const [activeCohorts, setActiveCohorts] = useState<ActiveCohort[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/apply/cohorts")
+    fetch("/api/apply/cohorts?includeUpcoming=1")
       .then(r => r.json())
       .then(d => setActiveCohorts(Array.isArray(d) ? d : []))
       .catch(() => setActiveCohorts([]));
   }, []);
 
-  // 学校が受付中かどうか、受付中のバッチ情報を返す
+  // 学校が受付中かどうか、受付中のバッチ情報を返す（次回=upcoming は除外）
   const getSchoolCohort = (schoolId: string): ActiveCohort | null => {
     if (!activeCohorts) return null;
+    const pool = activeCohorts.filter(c => !c.upcoming);
     // 学校専用バッチ優先、次に全校共通バッチ
-    const specific = activeCohorts.find(c => c.schoolKey === schoolId);
+    const specific = pool.find(c => c.schoolKey === schoolId);
     if (specific) return specific;
-    const global = activeCohorts.find(c => !c.schoolKey);
+    const global = pool.find(c => !c.schoolKey);
     return global || null;
+  };
+
+  // 受付期間外でも、次回（受付開始が未来）の回次があれば最も近いものを返す
+  const getUpcomingCohort = (schoolId: string): ActiveCohort | null => {
+    if (!activeCohorts) return null;
+    const pool = activeCohorts
+      .filter(c => c.upcoming && c.acceptStart && (c.schoolKey === schoolId || !c.schoolKey))
+      .sort((a, b) => new Date(a.acceptStart!).getTime() - new Date(b.acceptStart!).getTime());
+    return pool[0] || null;
   };
 
   const isAccepting = (schoolId: string) => getSchoolCohort(schoolId) !== null;
@@ -253,6 +264,7 @@ export default function HomePage() {
                 {SCHOOLS.map((school, i) => {
                   const cohort = getSchoolCohort(school.id);
                   const accepting = cohort !== null;
+                  const upcoming = !accepting ? getUpcomingCohort(school.id) : null;
 
                   return (
                     <div key={school.id}
@@ -266,6 +278,10 @@ export default function HomePage() {
                             <span className="flex items-center gap-1 text-xs font-bold bg-white/20 text-white px-2.5 py-1 rounded-full backdrop-blur-sm">
                               <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse inline-block"></span>
                               第{cohort!.round}期 受付中
+                            </span>
+                          ) : upcoming ? (
+                            <span className="text-xs font-bold bg-white/25 text-white px-2.5 py-1 rounded-full backdrop-blur-sm">
+                              受付開始予定
                             </span>
                           ) : (
                             <span className="text-xs font-bold bg-black/20 text-white/80 px-2.5 py-1 rounded-full">
@@ -303,8 +319,25 @@ export default function HomePage() {
                           </div>
                         )}
 
-                        {/* 受付期間外の場合 */}
-                        {!accepting && (
+                        {/* 受付期間外でも、次回（受付開始が未来）の回次が設定されていれば開始予定を表示 */}
+                        {!accepting && upcoming && upcoming.acceptStart && (
+                          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800 space-y-1">
+                            <p className="font-bold text-amber-700 flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7v5l3 2" /></svg>
+                              第{upcoming.round}期 受付開始予定
+                            </p>
+                            <p>受付開始：<span className="font-semibold">{new Date(upcoming.acceptStart).toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span></p>
+                            {upcoming.acceptEnd && (
+                              <p>出願締切：<span className="font-semibold">{new Date(upcoming.acceptEnd).toLocaleDateString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}まで</span></p>
+                            )}
+                            {upcoming.examDate && (
+                              <p>選考日：<span className="font-semibold">{upcoming.examDate}</span></p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 受付期間外（次回情報なし） */}
+                        {!accepting && !upcoming && (
                           <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-500">
                             <p className="font-semibold flex items-center gap-1.5">
                               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M10 9v6M14 9v6" /></svg>

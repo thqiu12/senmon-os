@@ -62,7 +62,7 @@ const NAV: NavSection[] = [
       { href: "/admin/form-config", label: "各種設定",   icon: "wrench" },
       { href: "/admin/accounts",    label: "アカウント", icon: "users" },
       { href: "/admin/permissions", label: "権限設定",   icon: "wrench" },
-      { href: "/admin/trash",       label: "削除済み",   icon: "trash" },
+      { href: "/admin/audit",       label: "操作ログ",   icon: "book" },
     ],
   },
 ];
@@ -102,7 +102,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     "/admin/payment",
     "/admin/enrollment",
     "/admin/prospects",
-    "/admin/trash",
+    "/admin/audit",
   ]);
   const filteredNav = NAV.map((sec) => ({
     ...sec,
@@ -112,6 +112,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       // 面接レビューは面接官専用（他ロールのナビには出さない）
       if (it.href === "/admin/interviews") return false;
       if ((it.href === "/admin/accounts" || it.href === "/admin/permissions") && me?.role !== "super_admin") return false;
+      // 操作ログは全職員の操作が見えるため最高管理者・管理者のみ（API も isCoreAdmin で一致）
+      if (it.href === "/admin/audit" && me?.role !== "super_admin" && me?.role !== "admin") return false;
       if (me?.role === "sales" && salesHidden.has(it.href)) return false;
       if (me?.role === "academic" && academicHidden.has(it.href)) return false;
       return true;

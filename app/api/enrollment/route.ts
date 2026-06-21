@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
 import { EnrollmentUpsertSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
+import { getClientIp } from "@/lib/security";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { z } from "zod";
 
 export async function GET(request: NextRequest) {
@@ -81,6 +83,25 @@ export async function POST(request: NextRequest) {
         status: publish ? "案内済み" : "未開始",
       },
       update: data,
+    });
+
+    // 操作ログ（管理側）。公開 / 学費確認 / それ以外の更新で出し分ける。
+    const app = await prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { applicationNo: true, lastName: true, firstName: true },
+    });
+    const label = `${app?.applicationNo ?? applicationId} ${app?.lastName ?? ""}${app?.firstName ?? ""}`.trim();
+    const action = publish
+      ? AUDIT_ACTIONS.ENROLLMENT_PUBLISH
+      : rest.tuitionPaid === true
+        ? AUDIT_ACTIONS.ENROLLMENT_TUITION
+        : AUDIT_ACTIONS.ENROLLMENT_UPDATE;
+    const verb = publish ? "公開" : rest.tuitionPaid === true ? "学費入金を確認" : "更新";
+    await logAudit(session, {
+      action,
+      targetType: "Application", targetId: applicationId, targetLabel: label,
+      summary: `入学手続き（${label}）を${verb}`,
+      ip: getClientIp(request),
     });
 
     return NextResponse.json({ success: true, procedure });

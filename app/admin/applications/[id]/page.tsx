@@ -1358,7 +1358,7 @@ export default function ApplicationDetailPage() {
               </div>
               <h3 className="font-bold text-gray-800 text-base text-center mb-1">この出願を削除しますか？</h3>
               <p className="text-sm text-gray-600 text-center">{application.lastName} {application.firstName}（<span className="font-mono text-xs">{application.applicationNo}</span>）</p>
-              <p className="text-xs text-gray-400 text-center mt-1 mb-4">ゴミ箱に移動します。データは保持され、「削除済み」から復元できます。</p>
+              <p className="text-xs text-gray-400 text-center mt-1 mb-4">ゴミ箱に移動します。データは保持され、「操作ログ」から復元できます。</p>
               <label className="form-label">削除理由（任意・操作ログに残ります）</label>
               <textarea className="form-input text-sm min-h-[72px] resize-y" placeholder="例：テスト用データのため" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
             </div>

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession, isSuperAdmin } from "@/lib/auth";
 import { hashPassword, PWD_VERSION_BCRYPT } from "@/lib/password";
 import { AdminAccountCreateSchema, AdminAccountUpdateSchema } from "@/lib/schemas";
+import { getClientIp } from "@/lib/security";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import crypto from "crypto";
 
 export async function GET(request: NextRequest) {
@@ -71,6 +73,12 @@ export async function POST(request: NextRequest) {
         isActive: true,
         createdAt: true,
       },
+    });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.ACCOUNT_CREATE,
+      targetType: "User", targetId: user.id, targetLabel: `${user.displayName}（${user.username}）`,
+      summary: `アカウント「${user.displayName}（${user.username}）」を作成（${user.role}）`,
+      ip: getClientIp(request),
     });
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
@@ -146,6 +154,16 @@ export async function PATCH(request: NextRequest) {
       data,
       select: { id: true, username: true, displayName: true, role: true, isActive: true },
     });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.ACCOUNT_UPDATE,
+      targetType: "User", targetId: user.id, targetLabel: `${user.displayName}（${user.username}）`,
+      summary: `アカウント「${user.displayName}（${user.username}）」を更新`,
+      meta: {
+        roleFrom: target.role, roleTo: parsed.data.role,
+        isActive: parsed.data.isActive, passwordChanged: !!parsed.data.password,
+      },
+      ip: getClientIp(request),
+    });
     return NextResponse.json(user);
   } catch (e) {
     console.error(e);
@@ -168,7 +186,14 @@ export async function DELETE(request: NextRequest) {
         { status: 400 },
       );
     }
+    const target = await prisma.adminUser.findUnique({ where: { id }, select: { displayName: true, username: true } });
     await prisma.adminUser.delete({ where: { id } });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.ACCOUNT_DELETE,
+      targetType: "User", targetId: id, targetLabel: target ? `${target.displayName}（${target.username}）` : id,
+      summary: `アカウント「${target ? `${target.displayName}（${target.username}）` : id}」を削除`,
+      ip: getClientIp(request),
+    });
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error(e);

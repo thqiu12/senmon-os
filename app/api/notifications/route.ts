@@ -3,9 +3,10 @@ import nodemailer from "nodemailer";
 import { getSession } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { NotificationSchema } from "@/lib/schemas";
-import { escapeHtml } from "@/lib/security";
+import { escapeHtml, getClientIp } from "@/lib/security";
 import { ENV } from "@/lib/env";
 import { sendEmail } from "@/lib/email";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { z } from "zod";
 
 type NotificationPayload = z.infer<typeof NotificationSchema>;
@@ -323,6 +324,7 @@ export async function POST(request: NextRequest) {
           auth: { user: smtpUser, pass: smtpPass },
         });
         await transporter.sendMail({ from: smtpFrom, to: body.to, subject, html });
+        await logAudit(session, { action: AUDIT_ACTIONS.NOTIFICATION_SEND, targetType: "Notification", targetLabel: body.to, summary: `通知メール送信: ${body.to}（${subject}）`, ip: getClientIp(request) });
         return NextResponse.json({ success: true, emailSent: true, via: "smtp" });
       } catch (smtpErr) {
         // SMTP 送信失敗。Resend が使えるならフォールバック、無ければ構造化エラーで返す。
@@ -350,6 +352,7 @@ export async function POST(request: NextRequest) {
           { status: 502 },
         );
       }
+      await logAudit(session, { action: AUDIT_ACTIONS.NOTIFICATION_SEND, targetType: "Notification", targetLabel: body.to, summary: `通知メール送信: ${body.to}（${subject}）`, ip: getClientIp(request) });
       return NextResponse.json({ success: true, emailSent: true, via: "resend", messageId: r.id });
     }
 

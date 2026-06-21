@@ -864,3 +864,25 @@ model EnrollmentQuota {
   @@unique([applySchoolId, applyDepartmentId, enrollmentYear])
   @@index([applySchoolId])
 }
+
+// 操作ログ（監査ログ）。管理側の書込操作を1行ずつ記録する。
+// 追加のみ＝非破壊。操作者名/対象ラベルは操作時のスナップショットで保持し、
+// 後でユーザーや対象がリネーム・削除されてもログは読めるようにする。
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?  // 管理ユーザーID（system は null）
+  actorName   String   // 操作時の表示名スナップショット
+  actorRole   String?  // 操作時のロール
+  action      String   // 操作キー（例: application.status）
+  targetType  String?  // Application / Cohort / User / EnrollmentProcedure 等
+  targetId    String?
+  targetLabel String?  // 人が読めるラベル（例: 25-1-001 山田太郎）
+  summary     String   // 日本語1行の概要
+  meta        String?  // 任意の構造化情報（JSON文字列, 例: {"from":"受付中","to":"合格"}）
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([action])
+}

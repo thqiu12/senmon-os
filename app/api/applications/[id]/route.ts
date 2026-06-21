@@ -4,6 +4,8 @@ import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { hasCapability, DECISION_STATUSES } from "@/lib/permissions";
 import { ApplicationPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
+import { getClientIp } from "@/lib/security";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 
 export async function GET(
@@ -69,6 +71,12 @@ export async function PATCH(
       );
     }
     const body = parsed.data;
+
+    // 操作ログ用に変更前の状態を控える（status の from→to に使う）
+    const before = await prisma.application.findUnique({
+      where: { id: params.id },
+      select: { status: true, applicationNo: true, lastName: true, firstName: true },
+    });
 
     if (body.cohortId) {
       const exists = await prisma.cohort.findUnique({ where: { id: body.cohortId }, select: { id: true } });
@@ -219,6 +227,25 @@ export async function PATCH(
       return tx.application.findUnique({ where: { id: params.id }, include: includeFull });
     });
 
+    // 操作ログ: ステータス変更はそれ専用、それ以外の編集は update として記録
+    const label = `${before?.applicationNo ?? params.id} ${before?.lastName ?? ""}${before?.firstName ?? ""}`.trim();
+    if (body.status !== undefined && body.status !== before?.status) {
+      await logAudit(session, {
+        action: AUDIT_ACTIONS.APPLICATION_STATUS,
+        targetType: "Application", targetId: params.id, targetLabel: label,
+        summary: `出願「${label}」を ${before?.status ?? "?"} → ${body.status} に変更`,
+        meta: { from: before?.status ?? null, to: body.status },
+        ip: getClientIp(request),
+      });
+    } else {
+      await logAudit(session, {
+        action: AUDIT_ACTIONS.APPLICATION_UPDATE,
+        targetType: "Application", targetId: params.id, targetLabel: label,
+        summary: `出願「${label}」を編集`,
+        ip: getClientIp(request),
+      });
+    }
+
     return NextResponse.json(application);
   } catch (error) {
     logError("PATCH /api/applications/[id]", error);
@@ -242,9 +269,17 @@ export async function DELETE(
     const body = await request.json().catch(() => ({}));
     const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
     const admin = await prisma.adminUser.findUnique({ where: { id: session.userId }, select: { displayName: true } });
-    await prisma.application.update({
+    const deleted = await prisma.application.update({
       where: { id: params.id },
       data: { deletedAt: new Date(), deletedBy: admin?.displayName || session.userId, deleteReason: reason },
+    });
+    const delLabel = `${deleted.applicationNo} ${deleted.lastName}${deleted.firstName}`.trim();
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.APPLICATION_DELETE,
+      targetType: "Application", targetId: params.id, targetLabel: delLabel,
+      summary: `出願「${delLabel}」を削除${reason ? `（理由: ${reason}）` : ""}`,
+      meta: reason ? { reason } : null,
+      ip: getClientIp(request),
     });
     return NextResponse.json({ success: true });
   } catch (error) {

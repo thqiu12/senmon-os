@@ -2,6 +2,8 @@ import { getSession } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/security";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 
 // POST: 管理者が入学手続きを確認・承認する
 export async function POST(request: NextRequest) {
@@ -81,6 +83,23 @@ export async function POST(request: NextRequest) {
     const updated = await prisma.enrollmentProcedure.update({
       where: { applicationId },
       data: updateData,
+    });
+
+    const verbMap: Record<string, string> = {
+      confirm: "校方確認・許可書発行",
+      schoolConfirm: "校方確認",
+      admitLetter: "入学許可書発行",
+      notify_ceremony: "入学式案内",
+      notify_visa: "ビザ案内",
+    };
+    const a = procedure.application;
+    const label = `${a?.applicationNo ?? applicationId} ${a?.lastName ?? ""}${a?.firstName ?? ""}`.trim();
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.ENROLLMENT_CONFIRM,
+      targetType: "Application", targetId: applicationId, targetLabel: label,
+      summary: `入学手続き（${label}）: ${verbMap[action as string] ?? action}`,
+      meta: { action },
+      ip: getClientIp(request),
     });
 
     return NextResponse.json({ success: true, procedure: updated });

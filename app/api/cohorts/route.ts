@@ -4,6 +4,8 @@ import { getSession, isAdmin } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { CohortCreateSchema, CohortPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
+import { getClientIp } from "@/lib/security";
+import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 
 async function buildData(
@@ -82,6 +84,12 @@ export async function POST(request: NextRequest) {
       }
       return tx.cohort.create({ data: data as Prisma.CohortCreateInput });
     });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.COHORT_CREATE,
+      targetType: "Cohort", targetId: cohort.id, targetLabel: cohort.name,
+      summary: `選考「${cohort.name}」を作成`,
+      ip: getClientIp(request),
+    });
     return NextResponse.json(cohort, { status: 201 });
   } catch (error) {
     logError("POST /api/cohorts", error);
@@ -114,6 +122,12 @@ export async function PATCH(request: NextRequest) {
       }
       return tx.cohort.update({ where: { id }, data: data as Prisma.CohortUpdateInput });
     });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.COHORT_UPDATE,
+      targetType: "Cohort", targetId: cohort.id, targetLabel: cohort.name,
+      summary: `選考「${cohort.name}」を編集`,
+      ip: getClientIp(request),
+    });
     return NextResponse.json(cohort);
   } catch (error) {
     logError("PATCH /api/cohorts", error);
@@ -137,7 +151,14 @@ export async function DELETE(request: NextRequest) {
         { status: 400 },
       );
     }
+    const target = await prisma.cohort.findUnique({ where: { id }, select: { name: true } });
     await prisma.cohort.delete({ where: { id } });
+    await logAudit(session, {
+      action: AUDIT_ACTIONS.COHORT_DELETE,
+      targetType: "Cohort", targetId: id, targetLabel: target?.name ?? id,
+      summary: `選考「${target?.name ?? id}」を削除`,
+      ip: getClientIp(request),
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     logError("DELETE /api/cohorts", error);

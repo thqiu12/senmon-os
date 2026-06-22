@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { QuotaSchema } from "@/lib/schemas";
 import { resolveSchoolFk } from "@/lib/school-fk";
+import { schoolAggKey } from "@/lib/schoolAgg";
 
 // GET: 定員統計一覧
 export async function GET(request: NextRequest) {
@@ -15,40 +16,41 @@ export async function GET(request: NextRequest) {
       orderBy: [{ schoolName: "asc" }, { enrollmentYear: "desc" }, { department: "asc" }],
     });
 
-    // 合否は Application.status を真とし、(志望校名・学科・入学年度) の文字列で集計する。
-    // これらの文字列は出願フォーム（ApplySchool.name / departments[].name）と一致しており、
-    // 定員レコードも同じ文字列で保存される（FK/ApplyDepartment マスタに依存しない）。
+    // 合否は Application.status を真とし、学科FK(applyDepartmentId)優先＋文字列フォールバックで集計。
+    // 定員レコードも同じキーで突合するため、学校の分割・改名でも(FKが埋まっていれば)正しく合致する。
     const ACCEPTED = new Set(["合格"]);
     const PENDING = new Set(["受付中", "書類待ち", "書類確認中", "面接待ち", "結果待ち", "補欠合格", "保留"]);
 
     const grouped = await prisma.application.groupBy({
-      by: ["schoolName", "department", "enrollmentYear", "status"],
+      by: ["applySchoolId", "applyDepartmentId", "schoolName", "department", "enrollmentYear", "status"],
       where: { deletedAt: null },
       _count: { id: true },
     });
-    const key = (s: string, d: string, y: string) => `${s}__${d}__${y}`;
-    const acceptedMap = new Map<string, number>();
-    const pendingMap = new Map<string, number>();
+    type Agg = { accepted: number; pending: number };
+    const aggMap = new Map<string, Agg>();
+    const labelMap = new Map<string, { schoolName: string; department: string; enrollmentYear: string }>();
     for (const g of grouped) {
-      const k = key(g.schoolName, g.department, g.enrollmentYear);
-      if (ACCEPTED.has(g.status)) acceptedMap.set(k, (acceptedMap.get(k) ?? 0) + g._count.id);
-      else if (PENDING.has(g.status)) pendingMap.set(k, (pendingMap.get(k) ?? 0) + g._count.id);
+      const k = schoolAggKey(g.applyDepartmentId, g.schoolName, g.department, g.enrollmentYear);
+      let a = aggMap.get(k);
+      if (!a) { a = { accepted: 0, pending: 0 }; aggMap.set(k, a); }
+      if (ACCEPTED.has(g.status)) a.accepted += g._count.id;
+      else if (PENDING.has(g.status)) a.pending += g._count.id;
+      if (!labelMap.has(k)) labelMap.set(k, { schoolName: g.schoolName, department: g.department, enrollmentYear: g.enrollmentYear });
     }
 
     const result = quotas.map((q) => {
-      const k = key(q.schoolName, q.department, q.enrollmentYear);
-      const accepted = acceptedMap.get(k) ?? 0;
-      const pending = pendingMap.get(k) ?? 0;
-      const remaining = q.quota - accepted;
-      const fillRate = q.quota > 0 ? Math.round((accepted / q.quota) * 100) : 0;
+      const k = schoolAggKey(q.applyDepartmentId, q.schoolName, q.department, q.enrollmentYear);
+      const agg = aggMap.get(k) ?? { accepted: 0, pending: 0 };
+      const remaining = q.quota - agg.accepted;
+      const fillRate = q.quota > 0 ? Math.round((agg.accepted / q.quota) * 100) : 0;
       return {
         id: q.id,
         schoolName: q.schoolName,
         department: q.department,
         enrollmentYear: q.enrollmentYear,
         quota: q.quota,
-        accepted,
-        pending,
+        accepted: agg.accepted,
+        pending: agg.pending,
         remaining,
         fillRate,
         memo: q.memo,
@@ -56,20 +58,20 @@ export async function GET(request: NextRequest) {
     });
 
     // 定員未設定だが合格者がいる組み合わせを「定員=0」で追加表示
-    const quotaSet = new Set(
-      quotas.map((q) => key(q.schoolName, q.department, q.enrollmentYear)),
+    const quotaKeys = new Set(
+      quotas.map((q) => schoolAggKey(q.applyDepartmentId, q.schoolName, q.department, q.enrollmentYear)),
     );
-    acceptedMap.forEach((accepted, k) => {
-      if (quotaSet.has(k)) return;
-      const [schoolName, department, enrollmentYear] = k.split("__");
+    aggMap.forEach((agg, k) => {
+      if (quotaKeys.has(k) || agg.accepted === 0) return;
+      const lbl = labelMap.get(k);
       result.push({
         id: `unset-${k}`,
-        schoolName,
-        department,
-        enrollmentYear,
+        schoolName: lbl?.schoolName ?? "",
+        department: lbl?.department ?? "",
+        enrollmentYear: lbl?.enrollmentYear ?? "",
         quota: 0,
-        accepted,
-        pending: pendingMap.get(k) ?? 0,
+        accepted: agg.accepted,
+        pending: agg.pending,
         remaining: -1,
         fillRate: -1,
         memo: null,

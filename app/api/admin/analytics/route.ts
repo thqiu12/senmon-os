@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
 import { logError } from "@/lib/logger";
+import { schoolAggKey } from "@/lib/schoolAgg";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,12 @@ export async function GET(request: NextRequest) {
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   try {
-    const [apps, quotas] = await Promise.all([
+    const [apps, quotas, deptLabels] = await Promise.all([
       prisma.application.findMany({
         where: { deletedAt: null },
         select: {
           id: true, applicationNo: true, schoolName: true, department: true, enrollmentYear: true, status: true,
+          applySchoolId: true, applyDepartmentId: true,
           agentId: true, agent: { select: { name: true } },
           lastName: true, firstName: true, birthDate: true, email: true, phone: true,
           address: true, addressDetail: true, applicationReason: true,
@@ -29,23 +31,34 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.enrollmentQuota.findMany(),
+      // 学科FKがある行は志望校マスタの正規名で表示する
+      prisma.applyDepartment.findMany({ select: { id: true, name: true, applySchool: { select: { name: true } } } }),
     ]);
+    const deptLabelMap = new Map(deptLabels.map((d) => [d.id, { schoolName: d.applySchool.name, department: d.name }]));
 
     // ===== #6 入学予測 / 漏斗 =====
-    const fkey = (s: string, d: string, y: string) => `${s}__${d}__${y}`;
+    // 学科FK優先＋文字列フォールバックで集計。定員も同じキーで突合するので、
+    // 学校の分割・改名でも(FKが埋まっていれば)正しく合致する。
     type FNode = {
+      applyDepartmentId: string | null;
       schoolName: string; department: string; enrollmentYear: string;
       total: number; pipeline: number; accepted: number; waitlist: number; hold: number; rejected: number; enrolled: number;
     };
     const fmap = new Map<string, FNode>();
-    const node = (s: string, d: string, y: string): FNode => {
-      const k = fkey(s, d, y);
+    const node = (applyDepartmentId: string | null, s: string, d: string, y: string): FNode => {
+      const k = schoolAggKey(applyDepartmentId, s, d, y);
       let n = fmap.get(k);
-      if (!n) { n = { schoolName: s, department: d, enrollmentYear: y, total: 0, pipeline: 0, accepted: 0, waitlist: 0, hold: 0, rejected: 0, enrolled: 0 }; fmap.set(k, n); }
+      if (!n) {
+        const lbl = applyDepartmentId ? deptLabelMap.get(applyDepartmentId) : null;
+        n = { applyDepartmentId: applyDepartmentId ?? null, schoolName: lbl?.schoolName ?? s, department: lbl?.department ?? d, enrollmentYear: y, total: 0, pipeline: 0, accepted: 0, waitlist: 0, hold: 0, rejected: 0, enrolled: 0 };
+        fmap.set(k, n);
+      }
       return n;
     };
+    // 定員が設定済みの組み合わせを先に行として作る（申請0でも定員と充足が見える）
+    for (const q of quotas) node(q.applyDepartmentId, q.schoolName, q.department, q.enrollmentYear);
     for (const a of apps) {
-      const n = node(a.schoolName, a.department, a.enrollmentYear);
+      const n = node(a.applyDepartmentId, a.schoolName, a.department, a.enrollmentYear);
       n.total++;
       if (a.status === "合格") n.accepted++;
       else if (a.status === "補欠合格") n.waitlist++;
@@ -54,7 +67,7 @@ export async function GET(request: NextRequest) {
       else if (PIPELINE.has(a.status)) n.pipeline++;
       if (a.enrollmentProcedure?.completedAt) n.enrolled++;
     }
-    const quotaMap = new Map(quotas.map((q) => [fkey(q.schoolName, q.department, q.enrollmentYear), q.quota]));
+    const quotaMap = new Map(quotas.map((q) => [schoolAggKey(q.applyDepartmentId, q.schoolName, q.department, q.enrollmentYear), q.quota]));
     const forecast = Array.from(fmap.values()).map((n) => {
       const decided = n.accepted + n.rejected;
       const acceptRate = decided > 0 ? n.accepted / decided : null; // 観測値
@@ -62,7 +75,7 @@ export async function GET(request: NextRequest) {
       const effEnroll = enrollRate ?? 0.9; // データが無ければ「合格者の大半が入学」を仮定
       const projectedAccepted = n.accepted + Math.round(n.pipeline * (acceptRate ?? 0.5));
       const projectedEnrolled = Math.max(n.enrolled, Math.round(projectedAccepted * effEnroll));
-      const quota = quotaMap.get(fkey(n.schoolName, n.department, n.enrollmentYear)) ?? null;
+      const quota = quotaMap.get(schoolAggKey(n.applyDepartmentId, n.schoolName, n.department, n.enrollmentYear)) ?? null;
       return {
         ...n,
         quota,

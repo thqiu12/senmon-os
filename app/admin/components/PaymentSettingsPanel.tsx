@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { SCHOOLS } from "@/lib/formFieldDefaults";
 import { useUI } from "@/components/ui/toast";
 
 interface PayMethod { bankInfo: string; qr: string | null }
@@ -10,11 +9,6 @@ type PaymentMap = Record<string, PaymentConfig>;
 
 const GLOBAL_KEY = "__global__";
 const MAX_QR_BYTES = 500 * 1024; // 約500KB
-
-const SCHOOL_TABS: { key: string; name: string; global?: boolean }[] = [
-  { key: GLOBAL_KEY, name: "全校共通", global: true },
-  ...SCHOOLS.map((s) => ({ key: s.id, name: s.name })),
-];
 
 function emptyConfig(): PaymentConfig {
   return { examFee: { bankInfo: "", qr: null }, tuition: { bankInfo: "", qr: null } };
@@ -27,6 +21,8 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // タブは志望校マスタ(/api/apply/schools)から動的取得。学校を増やせばここに自動で出る。
+  const [schools, setSchools] = useState<{ schoolKey: string; name: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -35,7 +31,16 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
       if (res.ok) setMap(await res.json());
       setLoading(false);
     })();
+    fetch("/api/apply/schools")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setSchools(Array.isArray(d) ? d.map((s: { schoolKey: string; name: string }) => ({ schoolKey: s.schoolKey, name: s.name })) : []))
+      .catch(() => setSchools([]));
   }, [onUnauthorized]);
+
+  const tabs: { key: string; name: string; global?: boolean }[] = [
+    { key: GLOBAL_KEY, name: "全校共通", global: true },
+    ...schools.map((s) => ({ key: s.schoolKey, name: s.name })),
+  ];
 
   useEffect(() => {
     if (!dirty) return;
@@ -81,7 +86,7 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
   const resetSchool = async () => {
     const ok = await confirm({
       title: "全校共通に戻す",
-      message: `「${SCHOOL_TABS.find((t) => t.key === activeKey)?.name}」の個別設定を削除して全校共通の設定を使うようにしますか？`,
+      message: `「${tabs.find((t) => t.key === activeKey)?.name}」の個別設定を削除して全校共通の設定を使うようにしますか？`,
       danger: true,
       okLabel: "リセット",
     });
@@ -109,7 +114,7 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
       {/* School Tabs */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
         <div className="flex overflow-x-auto">
-          {SCHOOL_TABS.map((tab) => {
+          {tabs.map((tab) => {
             const active = tab.key === activeKey;
             const has = !!map[tab.key] && (
               !!map[tab.key].examFee.bankInfo || !!map[tab.key].examFee.qr ||

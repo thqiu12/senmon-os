@@ -1387,8 +1387,19 @@ export default function ApplicationDetailPage() {
           <div className="card bg-navy-800 text-white lg:col-span-3">
               <div className="flex items-start justify-between mb-4 gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-12 h-12 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-lg font-bold shrink-0">
-                    {application.lastName?.charAt(0) || "—"}
+                  <div className="w-12 h-12 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden">
+                    {(() => {
+                      // 証明写真（画像・差し戻し以外、確認済を優先）があればアイコンを顔写真に
+                      const photos = (application.documents || []).filter(
+                        (d) => d.docType.includes("証明写真") && d.status !== "差し戻し" && d.mimeType?.startsWith("image/"),
+                      );
+                      const photo = photos.find((d) => d.status === "確認済") ?? photos[0];
+                      return photo ? (
+                        <img src={photo.filePath} alt={`${application.lastName} ${application.firstName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        application.lastName?.charAt(0) || "—"
+                      );
+                    })()}
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-2xl font-bold truncate">

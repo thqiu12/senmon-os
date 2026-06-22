@@ -18,6 +18,7 @@ export async function GET() {
         name: true,
         hojin: true,
         icon: true,
+        description: true,
         isActive: true,
         displayOrder: true,
         departments: true,

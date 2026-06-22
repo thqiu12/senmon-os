@@ -3,49 +3,36 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { SCHOOL_ICON_CHOICES } from "@/lib/schoolIconChoices";
 import { CompassMark } from "@/components/ui/CompassMark";
 
-const SCHOOLS = [
-  {
-    id: "chuo-seminar",
-    name: "中央ゼミナール",
-    hojin: "学校法人 羽場学園",
-    icon: "book" as const,
-    color: { header: "bg-gradient-to-br from-blue-500 to-blue-700", btn: "bg-blue-600 hover:bg-blue-700", tag: "bg-blue-50 text-blue-700 border-blue-100", badge: "bg-blue-100 text-blue-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
-    desc: "大学・大学院・美術系の受験指導に特化した専修学校。留学生向けの日本語指導から難関大学合格まで、個別カリキュラムで徹底サポートします。",
-    departments: [
-      { name: "大学・大学院受験科", duration: "1年制" },
-      { name: "美術系受験科", duration: "1年制" },
-    ],
-  },
-  {
-    id: "tdb",
-    name: "東京デジタルビジネス専門学校",
-    nameShort: "TDB",
-    hojin: "学校法人 羽場学園",
-    icon: "monitor" as const,
-    color: { header: "bg-gradient-to-br from-violet-500 to-violet-700", btn: "bg-violet-600 hover:bg-violet-700", tag: "bg-violet-50 text-violet-700 border-violet-100", badge: "bg-violet-100 text-violet-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
-    desc: "デジタルビジネス・デジタルメディアの実践スキルを習得する専門学校。最新テクノロジーとビジネスを融合した教育で、デジタル社会を牽引する人材を育成します。",
-    departments: [
-      { name: "デジタルビジネス科", duration: "2年制" },
-      { name: "中国語デジタルビジネス科", duration: "2年制" },
-    ],
-  },
-  {
-    id: "kanagawa-judo",
-    name: "神奈川柔整鍼灸専門学校",
-    hojin: "学校法人 平井学園",
-    icon: "stethoscope" as const,
-    color: { header: "bg-gradient-to-br from-emerald-500 to-emerald-700", btn: "bg-emerald-600 hover:bg-emerald-700", tag: "bg-emerald-50 text-emerald-700 border-emerald-100", badge: "bg-emerald-100 text-emerald-700", closed: "bg-gray-100 text-gray-400 cursor-not-allowed" },
-    desc: "柔道整復師・鍼灸師の国家資格取得を目指す専門学校。豊富な臨床実習と国家試験対策で、医療・スポーツ分野で活躍できる人材を育成します。",
-    departments: [
-      { name: "柔道整復師科", duration: "3年制" },
-      { name: "鍼灸師科", duration: "3年制" },
-      { name: "柔道整復師・鍼灸師ダブルライセンス科", duration: "3年制" },
-      { name: "大学進学科", duration: "1年制" },
-    ],
-  },
+// 既知校のフォールバック（DBに説明文/アイコン未設定の間だけ自然に表示。設定すればDBが優先）。
+const LEGACY: Record<string, { description: string; icon: IconName }> = {
+  "chuo-seminar": { icon: "book", description: "大学・大学院・美術系の受験指導に特化した専修学校。留学生向けの日本語指導から難関大学合格まで、個別カリキュラムで徹底サポートします。" },
+  "tdb": { icon: "monitor", description: "デジタルビジネス・デジタルメディアの実践スキルを習得する専門学校。最新テクノロジーとビジネスを融合した教育で、デジタル社会を牽引する人材を育成します。" },
+  "kanaju-iryo": { icon: "stethoscope", description: "柔道整復師・鍼灸師の国家資格取得を目指す医療系専門学校。豊富な臨床実習と国家試験対策で、医療・スポーツ分野で活躍できる人材を育成します。" },
+  "kanaju-shingaku": { icon: "graduation", description: "大学進学を目指す課程。基礎学力と日本語力を固め、進学指導で目標大学合格をサポートします。" },
+};
+
+// カードのカラーテーマ。志望校の表示順に自動割り当て（学校が増えても循環）。
+const THEMES = [
+  { header: "bg-gradient-to-br from-blue-500 to-blue-700", btn: "bg-blue-600 hover:bg-blue-700", tag: "bg-blue-50 text-blue-700 border-blue-100" },
+  { header: "bg-gradient-to-br from-violet-500 to-violet-700", btn: "bg-violet-600 hover:bg-violet-700", tag: "bg-violet-50 text-violet-700 border-violet-100" },
+  { header: "bg-gradient-to-br from-emerald-500 to-emerald-700", btn: "bg-emerald-600 hover:bg-emerald-700", tag: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  { header: "bg-gradient-to-br from-cyan-500 to-cyan-700", btn: "bg-cyan-600 hover:bg-cyan-700", tag: "bg-cyan-50 text-cyan-700 border-cyan-100" },
+  { header: "bg-gradient-to-br from-amber-500 to-orange-600", btn: "bg-amber-600 hover:bg-amber-700", tag: "bg-amber-50 text-amber-700 border-amber-100" },
+  { header: "bg-gradient-to-br from-rose-500 to-pink-600", btn: "bg-rose-600 hover:bg-rose-700", tag: "bg-rose-50 text-rose-700 border-rose-100" },
 ];
+
+// 志望校管理(DB)から取得するカード情報。
+interface SchoolCard {
+  schoolKey: string;
+  name: string;
+  hojin: string;
+  icon: string;
+  description?: string | null;
+  departments: { name: string; duration: string }[];
+}
 
 const STEPS = [
   { n: 1, label: "個人情報",   sub: "氏名・連絡先・住所",    grad: "from-blue-500 to-blue-600",       chipText: "text-blue-700",    chipBg: "bg-blue-50 ring-blue-200" },
@@ -151,12 +138,18 @@ interface ActiveCohort {
 
 export default function HomePage() {
   const [activeCohorts, setActiveCohorts] = useState<ActiveCohort[] | null>(null);
+  const [schools, setSchools] = useState<SchoolCard[] | null>(null);
 
   useEffect(() => {
     fetch("/api/apply/cohorts?includeUpcoming=1")
       .then(r => r.json())
       .then(d => setActiveCohorts(Array.isArray(d) ? d : []))
       .catch(() => setActiveCohorts([]));
+    // 志望校管理(DB)から学校カードを取得（管理画面で増やせば自動でトップに出る）
+    fetch("/api/apply/schools")
+      .then(r => r.json())
+      .then(d => setSchools(Array.isArray(d) ? d : []))
+      .catch(() => setSchools([]));
   }, []);
 
   // 学校が受付中かどうか、受付中のバッチ情報を返す（次回=upcoming は除外）
@@ -249,7 +242,7 @@ export default function HomePage() {
             <p className="text-sm text-gray-500 mb-6">受付中の学校から、オンラインで願書を提出できます。</p>
 
             {/* 受付状況ロード中 */}
-            {activeCohorts === null && (
+            {(activeCohorts === null || schools === null) && (
               <div className="flex items-center justify-center py-8 text-gray-400 text-sm gap-2">
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -259,19 +252,25 @@ export default function HomePage() {
               </div>
             )}
 
-            {activeCohorts !== null && (
+            {activeCohorts !== null && schools !== null && (
               <div className="grid md:grid-cols-3 gap-5">
-                {SCHOOLS.map((school, i) => {
-                  const cohort = getSchoolCohort(school.id);
+                {schools.map((school, i) => {
+                  const theme = THEMES[i % THEMES.length];
+                  const legacy = LEGACY[school.schoolKey];
+                  const iconKey: IconName = school.icon && SCHOOL_ICON_CHOICES.includes(school.icon as IconName)
+                    ? (school.icon as IconName)
+                    : (legacy?.icon ?? "school");
+                  const description = school.description || legacy?.description || "";
+                  const cohort = getSchoolCohort(school.schoolKey);
                   const accepting = cohort !== null;
-                  const upcoming = !accepting ? getUpcomingCohort(school.id) : null;
+                  const upcoming = !accepting ? getUpcomingCohort(school.schoolKey) : null;
 
                   return (
-                    <div key={school.id}
+                    <div key={school.schoolKey}
                       style={{ "--reveal-delay": `${i * 90}ms` } as CSSProperties}
                       className={`reveal-up bg-white rounded-2xl border shadow-sm transition-all duration-200 overflow-hidden flex flex-col ${accepting ? "border-gray-200 hover:shadow-lg hover:-translate-y-1" : "border-gray-100 opacity-80"}`}>
                       {/* カラーヘッダー */}
-                      <div className={`${school.color.header} px-5 py-5 relative`}>
+                      <div className={`${theme.header} px-5 py-5 relative`}>
                         {/* 受付状況バッジ */}
                         <div className="absolute top-3 right-3">
                           {accepting ? (
@@ -289,19 +288,16 @@ export default function HomePage() {
                             </span>
                           )}
                         </div>
-                        <div className="mb-2"><Icon name={school.icon} className="w-8 h-8 text-white" /></div>
+                        <div className="mb-2"><Icon name={iconKey} className="w-8 h-8 text-white" /></div>
                         <p className="text-white/70 text-xs mb-0.5">{school.hojin}</p>
                         {/* 校名は2行分の高さを確保し、色付きヘッダーの高さをカード間で揃える */}
                         <h3 className="text-white font-bold text-lg leading-snug min-h-[3.25rem] flex items-start">
-                          <span>
-                            {school.name}
-                            {"nameShort" in school && <span className="text-white/60 text-sm ml-1">（{(school as typeof school & {nameShort: string}).nameShort}）</span>}
-                          </span>
+                          <span>{school.name}</span>
                         </h3>
                       </div>
 
                       <div className="p-5 flex flex-col flex-1">
-                        <p className="text-gray-500 text-sm leading-relaxed mb-4">{school.desc}</p>
+                        {description && <p className="text-gray-500 text-sm leading-relaxed mb-4">{description}</p>}
 
                         {/* 受付中の場合：選考情報バナー */}
                         {accepting && cohort && (
@@ -353,7 +349,7 @@ export default function HomePage() {
                           <div className="flex flex-col gap-2">
                             {school.departments.map(d => (
                               <div key={d.name} className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-xs px-2.5 py-1 rounded-full border ${school.color.tag}`}>{d.name}</span>
+                                <span className={`text-xs px-2.5 py-1 rounded-full border ${theme.tag}`}>{d.name}</span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${durationColor[d.duration] ?? "bg-gray-100 text-gray-600"}`}>{d.duration}</span>
                               </div>
                             ))}
@@ -361,8 +357,8 @@ export default function HomePage() {
                         </div>
 
                         {accepting ? (
-                          <Link href={`/apply?school=${school.id}`}
-                            className={`block w-full ${school.color.btn} text-white text-center text-sm font-semibold py-3 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-sm hover:shadow`}>
+                          <Link href={`/apply?school=${school.schoolKey}`}
+                            className={`block w-full ${theme.btn} text-white text-center text-sm font-semibold py-3 rounded-xl transition-all duration-150 active:scale-[0.98] shadow-sm hover:shadow`}>
                             出願する →
                           </Link>
                         ) : (

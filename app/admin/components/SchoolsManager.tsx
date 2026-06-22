@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/ui/Icon";
+import { SCHOOL_ICON_CHOICES } from "@/lib/schoolIconChoices";
 
 interface Department {
   name: string;
@@ -16,6 +18,7 @@ interface ApplySchool {
   name: string;
   hojin: string;
   icon: string;
+  description?: string | null;
   isActive: boolean;
   displayOrder: number;
   departments: Department[];
@@ -27,7 +30,8 @@ const emptyForm = {
   schoolKey: "",
   name: "",
   hojin: "",
-  icon: "🏫",
+  icon: "school",
+  description: "",
   isActive: true,
   displayOrder: 0,
 };
@@ -236,7 +240,7 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
 
   const openAdd = () => { setEditId(null); setForm({ ...emptyForm }); setDepartments([]); setFormError(null); setShowModal(true); };
   const openEdit = (s: ApplySchool) => {
-    setEditId(s.id); setForm({ schoolKey: s.schoolKey, name: s.name, hojin: s.hojin, icon: s.icon, isActive: s.isActive, displayOrder: s.displayOrder });
+    setEditId(s.id); setForm({ schoolKey: s.schoolKey, name: s.name, hojin: s.hojin, icon: s.icon, description: s.description ?? "", isActive: s.isActive, displayOrder: s.displayOrder });
     setDepartments(Array.isArray(s.departments) ? s.departments.map(d => ({ name: d.name ?? "", duration: d.duration ?? "2年制", courses: Array.isArray(d.courses) ? d.courses : [], hasWrittenExam: d.hasWrittenExam !== false })) : []);
     setFormError(null); setShowModal(true);
   };
@@ -436,6 +440,36 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
                   placeholder="例：学校法人 羽場学園"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  説明文（トップ画面カードに表示）
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                  placeholder="例：大学・大学院・美術系の受験指導に特化した専修学校。…"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500 resize-y"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  アイコン（トップ画面カード）
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {SCHOOL_ICON_CHOICES.map(key => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, icon: key }))}
+                      className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 transition ${form.icon === key ? "border-navy-600 bg-navy-50 text-navy-700" : "border-gray-200 text-gray-400 hover:border-navy-300"}`}
+                      title={key}
+                    >
+                      <Icon name={key} className="w-5 h-5" />
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

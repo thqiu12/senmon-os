@@ -14,6 +14,16 @@ jobs:
     name: 単体テスト
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: compass_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -30,10 +40,10 @@ jobs:
         run: npx prisma generate
 
       - name: Run Vitest
-        # vitest.setup.ts が PID 付きパスで DB を作成・破棄する。
-        # 事前 db push は冗長 → 衝突原因になるので削除。
+        # vitest.setup.ts が PID ごとに専用 schema(test_<pid>)を作成し並列実行を隔離する。
         run: npm run test:unit
         env:
+          DATABASE_URL_BASE: "postgresql://postgres:postgres@localhost:5432/compass_test"
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef"
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef"
           NODE_ENV: "test"
@@ -54,6 +64,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: unit
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: compass_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # 全 step / playwright webServer が継承(seed は webServer 側で 1 回だけ実行)
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/compass_test"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/compass_test"
     steps:
       - uses: actions/checkout@v4
 
@@ -72,20 +96,13 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
 
-      - name: Prepare test DB + seed
-        run: |
-          npx prisma db push --skip-generate --accept-data-loss
-          npx tsx prisma/seed.ts
-          SEED_DEMO=1 npx tsx prisma/demo-seed.ts
-        env:
-          DATABASE_URL: "file:/tmp/senmon-vitest.db"
-          SEED_ADMIN_USERNAME: "admin"
-          SEED_ADMIN_PASSWORD: "TestAdmin2026!"
+      - name: Prepare test DB schema
+        # ビルド用にスキーマを作成。seed は playwright の webServer が行うのでここでは push のみ。
+        run: npx prisma db push --skip-generate --accept-data-loss
 
       - name: Build Next.js
         run: NODE_OPTIONS="--max-old-space-size=2048" npm run build
         env:
-          DATABASE_URL: "file:/tmp/senmon-vitest.db"
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef"
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef"
 
@@ -108,9 +125,9 @@ jobs:
           echo "✓ CSS verified: $CSS_FILE ($(wc -c < "$CSS_FILE") bytes)"
 
       - name: Run Playwright
+        # webServer が db push + seed + demo-seed + npm run dev を実行(DATABASE_URL は job env を継承)。
         run: npm run test:e2e
         env:
-          DATABASE_URL: "file:/tmp/senmon-vitest.db"
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef"
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3070"
@@ -142,6 +159,19 @@ jobs:
     name: 型・ビルド検証
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: compass_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/compass_test"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/compass_test"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -150,9 +180,10 @@ jobs:
           cache: "npm"
       - run: npm ci --no-audit --no-fund
       - run: npx prisma generate
+      - name: Prepare DB schema
+        run: npx prisma db push --skip-generate --accept-data-loss
       - name: Next.js build (型 + lint チェック)
         run: NODE_OPTIONS="--max-old-space-size=2048" npm run build
         env:
-          DATABASE_URL: "file:./build.db"
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef"
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef"

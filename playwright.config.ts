@@ -16,7 +16,7 @@ const useLocalServer = !process.env.BASE_URL;
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: false, // SQLite 共有のためシリアル
+  fullyParallel: false, // 共有 DB のためシリアル
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
@@ -54,7 +54,14 @@ export default defineConfig({
         timeout: 180_000,
         env: {
           NODE_ENV: "development",
-          DATABASE_URL: "file:/tmp/senmon-playwright.db",
+          // Postgres。CI は job env で DATABASE_URL/DIRECT_URL を渡す。ローカルは既定値。
+          DATABASE_URL:
+            process.env.DATABASE_URL ||
+            "postgresql://postgres@localhost:5433/compass_e2e?sslmode=disable",
+          DIRECT_URL:
+            process.env.DIRECT_URL ||
+            process.env.DATABASE_URL ||
+            "postgresql://postgres@localhost:5433/compass_e2e?sslmode=disable",
           SESSION_SECRET: "test-session-secret-32chars-1234567890abcdef",
           CSRF_SECRET: "test-csrf-secret-32chars-1234567890abcdef",
           NEXT_PUBLIC_BASE_URL: BASE_URL,

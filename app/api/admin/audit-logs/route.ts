@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       where.OR = [
-        { summary: { contains: search } },
-        { targetLabel: { contains: search } },
-        { actorName: { contains: search } },
+        { summary: { contains: search, mode: "insensitive" } },
+        { targetLabel: { contains: search, mode: "insensitive" } },
+        { actorName: { contains: search, mode: "insensitive" } },
       ];
     }
 

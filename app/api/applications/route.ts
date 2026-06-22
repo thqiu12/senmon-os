@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
     const sw = statusWhere(status);
     if (sw !== undefined) where.status = sw;
     if (applicantType && applicantType !== "all") where.applicantType = applicantType;
-    if (nationality) where.nationality = { contains: nationality };
+    if (nationality) where.nationality = { contains: nationality, mode: "insensitive" };
     if (japaneseLevel && japaneseLevel !== "all") where.japaneseLevel = japaneseLevel;
     if (agentId === "none") where.agentId = null;
     else if (agentId && agentId !== "all") where.agentId = agentId;
@@ -235,13 +235,13 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       where.OR = [
-        { lastName: { contains: search } },
-        { firstName: { contains: search } },
-        { lastNameKana: { contains: search } },
-        { firstNameKana: { contains: search } },
-        { applicationNo: { contains: search } },
-        { email: { contains: search } },
-        { schoolName: { contains: search } },
+        { lastName: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastNameKana: { contains: search, mode: "insensitive" } },
+        { firstNameKana: { contains: search, mode: "insensitive" } },
+        { applicationNo: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { schoolName: { contains: search, mode: "insensitive" } },
       ];
     }
 

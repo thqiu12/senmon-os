@@ -27,7 +27,7 @@ export async function GET(
         enrollmentSignature: true,
         agent: true,
         cohort: { select: { id: true, name: true } },
-        applicationSchools: { orderBy: { priority: "asc" } },
+        applicationSchools: { orderBy: { priority: "asc" }, include: { applyDepartment: { select: { hasWrittenExam: true } } } },
         changeRequests: { orderBy: { createdAt: "desc" } },
       },
     });
@@ -119,7 +119,7 @@ export async function PATCH(
       enrollmentSignature: true,
       agent: true,
       cohort: { select: { id: true, name: true } },
-      applicationSchools: { orderBy: { priority: "asc" } },
+      applicationSchools: { orderBy: { priority: "asc" }, include: { applyDepartment: { select: { hasWrittenExam: true } } } },
       changeRequests: { orderBy: { createdAt: "desc" } },
     } as const;
 

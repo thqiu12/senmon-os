@@ -5,7 +5,7 @@ import { ApplySchoolUpsertSchema } from "@/lib/schemas";
 import { FALLBACK_DEPARTMENTS } from "@/lib/schoolsFallback";
 import { logError } from "@/lib/logger";
 
-type DeptInput = { name: string; duration?: string; courses?: string[] };
+type DeptInput = { name: string; duration?: string; courses?: string[]; hasWrittenExam?: boolean };
 
 async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
   // 既存の active な学科を取得
@@ -36,12 +36,14 @@ async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
         courses: JSON.stringify(d.courses ?? []),
         displayOrder: i,
         isActive: true,
+        hasWrittenExam: d.hasWrittenExam ?? true,
       },
       update: {
         duration: d.duration || "2年制",
         courses: JSON.stringify(d.courses ?? []),
         displayOrder: i,
         isActive: true,
+        hasWrittenExam: d.hasWrittenExam ?? true,
       },
     });
   }
@@ -69,10 +71,11 @@ export async function GET(request: NextRequest) {
         id: d.id,
         name: d.name,
         duration: d.duration,
+        hasWrittenExam: d.hasWrittenExam,
         courses: (() => {
           try { return JSON.parse(d.courses); } catch { return []; }
         })(),
-      })) as { id?: string; name: string; duration: string; courses: string[] }[];
+      })) as { id?: string; name: string; duration: string; courses: string[]; hasWrittenExam?: boolean }[];
       if (departments.length === 0 && s.departments) {
         try {
           const snap = JSON.parse(s.departments);

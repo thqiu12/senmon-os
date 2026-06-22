@@ -821,6 +821,7 @@ model ApplyDepartment {
   courses       String   @default("[]") // JSON array of course names
   displayOrder  Int      @default(0)
   isActive      Boolean  @default(true)
+  hasWrittenExam Boolean @default(true)  // 筆記試験の有無（false=筆記なし学科。受験票・成績欄・採番に影響）
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

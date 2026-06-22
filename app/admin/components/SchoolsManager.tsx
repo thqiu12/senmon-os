@@ -7,6 +7,7 @@ interface Department {
   name: string;
   duration: string;
   courses: string[];
+  hasWrittenExam?: boolean;
 }
 
 interface ApplySchool {
@@ -31,7 +32,7 @@ const emptyForm = {
   displayOrder: 0,
 };
 
-const emptyDepartment = (): Department => ({ name: "", duration: "2年制", courses: [] });
+const emptyDepartment = (): Department => ({ name: "", duration: "2年制", courses: [], hasWrittenExam: true });
 
 // Department row editor sub-component
 function DepartmentRow({
@@ -112,6 +113,17 @@ function DepartmentRow({
               </select>
             </div>
           </div>
+
+          {/* 筆記試験の有無 */}
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={dept.hasWrittenExam !== false}
+              onChange={e => onChange({ ...dept, hasWrittenExam: e.target.checked })}
+              className="rounded border-gray-300"
+            />
+            筆記試験あり（外すと「筆記なし学科」＝受験票・成績欄から筆記が消えます）
+          </label>
 
           {/* Courses section */}
           <div>
@@ -225,7 +237,7 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
   const openAdd = () => { setEditId(null); setForm({ ...emptyForm }); setDepartments([]); setFormError(null); setShowModal(true); };
   const openEdit = (s: ApplySchool) => {
     setEditId(s.id); setForm({ schoolKey: s.schoolKey, name: s.name, hojin: s.hojin, icon: s.icon, isActive: s.isActive, displayOrder: s.displayOrder });
-    setDepartments(Array.isArray(s.departments) ? s.departments.map(d => ({ name: d.name ?? "", duration: d.duration ?? "2年制", courses: Array.isArray(d.courses) ? d.courses : [] })) : []);
+    setDepartments(Array.isArray(s.departments) ? s.departments.map(d => ({ name: d.name ?? "", duration: d.duration ?? "2年制", courses: Array.isArray(d.courses) ? d.courses : [], hasWrittenExam: d.hasWrittenExam !== false })) : []);
     setFormError(null); setShowModal(true);
   };
   const handleDeptChange = (index: number, updated: Department) => { setDepartments(prev => prev.map((d, i) => i === index ? updated : d)); };

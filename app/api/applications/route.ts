@@ -7,7 +7,7 @@ import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 import { ApplicationCreateSchema, statusWhere } from "@/lib/schemas";
 import { ENV } from "@/lib/env";
 import { resolveSchoolFk } from "@/lib/school-fk";
-import { isNoWrittenExamSchool } from "@/lib/examConfig";
+import { isWrittenExamExempt } from "@/lib/examConfig";
 
 // 学生へ出願番号確認メール送信
 async function sendStudentConfirmation(application: {
@@ -316,35 +316,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // デフォルトバッチを取得して申請番号を採番
+    // 第一志望の FK 解決（採番の学校特定にも使うため先に解決。snapshot 文字列も canonical 値で上書き）
+    const primary = await resolveSchoolFk({
+      schoolName: body.schoolName,
+      department: body.department,
+    });
+    let primarySchoolKey: string | null = null;
+    if (primary.applySchoolId) {
+      const ps = await prisma.applySchool.findUnique({
+        where: { id: primary.applySchoolId },
+        select: { schoolKey: true },
+      });
+      primarySchoolKey = ps?.schoolKey ?? null;
+    }
+
+    // 申請番号を採番。出願した学校の「開いている回次」を優先し、その年度-回次-連番で発番。
+    // 学校専用回次 → 全校共通回次 → 既定回次(isDefault) → 旧形式(APP-…) の順でフォールバック。
+    // → 選考管理のプレビュー（YY-回次-連番）と実際の番号が一致する。
     let applicationNo: string;
     let cohortId: string | null = null;
+    const nowTs = new Date();
+    const isCohortOpen = (c: { acceptStart: Date | null; acceptEnd: Date | null }) =>
+      (!c.acceptStart || c.acceptStart <= nowTs) && (!c.acceptEnd || c.acceptEnd >= nowTs);
 
-    const defaultCohort = await prisma.cohort.findFirst({
-      where: { isDefault: true },
+    const cohortCandidates = await prisma.cohort.findMany({
+      where: {
+        status: "受付中",
+        OR: [
+          ...(primary.applySchoolId ? [{ applySchoolId: primary.applySchoolId }] : []),
+          ...(primarySchoolKey ? [{ schoolKey: primarySchoolKey }] : []),
+          { applySchoolId: null, schoolKey: null }, // 全校共通
+        ],
+      },
     });
+    const openCohorts = cohortCandidates.filter(isCohortOpen);
+    const chosenCohort =
+      openCohorts.find((c) => primary.applySchoolId && c.applySchoolId === primary.applySchoolId) ??
+      openCohorts.find((c) => primarySchoolKey && c.schoolKey === primarySchoolKey) ??
+      openCohorts.find((c) => !c.applySchoolId && !c.schoolKey) ??
+      (await prisma.cohort.findFirst({ where: { isDefault: true } }));
 
-    if (defaultCohort) {
-      // バッチのseqCounterをインクリメント（競合防止のためトランザクション）
+    if (chosenCohort) {
+      // 回次の seqCounter を原子的にインクリメント（同時出願でも番号が重複しない）
       const updated = await prisma.cohort.update({
-        where: { id: defaultCohort.id },
+        where: { id: chosenCohort.id },
         data: { seqCounter: { increment: 1 } },
       });
       applicationNo = buildApplicationNo(updated.year, updated.round, updated.seqCounter);
-      cohortId = defaultCohort.id;
+      cohortId = chosenCohort.id;
     } else {
-      // バッチ未設定の場合は旧形式にフォールバック
+      // 該当する回次が無い場合のみ旧形式にフォールバック
       applicationNo = generateApplicationNo();
     }
 
     // Allow partial submissions with status '書類待ち' (from apply flow Step 2 → Step 3)
     const submittedStatus = body.status === "書類待ち" ? "書類待ち" : "受付中";
-
-    // 第一志望の FK 解決（snapshot 文字列も canonical 値で上書き）
-    const primary = await resolveSchoolFk({
-      schoolName: body.schoolName,
-      department: body.department,
-    });
 
     // 並願校の FK 解決
     const additionalRaw = (body.additionalSchools ?? []) as Array<{
@@ -356,6 +382,18 @@ export async function POST(request: NextRequest) {
         return { ...s, ...fk };
       }),
     );
+
+    // 学科ごとの筆記有無を取得（writtenExamExempted の自動判定に使う）
+    const deptIds = [primary.applyDepartmentId, ...additional.map((s) => s.applyDepartmentId)]
+      .filter((id): id is string => !!id);
+    const deptHasWritten = new Map<string, boolean>();
+    if (deptIds.length > 0) {
+      const depts = await prisma.applyDepartment.findMany({
+        where: { id: { in: deptIds } },
+        select: { id: true, hasWrittenExam: true },
+      });
+      for (const d of depts) deptHasWritten.set(d.id, d.hasWrittenExam);
+    }
 
     const application = await prisma.application.create({
       data: {
@@ -409,14 +447,20 @@ export async function POST(request: NextRequest) {
               enrollmentMonth: body.enrollmentMonth,
               applySchoolId: primary.applySchoolId,
               applyDepartmentId: primary.applyDepartmentId,
-              writtenExamExempted: isNoWrittenExamSchool({ schoolName: primary.schoolName || body.schoolName }),
+              writtenExamExempted: isWrittenExamExempt({
+                hasWrittenExam: primary.applyDepartmentId ? deptHasWritten.get(primary.applyDepartmentId) : undefined,
+                schoolName: primary.schoolName || body.schoolName,
+              }),
             },
             ...additional.map((s, idx) => ({
               priority: idx + 2,
               schoolName: s.schoolName,
               department: s.department,
               course: s.course || null,
-              writtenExamExempted: isNoWrittenExamSchool({ schoolName: s.schoolName }),
+              writtenExamExempted: isWrittenExamExempt({
+                hasWrittenExam: s.applyDepartmentId ? deptHasWritten.get(s.applyDepartmentId) : undefined,
+                schoolName: s.schoolName,
+              }),
               enrollmentYear: body.enrollmentYear,
               enrollmentMonth: body.enrollmentMonth,
               applySchoolId: s.applySchoolId,

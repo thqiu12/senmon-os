@@ -420,6 +420,7 @@ const SchoolDepartmentSchema = z.object({
   name: str(100),
   duration: z.string().max(50).optional().default(""),
   courses: z.array(str(100)).max(50).optional().default([]),
+  hasWrittenExam: z.boolean().optional().default(true), // 筆記試験の有無（false=筆記なし学科）
 });
 
 export const ApplySchoolUpsertSchema = z.object({

@@ -198,6 +198,7 @@ interface ApplicationSchoolEntry {
   writtenExamPlace?: string | null;
   writtenExamNotes?: string | null;
   writtenExamExempted?: boolean;
+  applyDepartment?: { hasWrittenExam?: boolean } | null;
 }
 
 function InfoRow({ label, value }: { label: string; value: string | boolean | null | undefined }) {
@@ -1870,11 +1871,11 @@ export default function ApplicationDetailPage() {
             </div>{/* end screening fee */}
 
             {/* 筆記試験成績 - 選考タブ（一般選考のみ表示） */}
+            {(application.examMode === "一般"
+              && application.applicationSchools?.[0]?.writtenExamExempted !== true
+              && application.applicationSchools?.[0]?.applyDepartment?.hasWrittenExam !== false) && (
             <div style={{display: activeTab==="screening" ? undefined : "none"}}>
-            <Section title={`筆記試験成績${application.examMode !== "一般" ? "（推薦・特待生は筆記免除）" : ""}`}>
-              {application.examMode !== "一般" ? (
-                <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">この出願者は筆記試験免除の選考区分です。</p>
-              ) : (
+            <Section title="筆記試験成績">
                 <div className="space-y-4">
                   <div className="flex items-end gap-4">
                     <div className="flex-1">
@@ -1904,9 +1905,9 @@ export default function ApplicationDetailPage() {
                     {writtenExamSaving?"保存中…":writtenExamSaved?"保存しました":"成績を保存"}
                   </button>
                 </div>
-              )}
             </Section>
             </div>
+            )}
 
             {/* 学歴 - 基本情報タブ */}
             <div style={{display: activeTab==="basic" ? undefined : "none"}}>

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { makeSessionToken, type AdminRole } from "@/lib/auth";
+import { makeSessionToken } from "@/lib/auth";
 import { checkRateLimit, getClientIp, issueCsrfToken, CSRF } from "@/lib/security";
-import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { hashPassword, verifyPassword, PWD_VERSION_BCRYPT } from "@/lib/password";
 import { AdminLoginSchema } from "@/lib/schemas";
 
@@ -82,11 +81,6 @@ export async function POST(request: NextRequest) {
 
     const token = makeSessionToken(user.id, user.role, user.tokenVersion);
     const csrf = issueCsrfToken();
-
-    await logAudit(
-      { userId: user.id, role: user.role as AdminRole, isValid: true },
-      { action: AUDIT_ACTIONS.AUTH_LOGIN, summary: `${user.displayName || user.username} がログイン`, ip: getClientIp(request) },
-    );
 
     const response = NextResponse.json({
       success: true,

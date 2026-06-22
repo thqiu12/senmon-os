@@ -18,7 +18,6 @@ export const AUDIT_ACTIONS = {
   ACCOUNT_CREATE: "account.create",
   ACCOUNT_UPDATE: "account.update",
   ACCOUNT_DELETE: "account.delete",
-  AUTH_LOGIN: "auth.login",
 } as const;
 
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
@@ -38,7 +37,6 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "account.create": "アカウント作成",
   "account.update": "アカウント更新",
   "account.delete": "アカウント削除",
-  "auth.login": "ログイン",
 };
 
 /** 操作キー → 日本語ラベル（未知のキーはそのまま返す）。フィルタ・表示で共有。 */

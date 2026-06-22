@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get("to");
 
     const where: Prisma.AuditLogWhereInput = {};
+    // ログインは操作ログに出さない（記録も停止済み。既存の login 行もここで除外）。
     if (action && action !== "all") where.action = action;
+    else where.action = { not: "auth.login" };
     if (targetType && targetType !== "all") where.targetType = targetType;
     if (from || to) {
       const range: Prisma.DateTimeFilter = {};

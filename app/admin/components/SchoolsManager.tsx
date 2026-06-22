@@ -19,6 +19,7 @@ interface ApplySchool {
   hojin: string;
   icon: string;
   description?: string | null;
+  notifyEmail?: string | null;
   isActive: boolean;
   displayOrder: number;
   departments: Department[];
@@ -32,6 +33,7 @@ const emptyForm = {
   hojin: "",
   icon: "school",
   description: "",
+  notifyEmail: "",
   isActive: true,
   displayOrder: 0,
 };
@@ -240,7 +242,7 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
 
   const openAdd = () => { setEditId(null); setForm({ ...emptyForm }); setDepartments([]); setFormError(null); setShowModal(true); };
   const openEdit = (s: ApplySchool) => {
-    setEditId(s.id); setForm({ schoolKey: s.schoolKey, name: s.name, hojin: s.hojin, icon: s.icon, description: s.description ?? "", isActive: s.isActive, displayOrder: s.displayOrder });
+    setEditId(s.id); setForm({ schoolKey: s.schoolKey, name: s.name, hojin: s.hojin, icon: s.icon, description: s.description ?? "", notifyEmail: s.notifyEmail ?? "", isActive: s.isActive, displayOrder: s.displayOrder });
     setDepartments(Array.isArray(s.departments) ? s.departments.map(d => ({ name: d.name ?? "", duration: d.duration ?? "2年制", courses: Array.isArray(d.courses) ? d.courses : [], hasWrittenExam: d.hasWrittenExam !== false })) : []);
     setFormError(null); setShowModal(true);
   };
@@ -451,6 +453,18 @@ export function SchoolsManager({ onUnauthorized }: { onUnauthorized?: () => void
                   rows={3}
                   placeholder="例：大学・大学院・美術系の受験指導に特化した専修学校。…"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500 resize-y"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  新規出願の通知先メール（任意）
+                </label>
+                <input
+                  type="email"
+                  value={form.notifyEmail}
+                  onChange={e => setForm(f => ({ ...f, notifyEmail: e.target.value }))}
+                  placeholder="例：admission@example.ac.jp（未設定なら既定の管理者宛）"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500"
                 />
               </div>
               <div>

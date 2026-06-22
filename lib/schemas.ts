@@ -429,6 +429,7 @@ export const ApplySchoolUpsertSchema = z.object({
   hojin: str(200),
   icon: z.string().max(20).optional().default("school"),
   description: optStr(2000),
+  notifyEmail: optStr(254),
   isActive: z.boolean().optional().default(true),
   displayOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   departments: z.array(SchoolDepartmentSchema).max(50),

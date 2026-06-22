@@ -799,6 +799,7 @@ model ApplySchool {
   hojin        String             // e.g. '学校法人 羽場学園'
   icon         String   @default("school") // IconName キー（@/components/ui/Icon）。旧データの絵文字は表示時に school へフォールバック
   description  String?            // トップ画面カードのキャッチ文（管理画面で編集）
+  notifyEmail  String?            // 新規出願の管理者通知先（未設定なら旧マップ→ENV.ADMIN_EMAIL）
   isActive     Boolean  @default(true)
   displayOrder Int      @default(0)
   departments  String             // JSON snapshot for backward compat; canonical source is ApplyDepartment

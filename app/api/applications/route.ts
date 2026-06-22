@@ -150,7 +150,10 @@ async function sendAdminNotification(application: {
 }, schoolNames?: string[]) {
   // 併願なら該当する全志望校のメールへ通知（重複除去）。未登録校は ENV.ADMIN_EMAIL にフォールバック。
   const names = (schoolNames && schoolNames.length ? schoolNames : [application.schoolName]).filter(Boolean);
-  const matched = Array.from(new Set(names.map((n) => ADMISSION_EMAILS[n]).filter(Boolean)));
+  // 志望校マスタの通知先(notifyEmail)を最優先。無ければ旧ハードコードマップ、最後に ENV.ADMIN_EMAIL。
+  const masterSchools = await prisma.applySchool.findMany({ where: { name: { in: names } }, select: { name: true, notifyEmail: true } });
+  const masterMap = new Map(masterSchools.map((s) => [s.name, s.notifyEmail]));
+  const matched = Array.from(new Set(names.map((n) => masterMap.get(n) || ADMISSION_EMAILS[n]).filter(Boolean)));
   const recipients = matched.length ? matched : (ENV.ADMIN_EMAIL ? [ENV.ADMIN_EMAIL] : []);
   if (recipients.length === 0) return;
   const otherSchools = Array.from(new Set(names)).filter((n) => n && n !== application.schoolName);

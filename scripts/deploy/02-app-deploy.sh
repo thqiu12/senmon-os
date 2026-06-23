@@ -62,8 +62,9 @@ if [ ! -f .env ]; then
 NODE_ENV=production
 PORT=3000
 
-# データベース
-DATABASE_URL="file:./prisma/data.db"
+# データベース（Postgres/Supabase。事前に export するか、生成後に実値へ置換）
+DATABASE_URL="${DATABASE_URL:-postgresql://USER:PASSWORD@HOST:6543/postgres?pgbouncer=true&sslmode=require}"
+DIRECT_URL="${DIRECT_URL:-postgresql://USER:PASSWORD@HOST:5432/postgres?sslmode=require}"
 
 # セッション・CSRF（自動生成）
 SESSION_SECRET="$SESSION_SECRET"
@@ -114,11 +115,11 @@ log "npm ci で依存をインストール"
 npm ci
 
 # ------------------------------------------------------------
-# 4. Prisma generate + db push
+# 4. Prisma generate + migrate deploy
 # ------------------------------------------------------------
-log "Prisma クライアント生成 + スキーマ反映"
+log "Prisma クライアント生成 + マイグレーション適用"
 npx prisma generate
-npx prisma db push --skip-generate
+npx prisma migrate deploy
 
 # ------------------------------------------------------------
 # 5. seed 実行用に tsx を確保

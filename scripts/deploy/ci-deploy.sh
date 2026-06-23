@@ -98,12 +98,14 @@ if git diff --name-only "$CURRENT_SHA" "$NEW_SHA" 2>/dev/null | grep -qE "^packa
   fi
 fi
 
-# ---- 5. Prisma 変更検出 → generate + db push ----
-if git diff --name-only "$CURRENT_SHA" "$NEW_SHA" 2>/dev/null | grep -q "^prisma/schema.prisma$"; then
-  log "schema.prisma 変更検出 → prisma generate + db push"
+# ---- 5. Prisma 変更検出 → generate + migrate deploy（Postgres） ----
+if git diff --name-only "$CURRENT_SHA" "$NEW_SHA" 2>/dev/null | grep -qE "^prisma/(schema\.prisma|migrations/)"; then
+  log "Prisma 変更検出 → prisma generate + migrate deploy"
   npx prisma generate 2>>"$DEPLOY_LOG"
-  npx prisma db push --skip-generate --accept-data-loss 2>>"$DEPLOY_LOG" \
-    || log "WARN: db push でエラー（手動確認推奨、デプロイ継続）"
+  if ! npx prisma migrate deploy 2>>"$DEPLOY_LOG"; then
+    log "ERROR: migrate deploy 失敗 → デプロイ中止"
+    exit 1
+  fi
 fi
 # 依存だけ変わって schema 未変更でも prisma generate は走らせておく（@prisma/client 同期）
 if [ "$DEPS_CHANGED" = "1" ]; then

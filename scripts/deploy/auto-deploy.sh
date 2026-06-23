@@ -107,11 +107,16 @@ if git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | grep -qE "^(package(-lock)?
     exit 1
   fi
 
-  # スキーマ変更があれば prisma 更新
-  if git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | grep -q "^prisma/schema.prisma$"; then
-    log "schema.prisma 変更 → prisma generate + db push"
+  # スキーマ/マイグレーション変更があれば prisma 更新（Postgres: migrate deploy）
+  if git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | grep -qE "^prisma/(schema\.prisma|migrations/)"; then
+    log "Prisma 変更 → prisma generate + migrate deploy"
     npx prisma generate 2>>"$LOG"
-    npx prisma db push --skip-generate --accept-data-loss 2>>"$LOG" || log "WARN: prisma db push でエラー（手動確認推奨）"
+    # migrate deploy は非破壊（保留中のマイグレーションのみ適用）。失敗時は新スキーマ前提の
+    # 新コードを配信しないため、ここで中止して旧プロセスを継続させる。
+    if ! npx prisma migrate deploy 2>>"$LOG"; then
+      log "ERROR: prisma migrate deploy 失敗 → デプロイ中止（旧プロセス継続・手動確認必須）"
+      exit 1
+    fi
   fi
 fi
 

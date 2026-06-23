@@ -59,7 +59,7 @@ export function mergeFormConfig(
 
   const map = new Map<string, OutputConfig>();
 
-  // tier 0: 既定（type 別 isEnabled）
+  // tier 0: 既定（プロパティのベース。isEnabled は後段の型別ルールで最終決定する）
   for (const f of defaults) {
     map.set(f.fieldKey, {
       fieldKey: f.fieldKey,
@@ -73,8 +73,13 @@ export function mergeFormConfig(
     });
   }
 
-  // DB 行を tier 昇順に適用（同 tier は入力順）。後勝ちで上書き。
+  // DB 行を tier 昇順に適用（同 tier は入力順）。ラベル等のプロパティは後勝ちで上書き。
   // ascending tier => later writes always win; no per-key guard needed.
+  // あわせて、isEnabled の最終判定用に「共通(null)行」「該当type行」それぞれの
+  // 最優先 isEnabled を記録する（昇順適用なので最後の set が最優先＝学校 > 全校）。
+  const typeEnabled = new Map<string, boolean>(); // applicantType === type（tier 2/4）
+  const commonEnabled = new Map<string, boolean>(); // applicantType === null（tier 1/3）
+
   const candidates = rows
     .map((r) => ({ r, tier: tierOf(r) }))
     .filter((x): x is { r: ConfigRow; tier: number } => x.tier !== null)
@@ -91,7 +96,23 @@ export function mergeFormConfig(
       section: r.section,
       description: r.description,
     });
+    if (r.applicantType === null) commonEnabled.set(r.fieldKey, r.isEnabled);
+    else typeEnabled.set(r.fieldKey, r.isEnabled);
   }
+
+  // isEnabled の最終判定（タイプ既定オフの項目を共通行が勝手に有効化しないようにする）:
+  //   1. 該当type行がある → その値（管理者が型別に明示設定）
+  //   2. type の既定がオフ（例: 日本人の在日情報）→ false（共通行では有効化できない）
+  //   3. それ以外 → 共通行があればその値（共通の無効化は尊重）、無ければ既定 true
+  map.forEach((cfg, key) => {
+    if (typeEnabled.has(key)) {
+      cfg.isEnabled = typeEnabled.get(key)!;
+    } else if (!defaultEnabledFor(key, type)) {
+      cfg.isEnabled = false;
+    } else {
+      cfg.isEnabled = commonEnabled.has(key) ? commonEnabled.get(key)! : true;
+    }
+  });
 
   return Array.from(map.values())
     .filter((c) => c.isEnabled)

@@ -82,3 +82,78 @@ describe("mergeFormConfig — 出願者タイプ別の有効/無効", () => {
     expect(has(out, NORMAL_KEY)).toBe(false); // 学校×日本人(off) が勝つ
   });
 });
+
+// 本番状態(管理画面 GET が全デフォルトを全校共通・有効で自動生成済み)を再現し、
+// 「他のフォームも正常に動くか」を総合的に検証する。
+const ALL_COMMON_ENABLED = FORM_FIELD_DEFAULTS.map((f) =>
+  row({
+    fieldKey: f.fieldKey,
+    applicantType: null,
+    schoolId: null,
+    isEnabled: true,
+    section: f.section,
+    displayOrder: f.displayOrder,
+    label: f.label,
+  }),
+);
+const defaultForeignOnly = FOREIGN_ONLY.filter((k) => FORM_FIELD_DEFAULTS.some((f) => f.fieldKey === k));
+
+describe("mergeFormConfig — 各フォームが正常動作するか（総合）", () => {
+  it("留学生フォーム: 全項目が表示される（在日情報を含む・従来動作）", () => {
+    const out = mergeFormConfig(FORM_FIELD_DEFAULTS, ALL_COMMON_ENABLED, "foreign");
+    const keys = out.map((c) => c.fieldKey);
+    for (const f of FORM_FIELD_DEFAULTS) expect(keys).toContain(f.fieldKey);
+    for (const k of defaultForeignOnly) expect(keys).toContain(k); // 在日情報も出る
+  });
+
+  it("日本人フォーム: 在日情報の4項目だけ非表示、その他は全て表示", () => {
+    const foreign = mergeFormConfig(FORM_FIELD_DEFAULTS, ALL_COMMON_ENABLED, "foreign");
+    const jp = mergeFormConfig(FORM_FIELD_DEFAULTS, ALL_COMMON_ENABLED, "japanese");
+    const jpKeys = jp.map((c) => c.fieldKey);
+    for (const f of FORM_FIELD_DEFAULTS) {
+      if (FOREIGN_ONLY.includes(f.fieldKey)) expect(jpKeys).not.toContain(f.fieldKey);
+      else expect(jpKeys).toContain(f.fieldKey);
+    }
+    // 日本人は「留学生 − 在日情報4項目」だけ減る
+    expect(jp.length).toBe(foreign.length - defaultForeignOnly.length);
+  });
+
+  it("両フォームとも displayOrder 昇順で返る", () => {
+    for (const t of ["foreign", "japanese"] as const) {
+      const out = mergeFormConfig(FORM_FIELD_DEFAULTS, ALL_COMMON_ENABLED, t);
+      const orders = out.map((c) => c.displayOrder ?? 0);
+      const sorted = [...orders].sort((a, b) => a - b);
+      expect(orders).toEqual(sorted);
+    }
+  });
+
+  it("共通行のラベル変更は両フォームに反映される（編集が効く）", () => {
+    const rows = ALL_COMMON_ENABLED.map((r) =>
+      r.fieldKey === NORMAL_KEY ? { ...r, label: "編集後ラベル" } : r,
+    );
+    for (const t of ["foreign", "japanese"] as const) {
+      const out = mergeFormConfig(FORM_FIELD_DEFAULTS, rows, t);
+      expect(out.find((c) => c.fieldKey === NORMAL_KEY)?.label).toBe("編集後ラベル");
+    }
+  });
+
+  it("学校×留学生: 学校が通常項目を無効化しても在日情報は表示維持（学校別フォームが効く）", () => {
+    const rows = [
+      ...ALL_COMMON_ENABLED,
+      row({ fieldKey: NORMAL_KEY, applicantType: null, schoolId: "chuo-seminar", isEnabled: false }),
+    ];
+    const out = mergeFormConfig(FORM_FIELD_DEFAULTS, rows, "foreign");
+    expect(has(out, NORMAL_KEY)).toBe(false); // 学校で無効化が効く
+    for (const k of defaultForeignOnly) expect(has(out, k)).toBe(true); // 在日情報は維持
+  });
+
+  it("管理者が日本人タブで在留資格を明示有効化すれば日本人フォームに出せる（出し分け可能）", () => {
+    const rows = [
+      ...ALL_COMMON_ENABLED,
+      row({ fieldKey: "residenceStatus", applicantType: "japanese", schoolId: null, isEnabled: true }),
+    ];
+    const out = mergeFormConfig(FORM_FIELD_DEFAULTS, rows, "japanese");
+    expect(has(out, "residenceStatus")).toBe(true); // 日本人でも明示で出せる
+    expect(has(out, "japaneseLevel")).toBe(false); // 他の在日情報は依然非表示
+  });
+});

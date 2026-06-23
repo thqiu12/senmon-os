@@ -44,3 +44,7 @@ prisma/dev.db
 /playwright-report/
 /test-results/
 /.claude/
+
+# Prisma 移行スクリプトの生成物(派生スキーマ・SQLite用クライアント)
+prisma/.schema.sqlite.generated.prisma
+prisma/.sqlite-seed.prisma

@@ -9,6 +9,7 @@ import { isNoWrittenExamSchool } from "@/lib/examConfig";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
 import { type ApplicantType, isApplicantType } from "@/lib/applicantType";
+import { fieldEnabled, fieldRequired } from "@/lib/applyFieldVisibility";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -322,16 +323,8 @@ function Step1({ form, onChange, errors, formConfig }: {
   formConfig: FormFieldConfig[] | null;
 }) {
   const { t } = useT();
-  const isEnabled = (key: string) => {
-    if (!formConfig || formConfig.length === 0) return true;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    return cfg ? cfg.isEnabled : true;
-  };
-  const isRequired = (key: string, defaultReq = true) => {
-    if (!formConfig || formConfig.length === 0) return defaultReq;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    return cfg ? cfg.isRequired : defaultReq;
-  };
+  const isEnabled = (key: string) => fieldEnabled(formConfig, key);
+  const isRequired = (key: string, defaultReq = true) => fieldRequired(formConfig, key, defaultReq);
 
   const hasNameFields = isEnabled("lastName") || isEnabled("firstName") || isEnabled("lastNameKana") || isEnabled("firstNameKana");
   const hasBasicFields = isEnabled("birthDate") || isEnabled("gender") || isEnabled("nationality");
@@ -580,16 +573,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   enrollmentYears: string[];
 }) {
   const { t } = useT();
-  const isEnabled = (key: string) => {
-    if (!formConfig || formConfig.length === 0) return true;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    return cfg ? cfg.isEnabled : true;
-  };
-  const isRequired = (key: string, defaultReq = true) => {
-    if (!formConfig || formConfig.length === 0) return defaultReq;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    return cfg ? cfg.isRequired : defaultReq;
-  };
+  const isEnabled = (key: string) => fieldEnabled(formConfig, key);
+  const isRequired = (key: string, defaultReq = true) => fieldRequired(formConfig, key, defaultReq);
   // 入学希望年は /api/apply/settings から取得（管理画面で編集可能）。
   // 取得失敗 / 未取得時は現年〜+2 をフォールバックとして使う。
   const currentYear = new Date().getFullYear();
@@ -1833,18 +1818,8 @@ function ApplyPageInner() {
     });
   };
 
-  const isFieldRequired = (key: string, defaultReq = true): boolean => {
-    if (!formConfig || formConfig.length === 0) return defaultReq;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    if (!cfg) return defaultReq;
-    return cfg.isEnabled && cfg.isRequired;
-  };
-
-  const isFieldEnabled = (key: string): boolean => {
-    if (!formConfig || formConfig.length === 0) return true;
-    const cfg = formConfig.find(c => c.fieldKey === key);
-    return cfg ? cfg.isEnabled : true;
-  };
+  const isFieldRequired = (key: string, defaultReq = true): boolean => fieldRequired(formConfig, key, defaultReq);
+  const isFieldEnabled = (key: string): boolean => fieldEnabled(formConfig, key);
 
   const validateStep1 = (): boolean => {
     const e: Record<string, string> = {};

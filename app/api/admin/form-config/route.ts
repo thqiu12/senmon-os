@@ -238,6 +238,7 @@ export async function PUT(request: NextRequest) {
         isRequired: boolean;
         displayOrder: number;
         description?: string | null;
+        options?: string | null;
       }) => {
         const schoolId = item.schoolId ?? null;
         // applicantType: 非nullかつ不正値は安全側で null（共通）に丸める。
@@ -250,6 +251,7 @@ export async function PUT(request: NextRequest) {
           isRequired: item.isRequired,
           displayOrder: item.displayOrder,
           description: item.description ?? null,
+          options: item.options ?? null,
         };
         // schoolId/applicantType に null を含み得るため、Prisma の compound unique upsert は使えない。
         // 従来どおり findFirst + update/create で (fieldKey, schoolId, applicantType) スコープを確定する。

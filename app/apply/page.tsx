@@ -19,6 +19,7 @@ import { buildFormSections } from "@/lib/applyFormSections";
 import { FIELD_REGISTRY } from "@/lib/applyFieldRegistry";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 import { isCustomField } from "@/lib/applyCustomFields";
+import { enabledExamModes } from "@/lib/applyExamModes";
 
 interface SchoolDepartment {
   name: string;
@@ -315,6 +316,17 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   // 学校別の筆記ポリシー（TDBは筆記なし＝一般選考も筆記免除）
   const noWrittenExam = isNoWrittenExamSchool({ schoolId: form.schoolId, schoolName: selectedSchool?.name });
 
+  // 学校×タイプ別に許可された選考区分（後方互換：config 無し → 3区分すべて）
+  const examModes = enabledExamModes(formConfig);
+
+  // formConfig 読込後、現在の examMode が許可外なら先頭の許可値へ補正
+  useEffect(() => {
+    const modes = enabledExamModes(formConfig);
+    if (modes.length > 0 && !modes.includes(form.examMode as any)) {
+      onChange("examMode", modes[0]);
+    }
+  }, [formConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 並願で選択済み学校ID一覧（メイン + 追加）
   const usedSchoolIds = [form.schoolId, ...form.additionalSchools.map(a => a.schoolId)].filter(Boolean);
   // 並願に追加できる学校（メイン校・既追加校を除く）
@@ -417,14 +429,16 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
         </Field>
       </div>
 
+      {examModes.length > 0 && (
+      <>
       <Divider />
       <SectionTitle icon="tag">選考区分・推薦</SectionTitle>
-      <div className="grid grid-cols-3 gap-3">
+      <div className={`grid gap-3 ${examModes.length <= 1 ? "grid-cols-1" : examModes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
         {[
           { value: "一般", label: "一般選考", desc: noWrittenExam ? "面接のみ（筆記免除）" : "筆記試験・面接あり", icon: "pencil" as IconName, exam: !noWrittenExam },
           { value: "指定推薦", label: "指定推薦", desc: "筆記試験免除・面接のみ", icon: "handshake" as IconName, exam: false },
           { value: "特待生", label: "特待生選考", desc: "筆記試験免除・面接のみ", icon: "star" as IconName, exam: false },
-        ].map(mode => {
+        ].filter(mode => examModes.includes(mode.value as any)).map(mode => {
           const sel = form.examMode === mode.value;
           return (
             <label key={mode.value} className={`cursor-pointer rounded-xl border-2 p-4 text-center transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-1
@@ -501,6 +515,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
             <Input placeholder="例：知日留学センター（なければ空欄）" value={form.referrerName} onChange={e => onChange("referrerName", e.target.value)} />
           </Field>
         </>
+      )}
+      </>
       )}
     </div>
   );

@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # =============================================================================
 # offsite-backup.sh
-#   本番DB(SQLite)とアップロード書類を gpg(AES256) で暗号化し、
+#   本番DB(Postgres / Supabase)とアップロード書類を gpg(AES256) で暗号化し、
 #   Cloudflare R2（S3互換, rclone経由）へ日次アップロードする。
 #
-#   - サーバーが丸ごと失われても、別ロケーション(R2)に暗号化済みコピーが残る
+#   - サーバー / Supabase が失われても、別ロケーション(R2)に暗号化済みコピーが残る
+#     （Supabase 自体の日次バックアップ/PITR に加えた「自前の異地コピー」= 多重防御）
 #   - 暗号化パスフレーズはサーバー外にも控えること（復号に必須）
+#   - 復元は scripts/deploy/offsite-restore.sh（pg_restore ベース）
 #
 # 前提（VPS側に用意。詳細は OFFSITE-BACKUP.md）:
 #   - rclone インストール済み、remote "r2" 設定済み
+#   - pg_dump インストール済み（postgresql-client。バージョンは Supabase の PG 以上）
 #   - パスフレーズファイル: /srv/senmon/secrets/backup.pass (chmod 600, root)
+#   - 接続: APP_DIR/.env の DIRECT_URL(セッションプーラ5432)を使用。
+#           env PG_DUMP_URL で上書き可。
 #
 # 環境変数で上書き可:
 #   APP_DIR=/srv/senmon/app  UPLOAD_DIR=/srv/senmon/private/uploads
-#   RCLONE_REMOTE=r2  R2_BUCKET=senmon-backup  KEEP_DAYS=90
+#   PG_DUMP_URL=postgresql://...  RCLONE_REMOTE=r2  R2_BUCKET=senmon-backup  KEEP_DAYS=90
 # =============================================================================
 set -uo pipefail
 
@@ -25,29 +30,29 @@ RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
 R2_BUCKET="${R2_BUCKET:-senmon-backup}"
 KEEP_DAYS="${KEEP_DAYS:-90}"
 
-# DB パス検出:
-#   DATABASE_URL="file:./prisma/data.db" を Prisma が schema.prisma のディレクトリ
-#   (app/prisma/) 基準で解決するため、実体は app/prisma/prisma/data.db に置かれる。
-#   旧構成 app/prisma/data.db も一応フォールバックで見る。DB_PATH 環境変数で上書き可。
-if [ -z "${DB_PATH:-}" ]; then
-  if   [ -f "$APP_DIR/prisma/prisma/data.db" ]; then DB_PATH="$APP_DIR/prisma/prisma/data.db"
-  elif [ -f "$APP_DIR/prisma/data.db" ];        then DB_PATH="$APP_DIR/prisma/data.db"
-  else DB_PATH="$APP_DIR/prisma/prisma/data.db"; fi
-fi
-
-# アップロード書類のパス検出:
-#   .env の UPLOAD_DIR="private/uploads"（相対）はアプリ実行時 cwd=APP_DIR 基準で
-#   解決され、実体は app/private/uploads。旧/絶対構成もフォールバック。
-if [ -z "${UPLOAD_DIR:-}" ]; then
-  if   [ -d "$APP_DIR/private/uploads" ];    then UPLOAD_DIR="$APP_DIR/private/uploads"
-  elif [ -d "/srv/senmon/private/uploads" ]; then UPLOAD_DIR="/srv/senmon/private/uploads"
-  else UPLOAD_DIR="$APP_DIR/private/uploads"; fi
-fi
+# ---- 接続文字列の解決 ----
+# pg_dump は pgbouncer のトランザクションモード(6543)では失敗するため、
+# セッションモード/直結の DIRECT_URL(5432)を使う。env で上書きも可。
+resolve_pg_url() {
+  if [ -n "${PG_DUMP_URL:-}" ]; then printf '%s' "$PG_DUMP_URL"; return; fi
+  local v
+  v=$(grep -E '^DIRECT_URL=' "$APP_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"']//; s/[\"']$//")
+  [ -z "$v" ] && v=$(grep -E '^DATABASE_URL=' "$APP_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"']//; s/[\"']$//")
+  printf '%s' "$v"
+}
+PG_URL="$(resolve_pg_url)"
 
 ts() { date "+%Y-%m-%d %H:%M:%S"; }
 log() { echo "[$(ts)] $*" >> "$LOG"; }
 
 mkdir -p "$WORK_DIR" "$(dirname "$LOG")"
+
+# アップロード書類のパス検出（実体は app/private/uploads。旧/絶対構成もフォールバック）
+if [ -z "${UPLOAD_DIR:-}" ]; then
+  if   [ -d "$APP_DIR/private/uploads" ];    then UPLOAD_DIR="$APP_DIR/private/uploads"
+  elif [ -d "/srv/senmon/private/uploads" ]; then UPLOAD_DIR="/srv/senmon/private/uploads"
+  else UPLOAD_DIR="$APP_DIR/private/uploads"; fi
+fi
 
 # ---- 失敗通知（任意） ----
 # /srv/senmon/secrets/backup-alert.env があれば読み込む（無ければ通知なしで通常動作）:
@@ -79,11 +84,11 @@ on_exit() {
 trap on_exit EXIT
 
 # ---- 事前チェック ----
-command -v rclone >/dev/null 2>&1 || { log "ERROR: rclone 未インストール"; exit 1; }
-command -v gpg    >/dev/null 2>&1 || { log "ERROR: gpg 未インストール"; exit 1; }
-command -v sqlite3>/dev/null 2>&1 || { log "ERROR: sqlite3 未インストール"; exit 1; }
+command -v rclone  >/dev/null 2>&1 || { log "ERROR: rclone 未インストール"; exit 1; }
+command -v gpg     >/dev/null 2>&1 || { log "ERROR: gpg 未インストール"; exit 1; }
+command -v pg_dump >/dev/null 2>&1 || { log "ERROR: pg_dump 未インストール（apt install postgresql-client）"; exit 1; }
 [ -f "$PASS_FILE" ] || { log "ERROR: パスフレーズファイルが無い: $PASS_FILE"; exit 1; }
-[ -f "$DB_PATH" ]   || { log "ERROR: DB が無い: $DB_PATH"; exit 1; }
+[ -n "$PG_URL" ]    || { log "ERROR: 接続文字列が解決できない（PG_DUMP_URL か $APP_DIR/.env の DIRECT_URL）"; exit 1; }
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 encrypt() { # $1=平文ファイル → $1.gpg を生成
@@ -91,16 +96,18 @@ encrypt() { # $1=平文ファイル → $1.gpg を生成
       --cipher-algo AES256 -c "$1"
 }
 
-# ---- 1) DB: ホットコピー → gzip → gpg ----
-DB_TMP="$WORK_DIR/data-$STAMP.db"
-if ! sqlite3 "$DB_PATH" ".backup '$DB_TMP'"; then
-  log "ERROR: sqlite3 .backup 失敗"; exit 1
+# ---- 1) DB: pg_dump(custom形式・public スキーマのみ) → gpg ----
+# -Fc=圧縮付きcustom(pg_restore用) / -n public=アプリのスキーマのみ(Supabase内部schema除外)
+# --no-owner --no-privileges=別ロールへ復元しても問題が出ないように
+DB_TMP="$WORK_DIR/db-$STAMP.dump"
+if ! pg_dump "$PG_URL" -Fc -n public --no-owner --no-privileges -f "$DB_TMP" 2>>"$LOG"; then
+  log "ERROR: pg_dump 失敗（接続/権限/バージョンを確認。pg_dump は Supabase の PG 以上が必要）"
+  rm -rf "${WORK_DIR:?}/"* 2>/dev/null; exit 1
 fi
-gzip -f "$DB_TMP"                      # → data-$STAMP.db.gz
-encrypt "$DB_TMP.gz" || { log "ERROR: DB 暗号化失敗"; exit 1; }
-DB_ENC="$DB_TMP.gz.gpg"
+encrypt "$DB_TMP" || { log "ERROR: DB 暗号化失敗"; rm -rf "${WORK_DIR:?}/"* 2>/dev/null; exit 1; }
+DB_ENC="$DB_TMP.gpg"
 
-# ---- 2) uploads: tar.gz → gpg ----
+# ---- 2) uploads: tar.gz → gpg（書類はディスク上のまま=引き続き要バックアップ） ----
 UP_ENC=""
 if [ -d "$UPLOAD_DIR" ]; then
   UP_TMP="$WORK_DIR/uploads-$STAMP.tar.gz"

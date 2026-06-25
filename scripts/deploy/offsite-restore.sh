@@ -6,7 +6,7 @@
 #
 # 使い方:
 #   一覧:   bash offsite-restore.sh list
-#   復元:   bash offsite-restore.sh db <ファイル名>   例) data-20260610-101500.db.gz.gpg
+#   復元:   bash offsite-restore.sh db <ファイル名>   例) db-20260625-031500.dump.gpg
 #           bash offsite-restore.sh uploads <ファイル名>
 # =============================================================================
 set -uo pipefail
@@ -29,21 +29,20 @@ case "$CMD" in
     echo "=== R2: uploads/ ==="; rclone lsl "$RCLONE_REMOTE:$R2_BUCKET/uploads/" | sort -k4
     ;;
   db)
-    [ -n "$NAME" ] || { echo "ファイル名を指定: bash offsite-restore.sh db <name>"; exit 1; }
+    [ -n "$NAME" ] || { echo "ファイル名を指定: bash offsite-restore.sh db <name>  (例: db-20260625-031500.dump.gpg)"; exit 1; }
     rclone copyto "$RCLONE_REMOTE:$R2_BUCKET/db/$NAME" "$OUT_DIR/$NAME" || { echo "DL失敗"; exit 1; }
     gpg --batch --yes --pinentry-mode loopback --passphrase-file "$PASS_FILE" \
         -o "$OUT_DIR/${NAME%.gpg}" -d "$OUT_DIR/$NAME" || { echo "復号失敗（パスフレーズ確認）"; exit 1; }
-    gunzip -f "$OUT_DIR/${NAME%.gpg}"   # → .db
-    DB_OUT="$OUT_DIR/$(basename "${NAME%.gz.gpg}").db"
-    # 念のため整合性チェック
-    sqlite3 "$DB_OUT" "PRAGMA integrity_check;" | head -1
-    echo "復元完了: $DB_OUT"
-    echo "本番反映する場合（停止してから。DB実体は prisma/prisma/data.db）:"
-    echo "  LIVE=/srv/senmon/app/prisma/prisma/data.db"
-    echo "  pm2 stop senmon-nyuugaku"
-    echo "  cp \"\$LIVE\" \"\$LIVE.bak.\$(date +%s)\""
-    echo "  cp '$DB_OUT' \"\$LIVE\""
-    echo "  pm2 start senmon-nyuugaku"
+    DUMP_OUT="$OUT_DIR/${NAME%.gpg}"   # → db-....dump（pg_dump custom 形式）
+    echo "復号完了: $DUMP_OUT"
+    echo
+    echo "本番DBは自動上書きしない。pg_restore で対象DBへ流す:"
+    echo "  # 推奨: まず新規 Supabase プロジェクト/空DBへ復元し、検証してから切替える"
+    echo "  pg_restore --no-owner --no-privileges --clean --if-exists \\"
+    echo "    -d '<復元先 DIRECT_URL(セッションプーラ5432)>' '$DUMP_OUT'"
+    echo
+    echo "  ※ 既存テーブルがある所へ戻すなら --clean --if-exists で置換。"
+    echo "  ※ pg_restore のバージョンは復元先 PG 以上が必要。"
     ;;
   uploads)
     [ -n "$NAME" ] || { echo "ファイル名を指定: bash offsite-restore.sh uploads <name>"; exit 1; }

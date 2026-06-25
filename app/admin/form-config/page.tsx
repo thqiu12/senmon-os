@@ -10,7 +10,7 @@ import { HelpTip } from "@/components/admin/HelpTip";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
 import { APPLICANT_TYPE_LABEL, type ApplicantType } from "@/lib/applicantType";
-import { EXAM_MODE_VALUES } from "@/lib/applyExamModes";
+import { parseExamModeOptions, DEFAULT_EXAM_MODES, type ExamModeOption } from "@/lib/applyExamModes";
 
 interface FormFieldConfig {
   id: string;
@@ -24,6 +24,7 @@ interface FormFieldConfig {
   section: string;
   description?: string | null;
   isCustom?: boolean;
+  showWhenExamMode?: string | null;
 }
 
 const SECTIONS = ["個人情報", "連絡先", "住所", "在日情報", "志望・学歴", "書類", "入学手続き書類"];
@@ -51,6 +52,7 @@ interface AddFieldForm {
   isRequired: boolean;
   description: string;
   options: string;
+  showWhenExamMode: string;
 }
 
 const emptyAddForm: AddFieldForm = {
@@ -60,6 +62,7 @@ const emptyAddForm: AddFieldForm = {
   isRequired: false,
   description: "",
   options: "",
+  showWhenExamMode: "",
 };
 
 // 学生フォームのプレビュー1項目（実際の入力欄に近い見た目のダミー）
@@ -121,7 +124,7 @@ export default function FormConfigPage() {
   // 学校タブ: ApplySchool 一覧から動的構築（学校別のみ）。
   const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([]);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
-  const [examModeOptions, setExamModeOptions] = useState<string[]>([...EXAM_MODE_VALUES]);
+  const [examModeList, setExamModeList] = useState<ExamModeOption[]>(DEFAULT_EXAM_MODES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -160,11 +163,7 @@ export default function FormConfigPage() {
       const data = await res.json();
       setConfigs(Array.isArray(data) ? data : []);
       const em = (Array.isArray(data) ? data : []).find((c: any) => c.fieldKey === "examMode");
-      if (em && typeof em.options === "string" && em.options.trim()) {
-        setExamModeOptions(em.options.split(/[\n,、]/).map((s: string) => s.trim()).filter(Boolean));
-      } else {
-        setExamModeOptions([...EXAM_MODE_VALUES]);
-      }
+      setExamModeList(parseExamModeOptions(em?.options ?? null));
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -212,7 +211,20 @@ export default function FormConfigPage() {
     setError(null);
   };
 
+  // examMode 区分の安定 ID 生成（既存 ID と衝突しない）
+  const genExamModeId = () => {
+    let id = "";
+    do { id = "em_" + Math.random().toString(36).slice(2, 8); } while (examModeList.some(o => o.id === id));
+    return id;
+  };
+
   const handleSave = async () => {
+    // 各区分は表示名（label）必須
+    if (examModeList.some(o => !o.label.trim())) {
+      setError("選考区分の表示名を入力してください（空の区分があります）");
+      setSuccessMsg(null);
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccessMsg(null);
@@ -224,11 +236,11 @@ export default function FormConfigPage() {
         label: "選考区分",
         fieldType: "radio",
         section: "選考区分",
-        isEnabled: examModeOptions.length > 0,
+        isEnabled: examModeList.length > 0,
         isRequired: true,
         displayOrder: 5,
         description: null,
-        options: examModeOptions.join("\n"),
+        options: JSON.stringify(examModeList),
         schoolId: selectedSchoolId,
         applicantType: selectedApplicantType,
       };
@@ -306,6 +318,7 @@ export default function FormConfigPage() {
           schoolId: selectedSchoolId,
           description: addForm.description.trim() || null,
           options: addForm.options.trim() || null,
+          showWhenExamMode: addForm.showWhenExamMode || null,
           applicantType: selectedApplicantType,
         }),
       });
@@ -523,25 +536,101 @@ export default function FormConfigPage() {
           </div>
         )}
 
-        {/* 選考区分・推薦で表示する区分（examMode 専用カード） */}
+        {/* 選考区分・推薦の区分（examMode 専用カード：リスト編集） */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <h3 className="font-bold text-gray-800 mb-1">選考区分・推薦で表示する区分</h3>
-          <p className="text-xs text-gray-500 mb-3">出願フォームの「選考区分・推薦」に出す区分を選びます（未チェックの区分は出願者に表示されません）。全て外すと選考区分の節ごと非表示になります。</p>
-          <div className="flex flex-wrap gap-4">
-            {EXAM_MODE_VALUES.map((v) => {
-              const checked = examModeOptions.includes(v);
-              return (
-                <label key={v} className="inline-flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={checked} onChange={(e) =>
-                    setExamModeOptions((prev) => e.target.checked
-                      ? Array.from(new Set([...prev, v]))
-                      : prev.filter((x) => x !== v))
-                  } />
-                  <span className="text-sm">{v}</span>
-                </label>
-              );
-            })}
+          <h3 className="font-bold text-gray-800 mb-1">選考区分・推薦の区分</h3>
+          <p className="text-xs text-gray-500 mb-3">未チェックの区分は出願フォームに出ません。全て削除すると選考区分の節ごと非表示になります。</p>
+          <div className="space-y-3">
+            {examModeList.map((opt, idx) => (
+              <div key={opt.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">表示名</label>
+                    <input
+                      type="text"
+                      value={opt.label}
+                      onChange={e => setExamModeList(prev => prev.map((o, i) => i === idx ? { ...o, label: e.target.value } : o))}
+                      placeholder="例：一般選考"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-navy-500"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">説明（任意）</label>
+                    <input
+                      type="text"
+                      value={opt.description}
+                      onChange={e => setExamModeList(prev => prev.map((o, i) => i === idx ? { ...o, description: e.target.value } : o))}
+                      placeholder="選択時の案内（任意）"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-navy-500"
+                    />
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm whitespace-nowrap pb-1.5">
+                    <input
+                      type="checkbox"
+                      checked={opt.exam}
+                      onChange={e => setExamModeList(prev => prev.map((o, i) => i === idx ? { ...o, exam: e.target.checked } : o))}
+                      className="w-4 h-4 rounded border-gray-300 accent-navy-600"
+                    />
+                    筆記あり
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm whitespace-nowrap pb-1.5">
+                    <input
+                      type="checkbox"
+                      checked={opt.showReferrer}
+                      onChange={e => setExamModeList(prev => prev.map((o, i) => i === idx ? { ...o, showReferrer: e.target.checked } : o))}
+                      className="w-4 h-4 rounded border-gray-300 accent-navy-600"
+                    />
+                    推薦機関名・種別を表示
+                  </label>
+                  <div className="flex items-center gap-1 pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setExamModeList(prev => {
+                        if (idx === 0) return prev;
+                        const arr = [...prev];
+                        [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                        return arr;
+                      })}
+                      disabled={idx === 0}
+                      title="上へ"
+                      className="px-2 py-1 text-sm text-gray-500 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-30"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExamModeList(prev => {
+                        if (idx === prev.length - 1) return prev;
+                        const arr = [...prev];
+                        [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
+                        return arr;
+                      })}
+                      disabled={idx === examModeList.length - 1}
+                      title="下へ"
+                      className="px-2 py-1 text-sm text-gray-500 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExamModeList(prev => prev.filter((_, i) => i !== idx))}
+                      title="削除"
+                      className="px-2 py-1 text-sm text-red-400 border border-gray-200 rounded hover:bg-red-50 hover:text-red-600"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+          <button
+            type="button"
+            onClick={() => setExamModeList(prev => [...prev, { id: genExamModeId(), label: "", exam: false, showReferrer: false, description: "" }])}
+            className="mt-3 px-3 py-1.5 text-sm font-semibold text-navy-800 bg-white border border-navy-200 rounded-lg hover:bg-navy-50 transition"
+          >
+            ＋区分を追加
+          </button>
         </div>
 
         {loading ? (
@@ -843,6 +932,22 @@ export default function FormConfigPage() {
                   className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <p className="text-xs text-gray-400 mt-1">フィールドのラベル下に表示されるヒントテキスト</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  表示条件：選考区分
+                </label>
+                <select
+                  value={addForm.showWhenExamMode}
+                  onChange={e => setAddForm(f => ({ ...f, showWhenExamMode: e.target.value }))}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">なし</option>
+                  {examModeList.map(o => (
+                    <option key={o.id} value={o.id}>{o.label || o.id}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">選択した選考区分のときだけこの項目を表示します（「なし」は常に表示）</p>
               </div>
               {addError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">

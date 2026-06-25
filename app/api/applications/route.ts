@@ -8,6 +8,9 @@ import { ApplicationCreateSchema, statusWhere } from "@/lib/schemas";
 import { ENV } from "@/lib/env";
 import { resolveSchoolFk } from "@/lib/school-fk";
 import { isWrittenExamExempt } from "@/lib/examConfig";
+import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
+import { mergeFormConfig } from "@/lib/applyFormConfigMerge";
+import { missingRequiredCustomFields } from "@/lib/applyCustomRequired";
 
 // 学生へ出願番号確認メール送信
 async function sendStudentConfirmation(application: {
@@ -331,6 +334,46 @@ export async function POST(request: NextRequest) {
         select: { schoolKey: true },
       });
       primarySchoolKey = ps?.schoolKey ?? null;
+    }
+
+    // 必須カスタム項目のサーバ側検証（クライアント判定をミラー）。
+    // クライアントを迂回/古いクライアントからの送信でも未入力の必須カスタム項目を弾く。
+    // 行の取得形は apply form-config の typed path と同一にする。
+    {
+      const type = body.applicantType;
+      const rows = await prisma.formFieldConfig.findMany({
+        where: {
+          AND: [
+            { OR: [{ schoolId: null }, ...(primarySchoolKey ? [{ schoolId: primarySchoolKey }] : [])] },
+            { OR: [{ applicantType: null }, { applicantType: type }] },
+          ],
+        },
+        orderBy: { displayOrder: "asc" },
+        select: {
+          fieldKey: true,
+          label: true,
+          fieldType: true,
+          isEnabled: true,
+          isRequired: true,
+          displayOrder: true,
+          section: true,
+          description: true,
+          options: true,
+          schoolId: true,
+          applicantType: true,
+        },
+      });
+      const merged = mergeFormConfig(FORM_FIELD_DEFAULTS, rows, type);
+      const missing = missingRequiredCustomFields(merged, body.extraData);
+      if (missing.length > 0) {
+        return NextResponse.json(
+          {
+            error: `必須項目が未入力です: ${missing.map((m) => m.label).join("、")}`,
+            issues: { fieldErrors: Object.fromEntries(missing.map((m) => [m.fieldKey, ["必須項目です"]])) },
+          },
+          { status: 400 },
+        );
+      }
     }
 
     // 申請番号を採番。出願した学校の「開いている回次」を優先し、その年度-回次-連番で発番。

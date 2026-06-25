@@ -213,6 +213,9 @@ model Application {
   // 出願者タイプ: japanese / foreign（既定=foreign＝従来動作）
   applicantType   String   @default("foreign")
 
+  // カスタム項目（動的フォーム）
+  extraData           Json?
+
   // 紹介エージェント
   agentId             String?
   agent               Agent?   @relation(fields: [agentId], references: [id])
@@ -790,6 +793,7 @@ model FormFieldConfig {
   updatedAt    DateTime @updatedAt
 
   applicantType String?  // null=共通 / "japanese" / "foreign"
+  options       String?  // select等の選択肢（改行/カンマ区切り）
   @@unique([fieldKey, schoolId, applicantType])
 }
 

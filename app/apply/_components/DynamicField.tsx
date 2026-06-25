@@ -15,6 +15,7 @@ function optionsFor(key: string, t: (s: string) => string): { value: string; lab
       { value: "N1", label: t("N1（最上級）") }, { value: "N2", label: "N2" }, { value: "N3", label: "N3" },
       { value: "N4", label: "N4" }, { value: "N5", label: t("N5（初級）") }, { value: "なし", label: t("資格なし") },
     ];
+    case "lastSchoolGraduate": return ["卒業","卒業見込み","中退","在学中"].map((v) => ({ value: v, label: t(v) }));
     default: return [];
   }
 }
@@ -24,9 +25,18 @@ const DEFAULT_LABELS: Record<string, string> = {
   birthDate: "生年月日", gender: "性別", nationality: "国籍", phone: "電話番号", email: "メールアドレス",
   postalCode: "郵便番号", prefecture: "都道府県", city: "市区町村", address: "番地", addressDetail: "建物名・部屋番号（任意）",
   residenceStatus: "在留資格（日本在住の方）", residenceExpiry: "在留期限（日本在住の方）", japaneseLevel: "日本語レベル", jlptCertified: "JLPT合格証明書",
+  applicationReason: "志望動機", lastSchoolName: "学校名", lastSchoolCountry: "国",
+  lastSchoolGraduate: "卒業状況", lastSchoolGraduatedOn: "卒業（見込）年月",
+  priorAttendanceRate: "出身校での出席率", workExperience: "職務経歴（任意）",
 };
-const DEFAULT_HINTS: Record<string, string> = { phone: "ハイフンなし", email: "審査結果の通知に使用", postalCode: "ハイフンなし7桁" };
-const OPTIONAL_DEFAULT = new Set(["residenceStatus", "residenceExpiry", "addressDetail", "jlptCertified"]);
+const DEFAULT_HINTS: Record<string, string> = {
+  phone: "ハイフンなし", email: "審査結果の通知に使用", postalCode: "ハイフンなし7桁",
+  applicationReason: "300字以上で具体的にご記入ください",
+  lastSchoolGraduatedOn: "例：2026-03",
+  priorAttendanceRate: "例：95%、出席日数150日/総授業日数158日",
+  workExperience: "直近の職務経歴をご記入ください",
+};
+const OPTIONAL_DEFAULT = new Set(["residenceStatus", "residenceExpiry", "addressDetail", "jlptCertified", "priorAttendanceRate", "lastSchoolGraduatedOn", "workExperience"]);
 
 export function DynamicField({ fieldKey, form, onChange, errors, formConfig }: {
   fieldKey: string; form: FormData;
@@ -99,6 +109,22 @@ export function DynamicField({ fieldKey, form, onChange, errors, formConfig }: {
           </label>
         </Field>
       );
+    case "textarea": {
+      const showCounter = !!e.meta?.counter;
+      return (
+        <Field label={label} required={req} hint={hint} error={err}>
+          <textarea
+            data-testid={`apply-${fieldKey}`}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
+            placeholder={e.placeholder ? t(e.placeholder) : undefined}
+            value={String(val ?? "")}
+            onChange={(ev) => onChange(fieldKey as keyof FormData, ev.target.value)} />
+          {showCounter && (
+            <p className="text-xs text-gray-400 mt-1">{String(val ?? "").length} {t("/ 300文字")}</p>
+          )}
+        </Field>
+      );
+    }
     default: return null;
   }
 }

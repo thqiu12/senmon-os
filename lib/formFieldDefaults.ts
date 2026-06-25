@@ -56,8 +56,9 @@ export const FORM_FIELD_DEFAULTS: FormFieldDefault[] = [
   { fieldKey: "lastSchoolName",     label: "最終学校名",          section: "志望・学歴", isRequired: true,  displayOrder: 41, fieldType: "text" },
   { fieldKey: "lastSchoolCountry",  label: "最終学校の国",        section: "志望・学歴", isRequired: true,  displayOrder: 42, fieldType: "text" },
   { fieldKey: "lastSchoolGraduate", label: "卒業状況",            section: "志望・学歴", isRequired: true,  displayOrder: 43, fieldType: "select" },
-  { fieldKey: "priorAttendanceRate", label: "出身校での出席率",   section: "志望・学歴", isRequired: false, displayOrder: 44, fieldType: "text" },
-  { fieldKey: "workExperience",     label: "職務経歴",            section: "志望・学歴", isRequired: false, displayOrder: 45, fieldType: "textarea" },
+  { fieldKey: "lastSchoolGraduatedOn", label: "卒業（見込）年月", section: "志望・学歴", isRequired: false, displayOrder: 44, fieldType: "date" },
+  { fieldKey: "priorAttendanceRate", label: "出身校での出席率",   section: "志望・学歴", isRequired: false, displayOrder: 45, fieldType: "text" },
+  { fieldKey: "workExperience",     label: "職務経歴",            section: "志望・学歴", isRequired: false, displayOrder: 46, fieldType: "textarea" },
 ];
 
 export const FILE_FIELD_DEFAULTS: FormFieldDefault[] = [

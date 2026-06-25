@@ -189,12 +189,13 @@ function Step1({ form, onChange, errors, formConfig }: {
   form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
   formConfig: FormFieldConfig[] | null;
 }) {
-  // Phase1: 個人情報の動的描画。formConfig が読み込めていればそれを、未読込時は
+  // 動的描画。formConfig が読み込めていればそれを、未読込時は
   // FORM_FIELD_DEFAULTS を同一形に正規化して同じ描画コードで処理する。
-  // 絞り込みはセクション名ではなく FIELD_REGISTRY のキー集合（Phase1=18項目）で行う。
-  // これにより 志望・学歴 / 書類 はキー非登録で自動的に除外され、
-  // 読込パスと fallback パスが同じ実セクション名（個人情報/連絡先/住所/在日情報）を使う。
-  const PERSONAL_KEYS = new Set(Object.keys(FIELD_REGISTRY)); // Phase1 = 個人情報/連絡先/住所/在日情報 の18項目のみ
+  // 絞り込みはセクション名ではなく FIELD_REGISTRY のキー集合で行う。
+  // FIELD_REGISTRY には個人情報系に加え 志望・学歴（学歴）項目も登録済みなので、
+  // それらは Step1 で描画される。除外されるのは 書類(file) と
+  // 志望校／examMode 等の構造的フィールド（registry 非登録）のみ。
+  const PERSONAL_KEYS = new Set(Object.keys(FIELD_REGISTRY)); // 個人情報系 + 志望・学歴 の登録キー
   const SECTION_ICON: Record<string, IconName> = {
     "個人情報": "user", "連絡先": "phone", "住所": "home", "在日情報": "globe", "志望・学歴": "graduation",
   };

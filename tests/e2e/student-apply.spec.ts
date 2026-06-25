@@ -50,6 +50,16 @@ test.describe("学生出願フロー Step 1", () => {
     // 入力検証は state 更新後に判定されるので少し待つ
     await expect(nextBtn).toBeEnabled({ timeout: 5_000 });
   });
+
+  test("留学生Step1: 個人情報の主要フィールドが描画される（動的描画パリティ）", async ({ page }) => {
+    await page.goto("/apply?school=chuo-seminar");
+    await page.getByTestId("applicant-type-foreign").click();
+    await page.getByTestId("apply-lastName").waitFor({ state: "visible", timeout: 10_000 });
+    // 個人情報セクション欠落バグ（旧: 氏名/基本情報のセクション名で絞り込み）の回帰防止
+    for (const tid of ["apply-lastName","apply-firstName","apply-gender","apply-nationality","apply-phone","apply-email","apply-postalCode","apply-prefecture","apply-japaneseLevel"]) {
+      await expect(page.getByTestId(tid)).toBeVisible();
+    }
+  });
 });
 
 test.describe("出願状況確認・再ログイン", () => {

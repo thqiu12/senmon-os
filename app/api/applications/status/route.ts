@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
       residenceExpiry: application.residenceExpiry,
       japaneseLevel: application.japaneseLevel,
       jlptCertified: application.jlptCertified,
+      applicantType: application.applicantType, // 途中再開時に種別対応の form-config を再取得するため
       schoolId: application.schoolName, // schoolKey は schoolName で代替
       schoolKey: application.applySchool?.schoolKey ?? null, // 学費の学校別支払い設定の解決に使用
       schoolName: application.schoolName,

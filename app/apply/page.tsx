@@ -1385,7 +1385,8 @@ function ApplyPageInner() {
           residenceExpiry: data.residenceExpiry || prev.residenceExpiry,
           japaneseLevel: data.japaneseLevel || prev.japaneseLevel,
           jlptCertified: data.jlptCertified ?? prev.jlptCertified,
-          schoolId: data.schoolId || prev.schoolId,
+          applicantType: (data.applicantType === "japanese" || data.applicantType === "foreign") ? data.applicantType : prev.applicantType,
+          schoolId: data.schoolKey || data.schoolId || prev.schoolId,
           schoolName: data.schoolName || prev.schoolName,
           department: data.department || prev.department,
           course: data.course || prev.course,
@@ -1424,12 +1425,17 @@ function ApplyPageInner() {
         } else {
           setCurrentStep(3);
         }
+        // form-config を学校 + 種別で再取得し、Step3 の書類欄が管理者の有効/無効設定を反映するようにする
+        const resumedType = (data.applicantType === "japanese" || data.applicantType === "foreign") ? data.applicantType : undefined;
+        fetchFormConfig(data.schoolKey || undefined, resumedType);
       }
     } catch {
       // 失敗したら通常フローで続ける
     } finally {
       setResumeLoading(false);
     }
+  // fetchFormConfig はコンポーネントスコープの安定参照として閉じ込めて使用
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -16,7 +16,8 @@ import {
 } from "./_components/primitives";
 import { DynamicField } from "./_components/DynamicField";
 import { buildFormSections } from "@/lib/applyFormSections";
-import { PERSONAL_FALLBACK_SECTIONS } from "@/lib/applyFieldRegistry";
+import { FIELD_REGISTRY } from "@/lib/applyFieldRegistry";
+import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 
 interface SchoolDepartment {
   name: string;
@@ -188,31 +189,29 @@ function Step1({ form, onChange, errors, formConfig }: {
   form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
   formConfig: FormFieldConfig[] | null;
 }) {
-  // Phase1: 個人情報5セクションを動的描画。formConfig が読み込めていれば
-  // buildFormSections の結果（有効項目のみ・displayOrder順）を、未読込時は
-  // PERSONAL_FALLBACK_SECTIONS（標準項目を既定で全表示）を同一形に正規化して同じ描画コードで処理する。
-  const PERSONAL_SECTION_NAMES = ["氏名", "基本情報", "連絡先", "住所", "在日情報"];
+  // Phase1: 個人情報の動的描画。formConfig が読み込めていればそれを、未読込時は
+  // FORM_FIELD_DEFAULTS を同一形に正規化して同じ描画コードで処理する。
+  // 絞り込みはセクション名ではなく FIELD_REGISTRY のキー集合（Phase1=18項目）で行う。
+  // これにより 志望・学歴 / 書類 はキー非登録で自動的に除外され、
+  // 読込パスと fallback パスが同じ実セクション名（個人情報/連絡先/住所/在日情報）を使う。
+  const PERSONAL_KEYS = new Set(Object.keys(FIELD_REGISTRY)); // Phase1 = 個人情報/連絡先/住所/在日情報 の18項目のみ
   const SECTION_ICON: Record<string, IconName> = {
-    "氏名": "user", "基本情報": "id", "連絡先": "phone", "住所": "home", "在日情報": "globe",
+    "個人情報": "user", "連絡先": "phone", "住所": "home", "在日情報": "globe",
   };
-  // SectionTitle の表示文言（現行の見出しテキストを維持。在日情報のみ「・日本語能力」を補う）
+  // SectionTitle の表示文言（在日情報のみ「・日本語能力」を補う。他はセクション名そのまま）
   const SECTION_TITLE: Record<string, string> = {
-    "氏名": "氏名", "基本情報": "基本情報", "連絡先": "連絡先", "住所": "住所", "在日情報": "在日情報・日本語能力",
+    "在日情報": "在日情報・日本語能力",
   };
-  // 現行のセクション別カラム数を可能な範囲で維持（基本情報=4 / 住所=3 / その他=2）。
-  // 注: 単一グリッドで描画するため birthDate の col-span-2 と 住所の2行分割は失われる（軽微な許容変更）。
+  // セクション別カラム数（住所のみ3カラム、他は2カラム）。
   const SECTION_COLS: Record<string, string> = {
-    "氏名": "sm:grid-cols-2", "基本情報": "sm:grid-cols-4", "連絡先": "sm:grid-cols-2",
-    "住所": "sm:grid-cols-3", "在日情報": "sm:grid-cols-2",
+    "住所": "sm:grid-cols-3",
   };
 
-  const allSections = (formConfig && formConfig.length > 0)
-    ? buildFormSections(formConfig)
-    : PERSONAL_FALLBACK_SECTIONS.map(s => ({
-        section: s.section,
-        fields: s.fields.map((fieldKey, i) => ({ fieldKey, displayOrder: i })),
-      }));
-  const sections = allSections.filter(s => PERSONAL_SECTION_NAMES.includes(s.section));
+  const source = (formConfig && formConfig.length > 0)
+    ? formConfig
+    : FORM_FIELD_DEFAULTS.map(f => ({ fieldKey: f.fieldKey, isEnabled: true, isRequired: f.isRequired, section: f.section, displayOrder: f.displayOrder }));
+  const personalEntries = source.filter((c: any) => PERSONAL_KEYS.has(c.fieldKey));
+  const sections = buildFormSections(personalEntries as any);
 
   return (
     <div className="space-y-6">

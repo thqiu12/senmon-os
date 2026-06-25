@@ -34,11 +34,3 @@ export const FIELD_REGISTRY: Record<string, RegistryEntry> = {
 export function registryEntry(fieldKey: string): RegistryEntry | undefined {
   return FIELD_REGISTRY[fieldKey];
 }
-
-export const PERSONAL_FALLBACK_SECTIONS: { section: string; fields: string[] }[] = [
-  { section: "氏名", fields: ["lastName","firstName","lastNameKana","firstNameKana"] },
-  { section: "基本情報", fields: ["birthDate","gender","nationality"] },
-  { section: "連絡先", fields: ["phone","email"] },
-  { section: "住所", fields: ["postalCode","prefecture","city","address","addressDetail"] },
-  { section: "在日情報", fields: ["residenceStatus","residenceExpiry","japaneseLevel","jlptCertified"] },
-];

@@ -511,6 +511,8 @@ export default function ApplicationDetailPage() {
   const [enrollStatus, setEnrollStatus] = useState("未開始");
   const [enrollStudentMemo, setEnrollStudentMemo] = useState("");
   const [enrollCompletedAt, setEnrollCompletedAt] = useState<string | null>(null);
+  // カスタム項目のラベル表示用（fieldKey → label）
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   // ステップ別締切
   const [step1Deadline, setStep1Deadline] = useState("");
   const [step2Deadline, setStep2Deadline] = useState("");
@@ -593,6 +595,19 @@ export default function ApplicationDetailPage() {
   useEffect(() => {
     fetch("/api/agents").then(r => r.json()).then(d => setAgents(Array.isArray(d) ? d : (d.agents || [])));
     fetch("/api/cohorts").then(r => r.json()).then(d => Array.isArray(d) && setCohorts(d));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/form-config")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (Array.isArray(rows)) {
+          const m: Record<string, string> = {};
+          for (const c of rows) if (c?.fieldKey) m[c.fieldKey] = c.label || c.fieldKey;
+          setFieldLabels(m);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1463,7 +1478,7 @@ export default function ApplicationDetailPage() {
 
             {(() => {
               // カスタム項目（FormFieldConfig の custom_* 等）の回答を extraData から表示。
-              // ラベルはこのページにフォーム設定が無いため fieldKey をそのまま使う（best-effort）。
+              // ラベルは form-config から取得した fieldLabels で解決し、未知のキーは fieldKey をそのまま使う。
               const entries = Object.entries(application.extraData ?? {}).filter(([, v]) => {
                 if (v === null || v === undefined) return false;
                 if (v === false) return false;
@@ -1481,7 +1496,7 @@ export default function ApplicationDetailPage() {
               return (
                 <Section title="カスタム項目">
                   {entries.map(([k, v]) => (
-                    <InfoRow key={k} label={k} value={fmt(v)} />
+                    <InfoRow key={k} label={fieldLabels[k] ?? k} value={fmt(v)} />
                   ))}
                 </Section>
               );

@@ -3,6 +3,7 @@ import React from "react";
 import { Field, Input, Select, DateSelect, NATIONALITIES, PREFECTURES, type FormData, type FormFieldConfig } from "./primitives";
 import { registryEntry } from "@/lib/applyFieldRegistry";
 import { fieldLabel, fieldHint, fieldRequired } from "@/lib/applyFieldVisibility";
+import { genericWidget, parseOptions } from "@/lib/applyCustomFields";
 import { useT } from "@/lib/i18n";
 
 function optionsFor(key: string, t: (s: string) => string): { value: string; label: string }[] {
@@ -38,14 +39,50 @@ const DEFAULT_HINTS: Record<string, string> = {
 };
 const OPTIONAL_DEFAULT = new Set(["residenceStatus", "residenceExpiry", "addressDetail", "jlptCertified", "priorAttendanceRate", "lastSchoolGraduatedOn", "workExperience"]);
 
-export function DynamicField({ fieldKey, form, onChange, errors, formConfig }: {
+export function DynamicField({ fieldKey, form, onChange, onChangeExtra, errors, formConfig }: {
   fieldKey: string; form: FormData;
   onChange: (f: keyof FormData, v: string | boolean) => void;
+  onChangeExtra?: (key: string, v: string | boolean) => void;
   errors: Record<string, string>; formConfig: FormFieldConfig[] | null;
 }) {
   const { t } = useT();
   const e = registryEntry(fieldKey);
-  if (!e) return null;
+  if (!e) {
+    const cfg = (formConfig ?? []).find((c) => c.fieldKey === fieldKey);
+    if (!cfg) return null;
+    const w = genericWidget(cfg.fieldType);
+    const cval = form.extraData?.[fieldKey];
+    const set = (v: string | boolean) => onChangeExtra?.(fieldKey, v);
+    const clabel = fieldLabel(formConfig, fieldKey, cfg.label || fieldKey);
+    const chint = fieldHint(formConfig, fieldKey, "");
+    const creq = fieldRequired(formConfig, fieldKey, false);
+    const cerr = errors[fieldKey];
+    if (w === "select") {
+      const opts = parseOptions(cfg.options);
+      return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
+        <Select data-testid={`apply-${fieldKey}`} value={String(cval ?? "")} error={!!cerr} onChange={(ev) => set(ev.target.value)}>
+          <option value="">{t("選択してください")}</option>
+          {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </Select></Field>);
+    }
+    if (w === "textarea") {
+      return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
+        <textarea data-testid={`apply-${fieldKey}`} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
+          value={String(cval ?? "")} onChange={(ev) => set(ev.target.value)} /></Field>);
+    }
+    if (w === "month") {
+      return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
+        <DateSelect testId={`apply-${fieldKey}`} value={String(cval ?? "")} onChange={(v: string) => set(v)} minYear={new Date().getFullYear() - 80} maxYear={new Date().getFullYear() + 10} /></Field>);
+    }
+    if (w === "checkbox") {
+      return (<Field label={clabel} hint={chint}>
+        <label className="flex items-center gap-3 h-[42px] cursor-pointer">
+          <input type="checkbox" data-testid={`apply-${fieldKey}`} className="w-4 h-4 rounded border-gray-300 accent-blue-600" checked={!!cval} onChange={(ev) => set(ev.target.checked)} />
+          <span className="text-sm text-gray-700">{clabel}</span></label></Field>);
+    }
+    return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
+      <Input data-testid={`apply-${fieldKey}`} value={String(cval ?? "")} error={!!cerr} onChange={(ev) => set(ev.target.value)} /></Field>);
+  }
   const label = fieldLabel(formConfig, fieldKey, DEFAULT_LABELS[fieldKey] ?? fieldKey);
   const hint = fieldHint(formConfig, fieldKey, DEFAULT_HINTS[fieldKey] ?? "");
   const req = fieldRequired(formConfig, fieldKey, !OPTIONAL_DEFAULT.has(fieldKey));

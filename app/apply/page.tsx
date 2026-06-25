@@ -18,6 +18,7 @@ import { DynamicField } from "./_components/DynamicField";
 import { buildFormSections } from "@/lib/applyFormSections";
 import { FIELD_REGISTRY } from "@/lib/applyFieldRegistry";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
+import { isCustomField } from "@/lib/applyCustomFields";
 
 interface SchoolDepartment {
   name: string;
@@ -149,6 +150,7 @@ const initialForm: FormData = {
   lastSchoolName: "", lastSchoolCountry: "", lastSchoolGraduate: "", lastSchoolGraduatedOn: "", priorAttendanceRate: "", workExperience: "",
   examMode: "一般", referrerName: "", referrerType: "",
   applicantType: "",
+  extraData: {},
 };
 
 // ========== Step Indicator ==========
@@ -185,8 +187,9 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 }
 
 // ========== Step 1 ==========
-function Step1({ form, onChange, errors, formConfig }: {
-  form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void; errors: Record<string, string>;
+function Step1({ form, onChange, onChangeExtra, errors, formConfig }: {
+  form: FormData; onChange: (f: keyof FormData, v: string | boolean) => void;
+  onChangeExtra: (key: string, v: string | boolean) => void; errors: Record<string, string>;
   formConfig: FormFieldConfig[] | null;
 }) {
   // 動的描画。formConfig が読み込めていればそれを、未読込時は
@@ -211,7 +214,7 @@ function Step1({ form, onChange, errors, formConfig }: {
   const source = (formConfig && formConfig.length > 0)
     ? formConfig
     : FORM_FIELD_DEFAULTS.map(f => ({ fieldKey: f.fieldKey, isEnabled: true, isRequired: f.isRequired, section: f.section, displayOrder: f.displayOrder }));
-  const personalEntries = source.filter((c: any) => PERSONAL_KEYS.has(c.fieldKey));
+  const personalEntries = source.filter((c: any) => PERSONAL_KEYS.has(c.fieldKey) || isCustomField(c.fieldKey, c.fieldType));
   const sections = buildFormSections(personalEntries as any);
 
   return (
@@ -224,7 +227,7 @@ function Step1({ form, onChange, errors, formConfig }: {
           </SectionTitle>
           <div className={`grid grid-cols-1 ${SECTION_COLS[sec.section] ?? "sm:grid-cols-2"} gap-4`}>
             {sec.fields.map(f => (
-              <DynamicField key={f.fieldKey} fieldKey={f.fieldKey} form={form} onChange={onChange} errors={errors} formConfig={formConfig} />
+              <DynamicField key={f.fieldKey} fieldKey={f.fieldKey} form={form} onChange={onChange} onChangeExtra={onChangeExtra} errors={errors} formConfig={formConfig} />
             ))}
           </div>
         </React.Fragment>
@@ -1439,6 +1442,11 @@ function ApplyPageInner() {
     }
   };
 
+  const handleChangeExtra = (key: string, value: string | boolean) => {
+    setForm(prev => ({ ...prev, extraData: { ...prev.extraData, [key]: value } }));
+    setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
+
   // 出願者タイプ選択（ゲート画面）。選択後、タイプ反映済みの全体設定を取得して
   // Step1 の留学生専用フィールド表示/非表示を切り替える。
   const handleSelectApplicantType = (type: ApplicantType) => {
@@ -1905,7 +1913,7 @@ function ApplyPageInner() {
           ) : (
             <>
               <h1 className="text-lg font-bold text-gray-800 mb-6">{t(STEPS[currentStep - 1].label)}</h1>
-              {currentStep === 1 && <Step1 form={form} onChange={handleChange} errors={errors} formConfig={formConfig} />}
+              {currentStep === 1 && <Step1 form={form} onChange={handleChange} onChangeExtra={handleChangeExtra} errors={errors} formConfig={formConfig} />}
               {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} enrollmentYears={enrollmentYears} />}
               {currentStep === 3 && <>
                 {errors.step3 && (

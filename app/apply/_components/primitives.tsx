@@ -16,6 +16,7 @@ export interface FormFieldConfig {
   displayOrder: number;
   section: string;
   description?: string | null;
+  options?: string | null;
 }
 
 export interface FormData {
@@ -30,6 +31,7 @@ export interface FormData {
   lastSchoolName: string; lastSchoolCountry: string; lastSchoolGraduate: string; lastSchoolGraduatedOn: string; priorAttendanceRate: string; workExperience: string;
   examMode: string; referrerName: string; referrerType: string;
   applicantType: ApplicantType | "";
+  extraData: Record<string, string | boolean>;
 }
 
 export const PREFECTURES = [

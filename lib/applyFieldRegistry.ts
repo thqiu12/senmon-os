@@ -29,6 +29,13 @@ export const FIELD_REGISTRY: Record<string, RegistryEntry> = {
   residenceExpiry:{ widget: "month", column: "residenceExpiry" },
   japaneseLevel:  { widget: "select", column: "japaneseLevel", optionsKey: "japaneseLevel" },
   jlptCertified:  { widget: "checkbox", column: "jlptCertified" },
+  applicationReason:  { widget: "textarea", column: "applicationReason", placeholder: "志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。", meta: { minLength: 300, counter: true } },
+  lastSchoolName:     { widget: "text", column: "lastSchoolName", placeholder: "○○大学" },
+  lastSchoolCountry:  { widget: "text", column: "lastSchoolCountry", placeholder: "中国" },
+  lastSchoolGraduate: { widget: "select", column: "lastSchoolGraduate", optionsKey: "lastSchoolGraduate" },
+  lastSchoolGraduatedOn: { widget: "month", column: "lastSchoolGraduatedOn" },
+  priorAttendanceRate:{ widget: "text", column: "priorAttendanceRate", placeholder: "例：95%" },
+  workExperience:     { widget: "textarea", column: "workExperience", placeholder: "会社名、職種、期間などをご記入ください" },
 };
 
 export function registryEntry(fieldKey: string): RegistryEntry | undefined {

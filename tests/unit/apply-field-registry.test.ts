@@ -28,6 +28,17 @@ describe("applyFieldRegistry", () => {
       expect(FIELD_REGISTRY[k], k).toBeTruthy();
     }
   });
+  it("学歴・志望項目が登録されている", () => {
+    expect(registryEntry("applicationReason")!.widget).toBe("textarea");
+    expect(registryEntry("applicationReason")!.meta?.minLength).toBe(300);
+    expect(registryEntry("lastSchoolGraduate")!.widget).toBe("select");
+    expect(registryEntry("lastSchoolGraduate")!.optionsKey).toBe("lastSchoolGraduate");
+    expect(registryEntry("lastSchoolGraduatedOn")!.widget).toBe("month");
+    expect(registryEntry("workExperience")!.widget).toBe("textarea");
+    for (const k of ["applicationReason","lastSchoolName","lastSchoolCountry","lastSchoolGraduate","lastSchoolGraduatedOn","priorAttendanceRate","workExperience"]) {
+      expect(FIELD_REGISTRY[k], k).toBeTruthy();
+    }
+  });
 });
 
 describe("buildFormSections", () => {

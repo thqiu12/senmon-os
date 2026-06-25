@@ -13,7 +13,7 @@ const optEmail = z.preprocess(
 
 export const JapaneseLevelEnum = z.enum(["N1", "N2", "N3", "N4", "N5", "なし"]);
 export const GenderEnum = z.enum(["男性", "女性", "その他"]);
-export const ExamModeEnum = z.enum(["一般", "指定推薦", "特待生"]);
+export const ExamModeEnum = z.string().min(1).max(20);
 
 export const DocTypeEnum = z.enum([
   "証明写真（3×3cm）",

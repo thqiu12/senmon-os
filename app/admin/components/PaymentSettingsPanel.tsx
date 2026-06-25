@@ -7,7 +7,6 @@ interface PayMethod { bankInfo: string; qr: string | null }
 interface PaymentConfig { examFee: PayMethod; tuition: PayMethod }
 type PaymentMap = Record<string, PaymentConfig>;
 
-const GLOBAL_KEY = "__global__";
 const MAX_QR_BYTES = 500 * 1024; // 約500KB
 
 function emptyConfig(): PaymentConfig {
@@ -15,13 +14,13 @@ function emptyConfig(): PaymentConfig {
 }
 
 export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () => void }) {
-  const { toast, confirm } = useUI();
+  const { toast } = useUI();
   const [map, setMap] = useState<PaymentMap>({});
-  const [activeKey, setActiveKey] = useState<string>(GLOBAL_KEY);
+  const [activeKey, setActiveKey] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  // タブは志望校マスタ(/api/apply/schools)から動的取得。学校を増やせばここに自動で出る。
+  // タブは志望校マスタ(/api/apply/schools)から動的取得（学校別のみ）。学校を増やせばここに自動で出る。
   const [schools, setSchools] = useState<{ schoolKey: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -33,14 +32,16 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
     })();
     fetch("/api/apply/schools")
       .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setSchools(Array.isArray(d) ? d.map((s: { schoolKey: string; name: string }) => ({ schoolKey: s.schoolKey, name: s.name })) : []))
+      .then((d) => {
+        const list = Array.isArray(d) ? d.map((s: { schoolKey: string; name: string }) => ({ schoolKey: s.schoolKey, name: s.name })) : [];
+        setSchools(list);
+        // 既定で先頭校を選択（全校共通スコープは廃止）。
+        setActiveKey((prev) => prev || (list[0]?.schoolKey ?? ""));
+      })
       .catch(() => setSchools([]));
   }, [onUnauthorized]);
 
-  const tabs: { key: string; name: string; global?: boolean }[] = [
-    { key: GLOBAL_KEY, name: "全校共通", global: true },
-    ...schools.map((s) => ({ key: s.schoolKey, name: s.name })),
-  ];
+  const tabs: { key: string; name: string }[] = schools.map((s) => ({ key: s.schoolKey, name: s.name }));
 
   useEffect(() => {
     if (!dirty) return;
@@ -50,7 +51,6 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
   }, [dirty]);
 
   const current = map[activeKey] ?? emptyConfig();
-  const isGlobal = activeKey === GLOBAL_KEY;
 
   const update = useCallback((kind: "examFee" | "tuition", patch: Partial<PayMethod>) => {
     setMap((m) => {
@@ -83,18 +83,6 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
     }
   };
 
-  const resetSchool = async () => {
-    const ok = await confirm({
-      title: "全校共通に戻す",
-      message: `「${tabs.find((t) => t.key === activeKey)?.name}」の個別設定を削除して全校共通の設定を使うようにしますか？`,
-      danger: true,
-      okLabel: "リセット",
-    });
-    if (!ok) return;
-    setMap((m) => { const n = { ...m }; delete n[activeKey]; return n; });
-    setDirty(true);
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -111,7 +99,7 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
         </button>
       </div>
 
-      {/* School Tabs */}
+      {/* School Tabs（学校別のみ） */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
         <div className="flex overflow-x-auto">
           {tabs.map((tab) => {
@@ -127,9 +115,8 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
                 className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors flex items-center gap-1.5
                   ${active ? "border-navy-700 text-navy-800 bg-navy-50" : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}
               >
-                {tab.global && <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">共通</span>}
                 {tab.name}
-                {!tab.global && has && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="個別設定あり" />}
+                {has && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="設定あり" />}
               </button>
             );
           })}
@@ -138,22 +125,16 @@ export function PaymentSettingsPanel({ onUnauthorized }: { onUnauthorized: () =>
 
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm text-gray-500">
-          {isGlobal
-            ? "すべての学校で使われる既定の振込先です。"
-            : "この学校だけの振込先。空欄の項目は全校共通の設定が使われます。"}
+          この学校の受験料・学費の振込先を設定します（学生に表示）。
         </span>
-        {!isGlobal && (
-          <button
-            onClick={resetSchool}
-            className="px-3 py-1.5 bg-orange-100 text-orange-700 border border-orange-200 text-xs font-semibold rounded-lg hover:bg-orange-200 transition"
-          >
-            全校共通に戻す
-          </button>
-        )}
       </div>
 
       {loading ? (
         <div className="card text-center py-16 text-gray-400">読み込み中...</div>
+      ) : tabs.length === 0 ? (
+        <div className="card text-center py-16 text-gray-500 text-sm">
+          先に「志望校管理」タブから学校を追加してください。
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           <PaymentCard title="受験料の振込先" hint="出願時（選考料の支払い）に学生へ表示されます。" method={current.examFee} onChange={(p) => update("examFee", p)} />

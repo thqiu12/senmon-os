@@ -40,10 +40,9 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   file: "ファイル",
 };
 
-// School tabs (null = 全校共通) は ApplySchool 一覧から動的に構築する。
+// School tabs は ApplySchool 一覧から動的に構築する（学校別のみ・全校共通は廃止）。
 // タブ id は schoolKey（旧ハードコード SCHOOLS[].id と一致 → 既存の校別設定を保持）。
-type SchoolTab = { id: string | null; name: string };
-const GLOBAL_TAB: SchoolTab = { id: null, name: "全校共通" };
+type SchoolTab = { id: string; name: string };
 
 interface AddFieldForm {
   label: string;
@@ -108,7 +107,6 @@ function PreviewField({ f }: { f: FormFieldConfig }) {
 
 export default function FormConfigPage() {
   const router = useRouter();
-  const { confirm } = useUI();
   const [activeTab, setActiveTab] = useState<"form" | "schools" | "general" | "payment">("form");
 
   // URL クエリ ?tab=general 等で初期タブを切り替えられる（旧 /admin/settings・/admin/payment からのリダイレクト対応）
@@ -118,10 +116,10 @@ export default function FormConfigPage() {
     if (t === "form" || t === "schools" || t === "general" || t === "payment") setActiveTab(t);
   }, []);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
-  // null = 共通スコープ（従来挙動）
+  // null = 共通スコープ（出願者タイプ）。学校 ID は常に実在校（学校別のみ）。
   const [selectedApplicantType, setSelectedApplicantType] = useState<ApplicantType | null>(null);
-  // 学校タブ: ApplySchool 一覧から動的構築。取得失敗時は 全校共通 のみにフォールバック。
-  const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([GLOBAL_TAB]);
+  // 学校タブ: ApplySchool 一覧から動的構築（学校別のみ）。
+  const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([]);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
   const [examModeOptions, setExamModeOptions] = useState<string[]>([...EXAM_MODE_VALUES]);
   const [loading, setLoading] = useState(true);
@@ -178,27 +176,31 @@ export default function FormConfigPage() {
     fetchConfigs(selectedSchoolId, selectedApplicantType);
   }, [fetchConfigs, selectedSchoolId, selectedApplicantType]);
 
-  // マウント時に ApplySchool 一覧を取得してタブを構築（id=schoolKey）。
+  // マウント時に ApplySchool 一覧を取得してタブを構築（id=schoolKey・学校別のみ）。
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/admin/schools");
-        if (!res.ok) return; // 失敗時は 全校共通 のみのフォールバックを維持
+        if (!res.ok) return;
         const data = await res.json();
         if (cancelled || !Array.isArray(data)) return;
         const mapped: SchoolTab[] = data
           .filter((s) => s && typeof s.schoolKey === "string")
           .map((s) => ({ id: s.schoolKey as string, name: String(s.name ?? s.schoolKey) }));
-        setSchoolTabs([GLOBAL_TAB, ...mapped]);
+        setSchoolTabs(mapped);
+        // 選択中の学校が未設定なら先頭校を既定にする（全校共通スコープは廃止）。
+        if (!selectedSchoolId && mapped.length) setSelectedSchoolId(mapped[0].id);
       } catch {
-        /* フォールバック維持 */
+        /* noop */
       }
     })();
     return () => { cancelled = true; };
+    // selectedSchoolId は初期既定設定用にのみ参照（変更時に再フェッチは不要）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSchoolChange = (schoolId: string | null) => {
+  const handleSchoolChange = (schoolId: string) => {
     setSelectedSchoolId(schoolId);
     setSuccessMsg(null);
     setError(null);
@@ -365,8 +367,7 @@ export default function FormConfigPage() {
     s => !SECTIONS.includes(s)
   );
 
-  const selectedSchoolName = schoolTabs.find(t => t.id === selectedSchoolId)?.name ?? "全校共通";
-  const isGlobal = selectedSchoolId === null;
+  const selectedSchoolName = schoolTabs.find(t => t.id === selectedSchoolId)?.name ?? "";
   const customCount = configs.filter(c => c.isCustom).length;
 
   return (
@@ -422,16 +423,22 @@ export default function FormConfigPage() {
         {activeTab === "payment" && <PaymentSettingsPanel onUnauthorized={() => router.push("/admin")} />}
 
         {/* フォームフィールド設定タブ */}
-        {activeTab === "form" && <>
+        {activeTab === "form" && (schoolTabs.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 text-center py-16 shadow-sm">
+            <p className="text-gray-500 text-sm">
+              先に「志望校管理」タブから学校を追加してください。
+            </p>
+          </div>
+        ) : <>
 
-        {/* School Tabs */}
+        {/* School Tabs（学校別のみ） */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
           <div className="flex overflow-x-auto">
             {schoolTabs.map(tab => {
               const active = tab.id === selectedSchoolId;
               return (
                 <button
-                  key={tab.id ?? "__global__"}
+                  key={tab.id}
                   onClick={() => handleSchoolChange(tab.id)}
                   className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors
                     ${active
@@ -439,7 +446,6 @@ export default function FormConfigPage() {
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                     }`}
                 >
-                  {tab.id === null && <span className="mr-1.5 text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">共通</span>}
                   {tab.name}
                 </button>
               );
@@ -473,16 +479,11 @@ export default function FormConfigPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-gray-700">
-              {isGlobal ? "全校共通デフォルト設定" : `${selectedSchoolName} — カスタム設定`}
+              {`${selectedSchoolName} — 設定`}
             </span>
-            {!isGlobal && customCount > 0 && (
+            {customCount > 0 && (
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
                 {customCount}件カスタム
-              </span>
-            )}
-            {!isGlobal && !loading && (
-              <span className="text-xs text-gray-400">
-                （全校共通をベースに上書き）
               </span>
             )}
           </div>
@@ -500,25 +501,6 @@ export default function FormConfigPage() {
             >
               <span className="text-base leading-none">+</span> フィールド追加
             </button>
-            {selectedSchoolId && (
-              <button
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: "学校固有設定をリセット",
-                    message: `「${selectedSchoolName}」の学校固有設定をすべて削除して全校共通の設定に戻しますか？`,
-                    danger: true,
-                    okLabel: "リセット",
-                  });
-                  if (!ok) return;
-                  const res = await fetch(`/api/admin/form-config?resetSchoolId=${encodeURIComponent(selectedSchoolId)}`, { method: "PATCH" });
-                  if (res.ok) { setSuccessMsg("全校共通の設定に戻しました"); fetchConfigs(selectedSchoolId, selectedApplicantType); }
-                  else setError("リセットに失敗しました");
-                }}
-                className="px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 text-sm font-semibold rounded-lg hover:bg-orange-200 transition flex items-center gap-1.5"
-              >
-                全校共通に戻す
-              </button>
-            )}
             <button
               onClick={handleSave}
               disabled={saving || configs.length === 0}
@@ -567,9 +549,7 @@ export default function FormConfigPage() {
         ) : configs.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 text-center py-16 shadow-sm">
             <p className="text-gray-400 text-sm mb-4">
-              {isGlobal
-                ? "フォームフィールド設定がありません。「＋フィールド追加」から追加してください。"
-                : `${selectedSchoolName}のカスタム設定がありません。「＋フィールド追加」から追加してください。`}
+              {`${selectedSchoolName}のフォームフィールド設定がありません。「＋フィールド追加」から追加してください。`}
             </p>
           </div>
         ) : (
@@ -626,7 +606,7 @@ export default function FormConfigPage() {
                                   <span title="ファイルアップロード" className="text-blue-500"><Icon name="doc" className="w-3.5 h-3.5" /></span>
                                 )}
                                 {field.fieldKey}
-                                {!isGlobal && field.isCustom && (
+                                {field.isCustom && (
                                   <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">
                                     カスタム
                                   </span>
@@ -732,7 +712,7 @@ export default function FormConfigPage() {
             </div>
           </div>
         )}
-        </>}
+        </>)}
       </div>
 
       {/* 学生フォーム プレビュー */}

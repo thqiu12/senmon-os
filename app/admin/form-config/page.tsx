@@ -10,6 +10,7 @@ import { HelpTip } from "@/components/admin/HelpTip";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
 import { APPLICANT_TYPE_LABEL, type ApplicantType } from "@/lib/applicantType";
+import { EXAM_MODE_VALUES } from "@/lib/applyExamModes";
 
 interface FormFieldConfig {
   id: string;
@@ -122,6 +123,7 @@ export default function FormConfigPage() {
   // 学校タブ: ApplySchool 一覧から動的構築。取得失敗時は 全校共通 のみにフォールバック。
   const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([GLOBAL_TAB]);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
+  const [examModeOptions, setExamModeOptions] = useState<string[]>([...EXAM_MODE_VALUES]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -159,6 +161,12 @@ export default function FormConfigPage() {
       if (!res.ok) throw new Error("取得に失敗しました");
       const data = await res.json();
       setConfigs(Array.isArray(data) ? data : []);
+      const em = (Array.isArray(data) ? data : []).find((c: any) => c.fieldKey === "examMode");
+      if (em && typeof em.options === "string" && em.options.trim()) {
+        setExamModeOptions(em.options.split(/[\n,、]/).map((s: string) => s.trim()).filter(Boolean));
+      } else {
+        setExamModeOptions([...EXAM_MODE_VALUES]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -207,12 +215,29 @@ export default function FormConfigPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      // Attach the current schoolId + applicantType to each config item
-      const payload = configs.map(c => ({
-        ...c,
+      // Attach the current schoolId + applicantType to each config item.
+      // examMode は専用カードで管理するため、generic 行としては送らず（重複防止）末尾に1行だけ付与する。
+      const examModeRow = {
+        fieldKey: "examMode",
+        label: "選考区分",
+        fieldType: "radio",
+        section: "選考区分",
+        isEnabled: examModeOptions.length > 0,
+        isRequired: true,
+        displayOrder: 5,
+        description: null,
+        options: examModeOptions.join("\n"),
         schoolId: selectedSchoolId,
         applicantType: selectedApplicantType,
-      }));
+      };
+      const payload = [
+        ...configs.filter(c => c.fieldKey !== "examMode").map(c => ({
+          ...c,
+          schoolId: selectedSchoolId,
+          applicantType: selectedApplicantType,
+        })),
+        examModeRow,
+      ];
       const res = await fetch("/api/admin/form-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -328,12 +353,15 @@ export default function FormConfigPage() {
   const canDelete = (fieldKey: string) =>
     fieldKey.startsWith("custom_") || fieldKey.startsWith("doc_");
 
+  // examMode は専用カードで扱うため、編集リスト（テーブル/プレビュー）からは除外する。
+  const editableConfigs = configs.filter(c => c.fieldKey !== "examMode");
+
   const groupedBySection = SECTIONS.reduce((acc, section) => {
-    acc[section] = configs.filter(c => c.section === section);
+    acc[section] = editableConfigs.filter(c => c.section === section);
     return acc;
   }, {} as Record<string, FormFieldConfig[]>);
 
-  const otherSections = Array.from(new Set(configs.map(c => c.section))).filter(
+  const otherSections = Array.from(new Set(editableConfigs.map(c => c.section))).filter(
     s => !SECTIONS.includes(s)
   );
 
@@ -513,6 +541,27 @@ export default function FormConfigPage() {
           </div>
         )}
 
+        {/* 選考区分・推薦で表示する区分（examMode 専用カード） */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <h3 className="font-bold text-gray-800 mb-1">選考区分・推薦で表示する区分</h3>
+          <p className="text-xs text-gray-500 mb-3">出願フォームの「選考区分・推薦」に出す区分を選びます（未チェックの区分は出願者に表示されません）。全て外すと選考区分の節ごと非表示になります。</p>
+          <div className="flex flex-wrap gap-4">
+            {EXAM_MODE_VALUES.map((v) => {
+              const checked = examModeOptions.includes(v);
+              return (
+                <label key={v} className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={checked} onChange={(e) =>
+                    setExamModeOptions((prev) => e.target.checked
+                      ? Array.from(new Set([...prev, v]))
+                      : prev.filter((x) => x !== v))
+                  } />
+                  <span className="text-sm">{v}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
         {loading ? (
           <SkeletonList rows={8} cols={5} />
         ) : configs.length === 0 ? (
@@ -530,7 +579,7 @@ export default function FormConfigPage() {
               左端のハンドルをドラッグして、同じセクション内で表示順を並べ替えできます。変更後は「保存する」を押してください。
             </div>
             {[...SECTIONS, ...otherSections].map(section => {
-              const fields = groupedBySection[section] || configs.filter(c => c.section === section);
+              const fields = groupedBySection[section] || editableConfigs.filter(c => c.section === section);
               if (fields.length === 0) return null;
               return (
                 <div key={section} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
@@ -699,7 +748,7 @@ export default function FormConfigPage() {
             </div>
             <div className="px-6 py-5 overflow-y-auto space-y-6">
               {[...SECTIONS, ...otherSections].map((section) => {
-                const fs = configs.filter((c) => c.section === section && c.isEnabled);
+                const fs = editableConfigs.filter((c) => c.section === section && c.isEnabled);
                 if (fs.length === 0) return null;
                 return (
                   <div key={section}>
@@ -710,7 +759,7 @@ export default function FormConfigPage() {
                   </div>
                 );
               })}
-              {configs.filter((c) => c.isEnabled).length === 0 && (
+              {editableConfigs.filter((c) => c.isEnabled).length === 0 && (
                 <p className="text-center text-sm text-gray-400 py-8">有効な項目がありません</p>
               )}
             </div>

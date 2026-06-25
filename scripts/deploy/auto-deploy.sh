@@ -127,6 +127,14 @@ if [ -f scripts/migrate-document-filePath.ts ]; then
   npx ts-node scripts/migrate-document-filePath.ts >> "$LOG" 2>&1 || log "WARN: 移行スクリプトでエラー（手動確認推奨）"
 fi
 
+# 全校共通(schoolId=null / payment __global__) を各校へコピーしてから共通を削除（冪等）。
+# ビルド前に実行＝新コード配信前に各校へ移行完了するため「共通無視で一時的に既定へ戻る」隙間が出ない。
+# 共通撤去後は global 行が無く no-op。
+if [ -f scripts/migrate-remove-common.ts ]; then
+  log "全校共通→各校 移行スクリプト実行（冪等）"
+  npx tsx scripts/migrate-remove-common.ts >> "$LOG" 2>&1 || log "WARN: 全校共通移行でエラー（手動確認推奨）"
+fi
+
 # ロールバック用に直前のコミットを記録（失敗時に戻す）
 ROLLBACK_SHA="$LOCAL_SHA"
 

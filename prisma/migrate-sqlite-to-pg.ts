@@ -35,6 +35,12 @@ function generateSqliteClient(): void {
     throw new Error('OLD_DATABASE_URL(元の SQLite。例: "file:./prisma/prisma/data.db")が未設定です');
   }
   let s = readFileSync("prisma/schema.prisma", "utf8");
+  // Phase3 で追加した extraData(Json)/options(String) は、旧 SQLite 本番には存在せず、
+  // かつ Json 型は SQLite provider で未対応（prisma generate が失敗する）。
+  // 読み取り用 SQLite スキーマからは除外する（移行先 Postgres は migrate deploy で
+  // 作成済み・null 既定なので、これらに旧データは無く欠損も起きない）。
+  s = s.replace(/^[ \t]*extraData[ \t]+Json\??.*$/m, "");
+  s = s.replace(/^[ \t]*options[ \t]+String\??.*$/m, "");
   s = s.replace(
     /datasource\s+db\s*\{[\s\S]*?\}/,
     'datasource db {\n  provider = "sqlite"\n  url      = env("OLD_DATABASE_URL")\n}',

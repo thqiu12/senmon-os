@@ -72,6 +72,7 @@
   ```
   期待: 全モデルで `SQLite → Postgres` の件数が一致し `✓ 全モデルの件数が一致しました`。
   不一致(exit 1)なら **ロールバック(§9)**。
+  > 注: Phase3 で追加した `Application.extraData`(Json)/`FormFieldConfig.options` は旧 SQLite に存在せず、Json は SQLite 未対応のため、移行スクリプトが読み取りスキーマから自動除外する（移行先 PG は §5 の migrate deploy で作成済み・null 既定なので欠損なし）。空DB→空DB の通し実行で全モデル件数一致を検証済み。
 
 ## 7. ビルド・起動・確認
 - [ ] ビルド & 起動

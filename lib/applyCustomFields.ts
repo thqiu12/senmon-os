@@ -1,8 +1,10 @@
 import { registryEntry } from "@/lib/applyFieldRegistry";
+import { STRUCTURAL_KEYS } from "@/lib/applyExamModes";
 
 // カスタム＝レジストリ未登録 かつ file 以外
 export function isCustomField(fieldKey: string, fieldType?: string | null): boolean {
   if (fieldType === "file") return false;
+  if (STRUCTURAL_KEYS.has(fieldKey)) return false; // examMode 等の構造的フィールドは汎用描画に出さない
   return !registryEntry(fieldKey);
 }
 

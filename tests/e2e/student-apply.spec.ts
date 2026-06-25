@@ -45,6 +45,11 @@ test.describe("学生出願フロー Step 1", () => {
     await page.getByTestId("apply-city").fill("新宿区");
     await page.getByTestId("apply-address").fill("1-2-3");
     await page.getByTestId("apply-japaneseLevel").selectOption("N2");
+    // Phase2: 志望・学歴 も Step1 で必須になったため入力する
+    await page.getByTestId("apply-applicationReason").fill("あ".repeat(300));
+    await page.getByTestId("apply-lastSchoolName").fill("○○高級中学");
+    await page.getByTestId("apply-lastSchoolCountry").fill("中国");
+    await page.getByTestId("apply-lastSchoolGraduate").selectOption("卒業");
 
     const nextBtn = page.getByTestId("apply-next");
     // 入力検証は state 更新後に判定されるので少し待つ
@@ -57,6 +62,15 @@ test.describe("学生出願フロー Step 1", () => {
     await page.getByTestId("apply-lastName").waitFor({ state: "visible", timeout: 10_000 });
     // 個人情報セクション欠落バグ（旧: 氏名/基本情報のセクション名で絞り込み）の回帰防止
     for (const tid of ["apply-lastName","apply-firstName","apply-gender","apply-nationality","apply-phone","apply-email","apply-postalCode","apply-prefecture","apply-japaneseLevel"]) {
+      await expect(page.getByTestId(tid)).toBeVisible();
+    }
+  });
+
+  test("留学生Step1: 志望・学歴セクションがStep1に表示される（Phase2統合）", async ({ page }) => {
+    await page.goto("/apply?school=chuo-seminar");
+    await page.getByTestId("applicant-type-foreign").click();
+    await page.getByTestId("apply-lastName").waitFor({ state: "visible", timeout: 10_000 });
+    for (const tid of ["apply-applicationReason","apply-lastSchoolName","apply-lastSchoolCountry","apply-lastSchoolGraduate","apply-lastSchoolGraduatedOn"]) {
       await expect(page.getByTestId(tid)).toBeVisible();
     }
   });

@@ -95,7 +95,7 @@ export function DynamicField({ fieldKey, form, onChange, errors, formConfig }: {
     case "month":
       return (
         <Field label={label} required={req} hint={hint} error={err}>
-          <DateSelect value={String(val ?? "")} onChange={(v: string) => onChange(fieldKey as keyof FormData, v)}
+          <DateSelect testId={`apply-${fieldKey}`} value={String(val ?? "")} onChange={(v: string) => onChange(fieldKey as keyof FormData, v)}
             minYear={new Date().getFullYear()} maxYear={new Date().getFullYear() + 10} />
         </Field>
       );

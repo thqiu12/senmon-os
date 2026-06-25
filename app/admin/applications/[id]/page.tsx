@@ -161,6 +161,7 @@ interface Application {
   cohort: { id: string; name: string } | null;
   applicationSchools: ApplicationSchoolEntry[];
   changeRequests?: ChangeRequestEntry[];
+  extraData?: Record<string, unknown> | null;
 }
 
 interface ChangeRequestEntry {
@@ -1459,6 +1460,32 @@ export default function ApplicationDetailPage() {
               <InfoRow label="日本語レベル" value={application.japaneseLevel} />
               <InfoRow label="JLPT証明書" value={application.jlptCertified} />
             </Section>
+
+            {(() => {
+              // カスタム項目（FormFieldConfig の custom_* 等）の回答を extraData から表示。
+              // ラベルはこのページにフォーム設定が無いため fieldKey をそのまま使う（best-effort）。
+              const entries = Object.entries(application.extraData ?? {}).filter(([, v]) => {
+                if (v === null || v === undefined) return false;
+                if (v === false) return false;
+                if (typeof v === "string") return v.trim() !== "";
+                if (Array.isArray(v)) return v.length > 0;
+                return true;
+              });
+              if (entries.length === 0) return null;
+              const fmt = (v: unknown): string =>
+                typeof v === "boolean"
+                  ? v ? "はい" : "いいえ"
+                  : Array.isArray(v)
+                    ? v.join("、")
+                    : String(v);
+              return (
+                <Section title="カスタム項目">
+                  {entries.map(([k, v]) => (
+                    <InfoRow key={k} label={k} value={fmt(v)} />
+                  ))}
+                </Section>
+              );
+            })()}
 
             </div>{/* end basic tab */}
 

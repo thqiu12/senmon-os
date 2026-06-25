@@ -177,6 +177,8 @@ export async function POST(request: NextRequest) {
       displayOrder = 999,
       schoolId = null,
       description = null,
+      options = null,
+      applicantType = null,
     } = body;
 
     if (!label) {
@@ -198,6 +200,8 @@ export async function POST(request: NextRequest) {
         displayOrder,
         schoolId: schoolId || null,
         description: description || null,
+        options: options || null,
+        applicantType: isApplicantType(applicantType) ? applicantType : null,
         updatedAt: new Date(),
       },
     });
@@ -281,7 +285,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { fieldKey, schoolId = null } = body;
+    const { fieldKey, schoolId = null, applicantType = null } = body;
 
     if (!fieldKey) {
       return NextResponse.json({ error: "fieldKeyは必須です" }, { status: 400 });
@@ -292,7 +296,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "コアフィールドは削除できません" }, { status: 403 });
     }
 
-    const target = await prisma.formFieldConfig.findFirst({ where: { fieldKey, schoolId } });
+    // (schoolId, applicantType) スコープを厳密に一致させ、別タイプの行を誤削除しない。
+    const scopedApplicantType = isApplicantType(applicantType) ? applicantType : null;
+    const target = await prisma.formFieldConfig.findFirst({ where: { fieldKey, schoolId, applicantType: scopedApplicantType } });
     if (!target) return NextResponse.json({ error: "フィールドが見つかりません" }, { status: 404 });
     await prisma.formFieldConfig.delete({ where: { id: target.id } });
 

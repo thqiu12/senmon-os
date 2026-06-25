@@ -50,6 +50,7 @@ interface AddFieldForm {
   fieldType: string;
   isRequired: boolean;
   description: string;
+  options: string;
 }
 
 const emptyAddForm: AddFieldForm = {
@@ -58,6 +59,7 @@ const emptyAddForm: AddFieldForm = {
   fieldType: "text",
   isRequired: false,
   description: "",
+  options: "",
 };
 
 // 学生フォームのプレビュー1項目（実際の入力欄に近い見た目のダミー）
@@ -276,6 +278,8 @@ export default function FormConfigPage() {
           displayOrder: maxOrder + 10,
           schoolId: selectedSchoolId,
           description: addForm.description.trim() || null,
+          options: addForm.options.trim() || null,
+          applicantType: selectedApplicantType,
         }),
       });
       if (!res.ok) {
@@ -303,6 +307,7 @@ export default function FormConfigPage() {
         body: JSON.stringify({
           fieldKey: deleteConfirm.fieldKey,
           schoolId: selectedSchoolId,
+          applicantType: selectedApplicantType,
         }),
       });
       if (!res.ok) {
@@ -771,6 +776,21 @@ export default function FormConfigPage() {
                   ))}
                 </select>
               </div>
+              {addForm.fieldType === "select" && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    選択肢（1行に1つ）
+                  </label>
+                  <textarea
+                    value={addForm.options}
+                    onChange={e => setAddForm(f => ({ ...f, options: e.target.value }))}
+                    placeholder={"例：\n選択肢A\n選択肢B\n選択肢C"}
+                    rows={4}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">出願フォームのドロップダウンに表示される選択肢</p>
+                </div>
+              )}
               <div>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input

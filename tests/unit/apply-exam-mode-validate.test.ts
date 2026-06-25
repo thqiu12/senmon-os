@@ -10,5 +10,10 @@ describe("isExamModeAllowed", () => {
     expect(isExamModeAllowed([], "")).toBe(true);
     expect(isExamModeAllowed([], "一般")).toBe(false);
   });
-  it("空文字 examMode は配置ありなら不許可", () => expect(isExamModeAllowed(opts, "")).toBe(false));
+  it("examMode 未指定/空は許可（schema optional・下書き等）", () => {
+    expect(isExamModeAllowed(opts, "")).toBe(true);
+    expect(isExamModeAllowed(opts, undefined)).toBe(true);
+    expect(isExamModeAllowed(opts, null)).toBe(true);
+  });
+  it("指定された値が配置外なら不許可（改ざん検知）", () => expect(isExamModeAllowed(opts, "BOGUS")).toBe(false));
 });

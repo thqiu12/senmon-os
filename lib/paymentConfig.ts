@@ -1,6 +1,7 @@
 // 支払い設定（受験料・学費の振込先＋QR）を学校別に保持する共通ロジック。
 // SystemSetting(key="payment_config") に { [schoolKey]: PaymentConfig } のマップとして保存。
-// "__global__" は全校共通。学校別は全校共通へフィールド単位でフォールバックする。
+// 支払い設定は学校別（schoolKey ごと）のみで解決する。全校共通フォールバックは廃止。
+// （"__global__" キーは旧フラット形式の移行先として parsePaymentMap で互換のため残置）
 // QR は data URI（base64）で保持（画像配信不要・デプロイ安全）。
 
 export interface PayMethod {
@@ -64,21 +65,10 @@ export function sanitizeMap(o: unknown): Record<string, PaymentConfig> {
   return map;
 }
 
-/** 学校別 → 全校共通へフィールド単位でフォールバックして解決 */
+/** 学校別の設定のみを解決（全校共通フォールバックなし） */
 export function resolvePayment(
   map: Record<string, PaymentConfig>,
   schoolKey?: string | null
 ): PaymentConfig {
-  const g = map[GLOBAL_KEY] ?? emptyConfig();
-  const s = (schoolKey && map[schoolKey]) || emptyConfig();
-  return {
-    examFee: {
-      bankInfo: s.examFee.bankInfo || g.examFee.bankInfo,
-      qr: s.examFee.qr || g.examFee.qr,
-    },
-    tuition: {
-      bankInfo: s.tuition.bankInfo || g.tuition.bankInfo,
-      qr: s.tuition.qr || g.tuition.qr,
-    },
-  };
+  return (schoolKey && map[schoolKey]) || emptyConfig();
 }

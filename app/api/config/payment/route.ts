@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_CONFIG_KEY, parsePaymentMap, resolvePayment, emptyConfig } from "@/lib/paymentConfig";
 
-// 受験料・学費の振込先＋QR。?schoolKey= があれば学校別設定を解決（全校共通へフォールバック）。
+// 受験料・学費の振込先＋QR。?schoolKey= があれば学校別設定を解決（全校共通フォールバックなし）。
 // 受験料の振込先テキストは「支払い設定 > 選考管理(#7) の examFeeBankInfo」の順で優先。
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

@@ -9,7 +9,7 @@ import { isNoWrittenExamSchool } from "@/lib/examConfig";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
 import { type ApplicantType, isApplicantType } from "@/lib/applicantType";
-import { fieldEnabled, fieldRequired, fieldLabel, fieldHint } from "@/lib/applyFieldVisibility";
+import { fieldEnabled, fieldRequired } from "@/lib/applyFieldVisibility";
 import {
   Label, FieldError, Field, Input, Select, SectionTitle, Divider, DateSelect,
   NATIONALITIES, PREFECTURES, type FormData, type FormFieldConfig,
@@ -196,7 +196,7 @@ function Step1({ form, onChange, errors, formConfig }: {
   // 読込パスと fallback パスが同じ実セクション名（個人情報/連絡先/住所/在日情報）を使う。
   const PERSONAL_KEYS = new Set(Object.keys(FIELD_REGISTRY)); // Phase1 = 個人情報/連絡先/住所/在日情報 の18項目のみ
   const SECTION_ICON: Record<string, IconName> = {
-    "個人情報": "user", "連絡先": "phone", "住所": "home", "在日情報": "globe",
+    "個人情報": "user", "連絡先": "phone", "住所": "home", "在日情報": "globe", "志望・学歴": "graduation",
   };
   // SectionTitle の表示文言（在日情報のみ「・日本語能力」を補う。他はセクション名そのまま）
   const SECTION_TITLE: Record<string, string> = {
@@ -204,7 +204,7 @@ function Step1({ form, onChange, errors, formConfig }: {
   };
   // セクション別カラム数（住所のみ3カラム、他は2カラム）。
   const SECTION_COLS: Record<string, string> = {
-    "住所": "sm:grid-cols-3",
+    "住所": "sm:grid-cols-3", "志望・学歴": "sm:grid-cols-2",
   };
 
   const source = (formConfig && formConfig.length > 0)
@@ -301,10 +301,6 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   enrollmentYears: string[];
 }) {
   const { t } = useT();
-  const isEnabled = (key: string) => fieldEnabled(formConfig, key);
-  const isRequired = (key: string, defaultReq = true) => fieldRequired(formConfig, key, defaultReq);
-  const labelFor = (key: string, fallback: string) => fieldLabel(formConfig, key, fallback);
-  const hintFor = (key: string, fallback = "") => fieldHint(formConfig, key, fallback);
   // 入学希望年は /api/apply/settings から取得（管理画面で編集可能）。
   // 取得失敗 / 未取得時は現年〜+2 をフォールバックとして使う。
   const currentYear = new Date().getFullYear();
@@ -416,73 +412,6 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           </div>
         </Field>
       </div>
-
-      {isEnabled("applicationReason") && (
-        <>
-          <Divider />
-          <SectionTitle icon="pencil">志望動機</SectionTitle>
-          <Field label={labelFor("applicationReason", "志望動機")} required={isRequired("applicationReason")} hint={hintFor("applicationReason", "300字以上で具体的にご記入ください")} error={errors.applicationReason}>
-            <textarea
-              className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
-                ${errors.applicationReason ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
-              placeholder={t("志望する理由、将来の目標、この学科で学びたいことなどをご記入ください。")}
-              value={form.applicationReason} onChange={e => onChange("applicationReason", e.target.value)} />
-            <div className="flex justify-end mt-1">
-              <span className={`text-xs ${form.applicationReason.length >= 300 ? "text-green-600 font-semibold" : "text-gray-400"}`}>
-                {form.applicationReason.length} {t("/ 300文字")}
-              </span>
-            </div>
-          </Field>
-        </>
-      )}
-
-      {(isEnabled("lastSchoolName") || isEnabled("lastSchoolCountry") || isEnabled("lastSchoolGraduate") || isEnabled("priorAttendanceRate") || isEnabled("workExperience")) && (
-        <>
-          <Divider />
-          <SectionTitle icon="graduation">最終学歴</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {isEnabled("lastSchoolName") && (
-              <Field label={labelFor("lastSchoolName", "学校名")} required={isRequired("lastSchoolName")} error={errors.lastSchoolName}>
-                <Input placeholder="○○大学" value={form.lastSchoolName} error={!!errors.lastSchoolName} onChange={e => onChange("lastSchoolName", e.target.value)} />
-              </Field>
-            )}
-            {isEnabled("lastSchoolCountry") && (
-              <Field label={labelFor("lastSchoolCountry", "国")} required={isRequired("lastSchoolCountry")} error={errors.lastSchoolCountry}>
-                <Input placeholder="中国" value={form.lastSchoolCountry} error={!!errors.lastSchoolCountry} onChange={e => onChange("lastSchoolCountry", e.target.value)} />
-              </Field>
-            )}
-            {isEnabled("lastSchoolGraduate") && (
-              <Field label={labelFor("lastSchoolGraduate", "卒業状況")} required={isRequired("lastSchoolGraduate")} error={errors.lastSchoolGraduate}>
-                <Select value={form.lastSchoolGraduate} error={!!errors.lastSchoolGraduate} onChange={e => onChange("lastSchoolGraduate", e.target.value)}>
-                  <option value="">{t("選択してください")}</option>
-                  {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{t(v)}</option>)}
-                </Select>
-              </Field>
-            )}
-            {isEnabled("lastSchoolGraduate") && (
-              <Field label={labelFor("lastSchoolGraduatedOn", "卒業（見込）年月")} hint={hintFor("lastSchoolGraduatedOn", "例：2026-03")} error={errors.lastSchoolGraduatedOn}>
-                <input type="month" lang="ja"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-300"
-                  value={form.lastSchoolGraduatedOn} onChange={e => onChange("lastSchoolGraduatedOn", e.target.value)} />
-              </Field>
-            )}
-          </div>
-
-          {isEnabled("priorAttendanceRate") && (
-            <Field label={labelFor("priorAttendanceRate", "出身校での出席率")} required={isRequired("priorAttendanceRate", false)}
-              hint={hintFor("priorAttendanceRate", "例：95%、出席日数150日/総授業日数158日")} error={errors.priorAttendanceRate}>
-              <Input placeholder="例：95%" value={form.priorAttendanceRate} error={!!errors.priorAttendanceRate}
-                onChange={e => onChange("priorAttendanceRate", e.target.value)} />
-            </Field>
-          )}
-          {isEnabled("workExperience") && (
-            <Field label={labelFor("workExperience", "職務経歴（任意）")} hint={hintFor("workExperience", "直近の職務経歴をご記入ください")}>
-              <textarea className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
-                placeholder={t("会社名、職種、期間などをご記入ください")} value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
-            </Field>
-          )}
-        </>
-      )}
 
       <Divider />
       <SectionTitle icon="tag">選考区分・推薦</SectionTitle>
@@ -1575,6 +1504,14 @@ function ApplyPageInner() {
     if (isFieldRequired("japaneseLevel") && !form.japaneseLevel) e.japaneseLevel = "日本語レベルを選択してください";
     if (isFieldRequired("residenceStatus", false) && !form.residenceStatus) e.residenceStatus = "在留資格を選択してください";
     if (isFieldRequired("residenceExpiry", false) && !form.residenceExpiry) e.residenceExpiry = "在留期限を入力してください";
+    if (isFieldRequired("applicationReason")) {
+      if (!form.applicationReason) e.applicationReason = "志望動機を入力してください";
+      else if (form.applicationReason.length < 300) e.applicationReason = `${t("300文字以上入力してください（現在")}${form.applicationReason.length}${t("文字）")}`;
+    }
+    if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) e.lastSchoolName = "学校名を入力してください";
+    if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
+    if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
+    if (isFieldRequired("priorAttendanceRate", false) && !form.priorAttendanceRate) e.priorAttendanceRate = "出席率を入力してください";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -1593,14 +1530,6 @@ function ApplyPageInner() {
       if (addDept && addDept.courses && addDept.courses.length > 0 && !add.course) e[`additional_${idx}_course`] = "コースを選択してください";
     });
     if (!form.enrollmentYear) e.enrollmentYear = "入学希望年を選択してください";
-    if (isFieldRequired("applicationReason")) {
-      if (!form.applicationReason) e.applicationReason = "志望動機を入力してください";
-      else if (form.applicationReason.length < 300) e.applicationReason = `${t("300文字以上入力してください（現在")}${form.applicationReason.length}${t("文字）")}`;
-    }
-    if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) e.lastSchoolName = "学校名を入力してください";
-    if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
-    if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
-    if (isFieldRequired("priorAttendanceRate", false) && !form.priorAttendanceRate) e.priorAttendanceRate = "出席率を入力してください";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -1641,6 +1570,10 @@ function ApplyPageInner() {
       if (isFieldRequired("city") && !form.city) return false;
       if (isFieldRequired("address") && !form.address) return false;
       if (isFieldRequired("japaneseLevel") && !form.japaneseLevel) return false;
+      if (isFieldRequired("applicationReason") && (!form.applicationReason || form.applicationReason.length < 300)) return false;
+      if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) return false;
+      if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) return false;
+      if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) return false;
       return true;
     }
     if (currentStep === 2) {
@@ -1648,10 +1581,6 @@ function ApplyPageInner() {
       const dept = schools.find(s => s.id === form.schoolId)?.departments.find(d => d.name === form.department);
       if (dept && dept.courses && dept.courses.length > 0 && !form.course) return false;
       if (!form.enrollmentYear) return false;
-      if (isFieldRequired("applicationReason") && (!form.applicationReason || form.applicationReason.length < 300)) return false;
-      if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) return false;
-      if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) return false;
-      if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) return false;
       for (const add of form.additionalSchools) {
         if (!add.department) return false;
         const addDept = schools.find(s => s.id === add.schoolId)?.departments.find(d => d.name === add.department);

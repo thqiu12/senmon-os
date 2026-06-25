@@ -793,7 +793,8 @@ model FormFieldConfig {
   updatedAt    DateTime @updatedAt
 
   applicantType String?  // null=共通 / "japanese" / "foreign"
-  options       String?  // select等の選択肢（改行/カンマ区切り）
+  options       String?  // select等の選択肢（改行/カンマ区切り）。examMode行は区分配置JSON。
+  showWhenExamMode String? // 選考区分IDが入っていると、その区分選択時のみ表示（null=常時）
   @@unique([fieldKey, schoolId, applicantType])
 }
 

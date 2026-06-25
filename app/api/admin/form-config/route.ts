@@ -24,29 +24,6 @@ export async function GET(request: NextRequest) {
       ? applicantTypeParam
       : null;
 
-    // 不足しているデフォルトフィールドを一括挿入（共通ベースライン = schoolId:null, applicantType:null）
-    const existingKeys = await prisma.formFieldConfig.findMany({
-      where: { schoolId: null, applicantType: null },
-      select: { fieldKey: true },
-    });
-    const existingKeySet = new Set(existingKeys.map((e) => e.fieldKey));
-    const missing = FORM_FIELD_DEFAULTS.filter((f) => !existingKeySet.has(f.fieldKey));
-    if (missing.length > 0) {
-      await prisma.formFieldConfig.createMany({
-        data: missing.map((f) => ({
-          fieldKey: f.fieldKey,
-          label: f.label,
-          section: f.section,
-          isEnabled: true,
-          isRequired: f.isRequired,
-          displayOrder: f.displayOrder,
-          fieldType: f.fieldType,
-          schoolId: null,
-          applicantType: null,
-        })),
-      });
-    }
-
     // 特定の applicantType が指定された場合: その (schoolId, applicantType) スコープを返す。
     // 保存済み行があればそれを、無ければ FORM_FIELD_DEFAULTS から defaultEnabledFor で補完。
     if (applicantType) {
@@ -91,17 +68,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // ===== 以下、applicantType 未指定（共通）= 従来挙動を維持 =====
+    // ===== 以下、applicantType 未指定（共通）= 学校別のみ（全校共通は廃止）=====
 
-    // Always fetch global configs (schoolId IS NULL, applicantType IS NULL)
-    const globalConfigs = await prisma.formFieldConfig.findMany({
-      where: { schoolId: null, applicantType: null },
-      orderBy: { displayOrder: "asc" },
-    });
+    // 合成デフォルト行（DB 未保存 = isCustom:false）。
+    const synthDefault = (fieldKey: string) => {
+      const def = FORM_FIELD_DEFAULTS.find(f => f.fieldKey === fieldKey);
+      if (!def) return null;
+      return {
+        id: "",
+        fieldKey: def.fieldKey,
+        schoolId,
+        label: def.label,
+        section: def.section,
+        fieldType: def.fieldType,
+        isEnabled: true,
+        isRequired: def.isRequired,
+        displayOrder: def.displayOrder,
+        isCustom: false,
+      };
+    };
 
     if (!schoolId) {
-      // Return global configs only
-      return NextResponse.json(globalConfigs);
+      // 学校未選択: 既定を合成して返す（全校共通スコープは存在しない）。
+      const defaults = FORM_FIELD_DEFAULTS.map(f => synthDefault(f.fieldKey))
+        .filter(Boolean)
+        .sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));
+      return NextResponse.json(defaults);
     }
 
     // Fetch school-specific overrides (applicantType IS NULL = 共通)
@@ -110,44 +102,20 @@ export async function GET(request: NextRequest) {
       orderBy: { displayOrder: "asc" },
     });
 
-    // Merge: start from global defaults, overlay school-specific overrides
-    // Build a map of fieldKey -> global config
-    const globalMap = new Map(globalConfigs.map(c => [c.fieldKey, c]));
     const schoolMap = new Map(schoolConfigs.map(c => [c.fieldKey, c]));
 
-    // Also include any fields defined only in defaults (not yet in DB)
+    // 既定 + 学校に保存済みのフィールド（custom 含む）を網羅
     const allFieldKeys = new Set([
       ...FORM_FIELD_DEFAULTS.map(f => f.fieldKey),
-      ...Array.from(globalMap.keys()),
       ...Array.from(schoolMap.keys()),
     ]);
 
     const merged = Array.from(allFieldKeys).map(fieldKey => {
       const schoolOverride = schoolMap.get(fieldKey);
-      const globalDefault = globalMap.get(fieldKey);
       if (schoolOverride) {
         return { ...schoolOverride, isCustom: true };
       }
-      if (globalDefault) {
-        return { ...globalDefault, isCustom: false };
-      }
-      // fallback to FORM_FIELD_DEFAULTS
-      const def = FORM_FIELD_DEFAULTS.find(f => f.fieldKey === fieldKey);
-      if (def) {
-        return {
-          id: "",
-          fieldKey: def.fieldKey,
-          schoolId: null,
-          label: def.label,
-          section: def.section,
-          fieldType: def.fieldType,
-          isEnabled: true,
-          isRequired: def.isRequired,
-          displayOrder: def.displayOrder,
-          isCustom: false,
-        };
-      }
-      return null;
+      return synthDefault(fieldKey);
     }).filter(Boolean);
 
     merged.sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));

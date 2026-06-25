@@ -45,15 +45,15 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get("schoolId") || null;
     const typeParam = searchParams.get("type");
 
-    // type 指定あり・有効: タイプ対応マージ
+    // type 指定あり・有効: タイプ対応マージ（学校別のみ。全校共通は廃止）
     if (isApplicantType(typeParam)) {
       const type = typeParam;
-      // 全校共通/全校type/学校共通/学校type の候補をすべて取得。
+      // 選択中の学校の行のみ取得。schoolId 無指定なら 0 行 → mergeFormConfig が既定で補完。
       // isEnabled は merge 後に最終フィルタするためここでは絞らない。
       const rows = await prisma.formFieldConfig.findMany({
         where: {
           AND: [
-            { OR: [{ schoolId: null }, ...(schoolId ? [{ schoolId }] : [])] },
+            schoolId ? { schoolId } : { schoolId: "__none__" },
             { OR: [{ applicantType: null }, { applicantType: type }] },
           ],
         },
@@ -64,36 +64,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(merged);
     }
 
-    // type 未指定/無効: 従来挙動（共通のみ）。
-    // applicantType:null で絞り、type別行(admin が後から作成し得る)を共通結果に混入させない。
-    const [globalConfigs, schoolConfigs] = await Promise.all([
-      prisma.formFieldConfig.findMany({
-        where: { schoolId: null, applicantType: null, isEnabled: true },
-        orderBy: { displayOrder: "asc" },
-        select: SELECT,
-      }),
-      schoolId
-        ? prisma.formFieldConfig.findMany({
-            where: { schoolId, applicantType: null },
-            orderBy: { displayOrder: "asc" },
-            select: SELECT,
-          })
-        : Promise.resolve([]),
-    ]);
-
+    // type 未指定/無効: 従来挙動（共通のみ）。全校共通は廃止＝学校行 + 既定のみ。
+    // schoolId 無指定なら既定を返す。
     if (!schoolId) {
-      return NextResponse.json(globalConfigs.length > 0 ? globalConfigs : fallback());
+      return NextResponse.json(fallback());
     }
+
+    // applicantType:null で絞り、type別行(admin が後から作成し得る)を共通結果に混入させない。
+    const schoolConfigs = await prisma.formFieldConfig.findMany({
+      where: { schoolId, applicantType: null },
+      orderBy: { displayOrder: "asc" },
+      select: SELECT,
+    });
 
     if (schoolConfigs.length === 0) {
-      return NextResponse.json(globalConfigs.length > 0 ? globalConfigs : fallback());
+      return NextResponse.json(fallback());
     }
 
-    const globalMap = new Map(globalConfigs.map((c) => [c.fieldKey, c]));
     const schoolMap = new Map(schoolConfigs.map((c) => [c.fieldKey, c]));
     const allKeys = new Set([
       ...FORM_FIELD_DEFAULTS.map((f) => f.fieldKey),
-      ...Array.from(globalMap.keys()),
       ...Array.from(schoolMap.keys()),
     ]);
 
@@ -101,8 +91,6 @@ export async function GET(request: NextRequest) {
       .map((key) => {
         const s = schoolMap.get(key);
         if (s) return s;
-        const g = globalMap.get(key);
-        if (g) return g;
         const def = FORM_FIELD_DEFAULTS.find((f) => f.fieldKey === key);
         if (!def) return null;
         return {

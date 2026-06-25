@@ -33,10 +33,10 @@ export type OutputConfig = {
  * 純関数: 既定 + DB 行を出願者タイプに沿ってマージする（DB 非依存）。
  *
  * 優先順位（後勝ち、高いほど優先）:
- *   既定(type別) < 全校共通(null) < 全校(type) < 学校共通(null) < 学校(type)
+ *   既定(type別) < 学校共通(null) < 学校(type)
  *
- * rows は schoolId / applicantType を含む DB 行。schoolId が非 null なら学校行、
- * null なら全校行として分類する。applicantType が null なら共通、type 一致なら type 行。
+ * rows は schoolId / applicantType を含む DB 行。全校共通(schoolId null)は廃止＝無視し、
+ * 学校行(schoolId 非 null)のみを採用する。applicantType が null なら共通、type 一致なら type 行。
  * 該当 type 以外の applicantType を持つ行は無視する。
  * 最終的に isEnabled の行のみを displayOrder 昇順で返す。
  *
@@ -50,13 +50,10 @@ export function mergeFormConfig(
 ): OutputConfig[] {
   // tier: 大きいほど優先（後勝ち）
   const tierOf = (r: ConfigRow): number | null => {
+    if (r.schoolId === null) return null; // 全校共通は廃止＝無視
     const typeMatch = r.applicantType === null ? "common" : r.applicantType === type ? "type" : null;
-    if (typeMatch === null) return null; // 別タイプの行は無視
-    const isSchool = r.schoolId !== null;
-    if (!isSchool && typeMatch === "common") return 1; // 全校共通
-    if (!isSchool && typeMatch === "type") return 2; // 全校 type
-    if (isSchool && typeMatch === "common") return 3; // 学校共通
-    return 4; // 学校 type
+    if (typeMatch === null) return null;
+    return typeMatch === "common" ? 1 : 2; // 学校共通(null) < 学校type
   };
 
   const map = new Map<string, OutputConfig>();
@@ -80,8 +77,8 @@ export function mergeFormConfig(
   // ascending tier => later writes always win; no per-key guard needed.
   // あわせて、isEnabled の最終判定用に「共通(null)行」「該当type行」それぞれの
   // 最優先 isEnabled を記録する（昇順適用なので最後の set が最優先＝学校 > 全校）。
-  const typeEnabled = new Map<string, boolean>(); // applicantType === type（tier 2/4）
-  const commonEnabled = new Map<string, boolean>(); // applicantType === null（tier 1/3）
+  const typeEnabled = new Map<string, boolean>(); // applicantType === type（学校 type, tier 2）
+  const commonEnabled = new Map<string, boolean>(); // applicantType === null（学校共通, tier 1）
 
   const candidates = rows
     .map((r) => ({ r, tier: tierOf(r) }))

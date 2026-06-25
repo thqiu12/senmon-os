@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useUI } from "@/components/ui/toast";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { CompassMark } from "@/components/ui/CompassMark";
-import { isNoWrittenExamSchool } from "@/lib/examConfig";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
 import { type ApplicantType, isApplicantType } from "@/lib/applicantType";
@@ -19,7 +18,7 @@ import { buildFormSections } from "@/lib/applyFormSections";
 import { FIELD_REGISTRY } from "@/lib/applyFieldRegistry";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 import { isCustomField } from "@/lib/applyCustomFields";
-import { enabledExamModes } from "@/lib/applyExamModes";
+import { examModesForConfig, examModeLabel, type ExamModeOption } from "@/lib/applyExamModes";
 
 interface SchoolDepartment {
   name: string;
@@ -215,7 +214,7 @@ function Step1({ form, onChange, onChangeExtra, errors, formConfig }: {
   const source = (formConfig && formConfig.length > 0)
     ? formConfig
     : FORM_FIELD_DEFAULTS.map(f => ({ fieldKey: f.fieldKey, isEnabled: true, isRequired: f.isRequired, section: f.section, displayOrder: f.displayOrder }));
-  const personalEntries = source.filter((c: any) => PERSONAL_KEYS.has(c.fieldKey) || isCustomField(c.fieldKey, c.fieldType));
+  const personalEntries = source.filter((c: any) => PERSONAL_KEYS.has(c.fieldKey) || (isCustomField(c.fieldKey, c.fieldType) && !c.showWhenExamMode));
   const sections = buildFormSections(personalEntries as any);
 
   return (
@@ -293,9 +292,10 @@ function SchoolDeptPicker({ school, department, course, onChange, errors, deptKe
   );
 }
 
-function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAdditional, errors, formConfig, schools, preselectedSchool, enrollmentYears }: {
+function Step2({ form, onChange, onChangeExtra, onChangeAdditional, onAddAdditional, onRemoveAdditional, errors, formConfig, schools, preselectedSchool, enrollmentYears }: {
   form: FormData;
   onChange: (f: keyof FormData, v: string | boolean) => void;
+  onChangeExtra: (key: string, v: string | boolean) => void;
   onChangeAdditional: (index: number, field: string, value: string) => void;
   onAddAdditional: (school: SchoolData) => void;
   onRemoveAdditional: (index: number) => void;
@@ -313,17 +313,18 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
     ? enrollmentYears
     : [String(currentYear), String(currentYear + 1), String(currentYear + 2)];
   const selectedSchool = schools.find(s => s.id === form.schoolId);
-  // 学校別の筆記ポリシー（TDBは筆記なし＝一般選考も筆記免除）
-  const noWrittenExam = isNoWrittenExamSchool({ schoolId: form.schoolId, schoolName: selectedSchool?.name });
 
-  // 学校×タイプ別に許可された選考区分（後方互換：config 無し → 3区分すべて）
-  const examModes = enabledExamModes(formConfig);
+  // 学校×タイプ別の選考区分（後方互換：config 無し → 既定3区分）。配置駆動。
+  const examModes: ExamModeOption[] = examModesForConfig(formConfig);
+  const selectedMode = examModes.find(o => o.id === form.examMode);
 
-  // formConfig 読込後、現在の examMode が許可外なら先頭の許可値へ補正
+  // formConfig 読込後、現在の examMode が候補外なら先頭へ補正。候補ゼロなら未選択に。
   useEffect(() => {
-    const modes = enabledExamModes(formConfig);
-    if (modes.length > 0 && !modes.includes(form.examMode as any)) {
-      onChange("examMode", modes[0]);
+    const opts = examModesForConfig(formConfig);
+    if (opts.length > 0 && !opts.some(o => o.id === form.examMode)) {
+      onChange("examMode", opts[0].id);
+    } else if (opts.length === 0 && form.examMode) {
+      onChange("examMode", ""); // 節非表示なら未選択に（既定"一般"が残って検証で弾かれるのを防ぐ）
     }
   }, [formConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -434,31 +435,26 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
       <Divider />
       <SectionTitle icon="tag">選考区分・推薦</SectionTitle>
       <div className={`grid gap-3 ${examModes.length <= 1 ? "grid-cols-1" : examModes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-        {[
-          { value: "一般", label: "一般選考", desc: noWrittenExam ? "面接のみ（筆記免除）" : "筆記試験・面接あり", icon: "pencil" as IconName, exam: !noWrittenExam },
-          { value: "指定推薦", label: "指定推薦", desc: "筆記試験免除・面接のみ", icon: "handshake" as IconName, exam: false },
-          { value: "特待生", label: "特待生選考", desc: "筆記試験免除・面接のみ", icon: "star" as IconName, exam: false },
-        ].filter(mode => examModes.includes(mode.value as any)).map(mode => {
-          const sel = form.examMode === mode.value;
+        {examModes.map(opt => {
+          const sel = form.examMode === opt.id;
           return (
-            <label key={mode.value} className={`cursor-pointer rounded-xl border-2 p-4 text-center transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-1
+            <label key={opt.id} className={`cursor-pointer rounded-xl border-2 p-4 text-center transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-1
               ${sel ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 bg-white hover:border-blue-200"}`}>
-              <input type="radio" name="examMode" value={mode.value} className="sr-only"
-                checked={sel} onChange={() => onChange("examMode", mode.value)} />
+              <input type="radio" name="examMode" value={opt.id} className="sr-only"
+                checked={sel} onChange={() => onChange("examMode", opt.id)} />
               <span className={`mx-auto mb-1.5 w-10 h-10 rounded-full flex items-center justify-center ${sel ? "bg-accent text-white" : "bg-gray-100 text-gray-500"}`}>
-                <Icon name={mode.icon} className="w-5 h-5" />
+                <Icon name="tag" className="w-5 h-5" />
               </span>
-              <p className={`font-bold text-sm mb-0.5 ${sel ? "text-blue-700" : "text-gray-700"}`}>{t(mode.label)}</p>
-              <p className="text-xs text-gray-500">{t(mode.desc)}</p>
-              <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${mode.exam ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
-                <Icon name={mode.exam ? "pencil" : "ticket"} className="w-3 h-3" />
-                {mode.exam ? t("筆記あり") : t("筆記免除")}
+              <p className={`font-bold text-sm mb-0.5 ${sel ? "text-blue-700" : "text-gray-700"}`}>{t(opt.label)}</p>
+              <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${opt.exam ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                <Icon name={opt.exam ? "pencil" : "ticket"} className="w-3 h-3" />
+                {opt.exam ? t("筆記あり") : t("筆記免除")}
               </span>
             </label>
           );
         })}
       </div>
-      {form.examMode === "指定推薦" && (
+      {selectedMode?.showReferrer && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="推薦機関・推薦者名">
             <Input placeholder="例：上海日本留学センター" value={form.referrerName} onChange={e => onChange("referrerName", e.target.value)} />
@@ -471,51 +467,17 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           </Field>
         </div>
       )}
-      {form.examMode === "特待生" && (
+      {selectedMode?.description && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <span className="shrink-0 w-9 h-9 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center"><Icon name="star" className="w-5 h-5" /></span>
-            <div>
-              <p className="font-bold text-yellow-800 text-sm mb-1">{t("特待生選考の要件")}</p>
-              <p className="text-xs text-yellow-800 mb-2">
-                {t("次のいずれかを満たす方が対象です。証明書類は次のステップでアップロードしてください（教務が内容を確認します）。")}
-              </p>
-              <ul className="text-xs text-yellow-800 list-disc list-inside space-y-0.5">
-                <li>{t("日本語能力試験")} <strong>N1</strong> {t("合格証明書")}</li>
-                <li>{t("出身校での出席率")} <strong>{t("90%以上")}</strong>{t("（95%以上を推奨）を証明する書類")}</li>
-              </ul>
-            </div>
+            <span className="shrink-0 w-9 h-9 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center"><Icon name="info" className="w-5 h-5" /></span>
+            <p className="text-xs text-yellow-800 whitespace-pre-wrap">{t(selectedMode.description)}</p>
           </div>
         </div>
       )}
-      {form.examMode === "一般" && (
-        <>
-          {noWrittenExam ? (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center"><Icon name="ticket" className="w-5 h-5" /></span>
-                <div>
-                  <p className="font-bold text-green-800 text-sm mb-1">{t("筆記試験はありません（面接のみ）")}</p>
-                  <p className="text-xs text-green-700">{t("本校の一般選考は筆記試験を免除しています。書類審査通過後、面接を受けていただきます。日程は別途ご案内します。")}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <span className="shrink-0 w-9 h-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center"><Icon name="pencil" className="w-5 h-5" /></span>
-              <div>
-                <p className="font-bold text-orange-800 text-sm mb-1">{t("一般選考は筆記試験があります")}</p>
-                <p className="text-xs text-orange-700">{t("書類審査通過後、筆記試験（日本語・一般教養）と面接を受けていただきます。試験日程は別途ご案内します。")}</p>
-              </div>
-            </div>
-          </div>
-          )}
-          <Field label="紹介・推薦機関（任意）" hint="エージェントや紹介者がいる場合はご記入ください">
-            <Input placeholder="例：知日留学センター（なければ空欄）" value={form.referrerName} onChange={e => onChange("referrerName", e.target.value)} />
-          </Field>
-        </>
-      )}
+      {formConfig?.filter(c => isCustomField(c.fieldKey, (c as any).fieldType) && c.isEnabled && (c as any).showWhenExamMode === form.examMode).map(c => (
+        <DynamicField key={c.fieldKey} fieldKey={c.fieldKey} form={form} onChange={onChange} onChangeExtra={onChangeExtra} errors={errors} formConfig={formConfig} />
+      ))}
       </>
       )}
     </div>
@@ -1017,7 +979,7 @@ function Step5({ form, uploadedDocs, formConfig }: { form: FormData; uploadedDoc
         <Row label="国" value={form.lastSchoolCountry} />
         <Row label="卒業状況" value={form.lastSchoolGraduate} />
         {form.lastSchoolGraduatedOn && <Row label="卒業（見込）年月" value={form.lastSchoolGraduatedOn} />}
-        <Row label="選考区分" value={form.examMode} />
+        <Row label="選考区分" value={examModeLabel(examModesForConfig(formConfig), form.examMode)} />
         {form.examMode === "指定推薦" && form.referrerName && <Row label="推薦機関" value={form.referrerName} />}
       </Section>
       <Section title={`${t("提出書類（")}${uploadedDocs.length}${t("件）")}`}>
@@ -1563,7 +1525,7 @@ function ApplyPageInner() {
     if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
     if (isFieldRequired("priorAttendanceRate", false) && !form.priorAttendanceRate) e.priorAttendanceRate = "出席率を入力してください";
     for (const c of (formConfig ?? [])) {
-      if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired) {
+      if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired && (!(c as any).showWhenExamMode || (c as any).showWhenExamMode === form.examMode)) {
         const v = form.extraData?.[c.fieldKey];
         if (v === undefined || v === "" || v === false) e[c.fieldKey] = `${c.label || c.fieldKey}を入力してください`;
       }
@@ -1632,7 +1594,7 @@ function ApplyPageInner() {
       if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) return false;
       // 必須カスタム項目が未入力なら step1 未充足
       for (const c of (formConfig ?? [])) {
-        if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired) {
+        if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired && (!(c as any).showWhenExamMode || (c as any).showWhenExamMode === form.examMode)) {
           const v = form.extraData?.[c.fieldKey];
           if (v === undefined || v === "" || v === false) return false;
         }
@@ -1968,7 +1930,7 @@ function ApplyPageInner() {
             <>
               <h1 className="text-lg font-bold text-gray-800 mb-6">{t(STEPS[currentStep - 1].label)}</h1>
               {currentStep === 1 && <Step1 form={form} onChange={handleChange} onChangeExtra={handleChangeExtra} errors={errors} formConfig={formConfig} />}
-              {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} enrollmentYears={enrollmentYears} />}
+              {currentStep === 2 && <Step2 form={form} onChange={handleChange} onChangeExtra={handleChangeExtra} onChangeAdditional={handleChangeAdditional} onAddAdditional={handleAddAdditional} onRemoveAdditional={handleRemoveAdditional} errors={errors} formConfig={formConfig} schools={schools} preselectedSchool={preselectedSchool} enrollmentYears={enrollmentYears} />}
               {currentStep === 3 && <>
                 {errors.step3 && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">

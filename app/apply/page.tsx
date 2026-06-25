@@ -932,7 +932,7 @@ function Step4Payment({ applicationId, applicationNo, email, schoolCount, feeSta
 }
 
 // ========== Step 5 確認 ==========
-function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedDoc[] }) {
+function Step5({ form, uploadedDocs, formConfig }: { form: FormData; uploadedDocs: UploadedDoc[]; formConfig: FormFieldConfig[] | null }) {
   const { t } = useT();
   const Row = ({ label, value }: { label: string; value: string | boolean | undefined | null }) => (
     <div className="flex gap-3 py-2.5 border-b border-gray-50 last:border-0">
@@ -946,6 +946,18 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
       {children}
     </div>
   );
+  const customFields = (formConfig ?? [])
+    .filter(c => isCustomField(c.fieldKey, c.fieldType) && c.isEnabled)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map(c => {
+      const raw = form.extraData?.[c.fieldKey];
+      const present = c.fieldType === "checkbox" ? raw === true : (typeof raw === "string" ? raw.trim() !== "" : !!raw);
+      const value: string | boolean = c.fieldType === "checkbox"
+        ? (raw === true ? t("はい") : t("いいえ"))
+        : (raw == null ? "" : String(raw));
+      return { c, present, value };
+    })
+    .filter(x => x.present);
   return (
     <div className="space-y-3">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 flex items-start gap-2">
@@ -1005,6 +1017,13 @@ function Step5({ form, uploadedDocs }: { form: FormData; uploadedDocs: UploadedD
           </div>
         )}
       </Section>
+      {customFields.length > 0 && (
+        <Section title="その他の項目">
+          {customFields.map(({ c, value }) => (
+            <Row key={c.fieldKey} label={c.label} value={value} />
+          ))}
+        </Section>
+      )}
     </div>
   );
 }
@@ -1942,7 +1961,7 @@ function ApplyPageInner() {
               </>}
               {currentStep === 4 && <Step4Payment applicationId={applicationId} applicationNo={applicationNo} email={form.email} schoolCount={schoolCount}
                 schoolKey={form.schoolId} feeStatus={examFeeStatus} onFeeStatusChange={setExamFeeStatus} />}
-              {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} />}
+              {currentStep === 5 && <Step5 form={form} uploadedDocs={uploadedDocs} formConfig={formConfig} />}
             </>
           )}
         </div>

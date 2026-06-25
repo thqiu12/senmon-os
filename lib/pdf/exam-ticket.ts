@@ -23,7 +23,7 @@ export interface ExamTicketData {
   course: string;
   enrollmentYear: string;
   enrollmentMonth: string;
-  examMode: string;
+  examMode: string; // 表示名(label)を渡すこと（保存値の内部IDではなく。呼び出し側で解決済み）
   // 面接試験
   interviewDate: string | null;
   interviewTime: string | null;

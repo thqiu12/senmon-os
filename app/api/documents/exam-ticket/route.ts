@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyStudentOwnership } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { generateExamTicketPDF } from "@/lib/pdf/exam-ticket";
+import { examModesForConfig, examModeLabel } from "@/lib/applyExamModes";
 import { logError } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
         applicationSchools: {
           orderBy: { priority: "asc" },
         },
+        applySchool: { select: { schoolKey: true } },
       },
     });
     if (!app) {
@@ -125,6 +127,33 @@ export async function GET(request: NextRequest) {
       year: "numeric", month: "long", day: "numeric",
     });
 
+    // 選考区分（examMode）は保存値=内部ID（既定の "一般" 等、またはカスタムの "em_xxxx"）。
+    // 受験票には学校×タイプの区分配置から解決した「表示名(label)」を印字する。
+    // 設定が取れない/未知の id の場合 examModeLabel は id をそのまま返す（後方互換のフォールバック）。
+    // 設定取得の失敗で PDF 生成を壊さないよう、丸ごと try/catch で raw examMode に退避する。
+    const rawExamMode = app.examMode || "一般";
+    let examModeDisplay = rawExamMode;
+    try {
+      const schoolKey = app.applySchool?.schoolKey ?? null;
+      if (schoolKey) {
+        const rows = await prisma.formFieldConfig.findMany({
+          where: {
+            fieldKey: "examMode",
+            schoolId: schoolKey,
+            OR: [{ applicantType: null }, { applicantType: app.applicantType }],
+          },
+          select: { fieldKey: true, isEnabled: true, options: true },
+        });
+        if (rows.length > 0) {
+          const opts = examModesForConfig(rows);
+          examModeDisplay = examModeLabel(opts, rawExamMode);
+        }
+      }
+    } catch (e) {
+      logError("GET /api/documents/exam-ticket: examMode label resolve", e);
+      examModeDisplay = rawExamMode;
+    }
+
     const pdfBuffer = await generateExamTicketPDF({
       applicationNo: app.applicationNo,
       applicantName: `${app.lastName} ${app.firstName}`,
@@ -137,7 +166,7 @@ export async function GET(request: NextRequest) {
       course,
       enrollmentYear,
       enrollmentMonth,
-      examMode: app.examMode || "一般",
+      examMode: examModeDisplay,
       interviewDate,
       interviewTime,
       interviewPlace,

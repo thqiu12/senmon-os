@@ -11,6 +11,8 @@ import { isWrittenExamExempt } from "@/lib/examConfig";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 import { mergeFormConfig } from "@/lib/applyFormConfigMerge";
 import { missingRequiredCustomFields } from "@/lib/applyCustomRequired";
+import { examModesForConfig } from "@/lib/applyExamModes";
+import { isExamModeAllowed } from "@/lib/applyExamModeValidate";
 
 // 学生へ出願番号確認メール送信
 async function sendStudentConfirmation(application: {
@@ -371,6 +373,17 @@ export async function POST(request: NextRequest) {
             error: `必須項目が未入力です: ${missing.map((m) => m.label).join("、")}`,
             issues: { fieldErrors: Object.fromEntries(missing.map((m) => [m.fieldKey, ["必須項目です"]])) },
           },
+          { status: 400 },
+        );
+      }
+
+      // 選考区分（examMode）のサーバ側検証。学校×タイプの配置に無い区分は弾く。
+      // examMode 設定行が無い学校は examModesForConfig が DEFAULT(一般/指定推薦/特待生)を返すため、
+      // 既存の examMode="一般" 等の出願はそのまま受理される（後方互換）。
+      const examOpts = examModesForConfig(merged as any);
+      if (!isExamModeAllowed(examOpts, body.examMode)) {
+        return NextResponse.json(
+          { error: "選考区分が不正です", issues: { fieldErrors: { examMode: ["有効な選考区分を選択してください"] } } },
           { status: 400 },
         );
       }

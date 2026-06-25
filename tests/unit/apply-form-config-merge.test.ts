@@ -73,6 +73,14 @@ describe("mergeFormConfig — 出願者タイプ別の有効/無効", () => {
     expect(has(mergeFormConfig(FORM_FIELD_DEFAULTS, rows, "foreign"), NORMAL_KEY)).toBe(false);
   });
 
+  it("custom select の options がマージ出力に伝播する", () => {
+    const rows = [row({ fieldKey: "custom_color", applicantType: null, schoolId: null, isEnabled: true, options: "赤\n青\n緑" } as any)];
+    const out = mergeFormConfig(FORM_FIELD_DEFAULTS, rows, "foreign");
+    const c = out.find(x => x.fieldKey === "custom_color");
+    expect(c).toBeTruthy();
+    expect((c as any).options).toBe("赤\n青\n緑");
+  });
+
   it("学校×日本人 が 学校×共通 を上書きする（優先順位の確認）", () => {
     const rows = [
       row({ fieldKey: NORMAL_KEY, applicantType: null, schoolId: "kanaju-iryo", isEnabled: true, label: "共通ラベル" }),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fieldEnabled, fieldRequired, type FieldConfigEntry } from "@/lib/applyFieldVisibility";
+import { fieldEnabled, fieldRequired, fieldLabel, fieldHint, type FieldConfigEntry } from "@/lib/applyFieldVisibility";
 
 // API は「有効なフィールドのみ」を返す（無効化された項目は配列に含まれない）。
 const populated: FieldConfigEntry[] = [
@@ -38,5 +38,25 @@ describe("fieldRequired", () => {
   it("有効だが任意 → 必須でない", () => {
     const cfg: FieldConfigEntry[] = [{ fieldKey: "x", isEnabled: true, isRequired: false }];
     expect(fieldRequired(cfg, "x")).toBe(false);
+  });
+});
+
+describe("fieldLabel / fieldHint", () => {
+  const cfg: FieldConfigEntry[] = [
+    { fieldKey: "nationality", isEnabled: true, isRequired: true, label: "国籍（カスタム）", description: "母国の国籍" },
+    { fieldKey: "phone", isEnabled: true, isRequired: true, label: "", description: null },
+  ];
+  it("config にラベルがあればそれを使う（管理画面の編集が反映）", () => {
+    expect(fieldLabel(cfg, "nationality", "国籍")).toBe("国籍（カスタム）");
+  });
+  it("config のラベルが空ならコード既定にフォールバック", () => {
+    expect(fieldLabel(cfg, "phone", "電話番号")).toBe("電話番号");
+  });
+  it("config 未ロード → 既定", () => {
+    expect(fieldLabel(null, "nationality", "国籍")).toBe("国籍");
+  });
+  it("description があればヒントに使う / 無ければ fallback", () => {
+    expect(fieldHint(cfg, "nationality", "")).toBe("母国の国籍");
+    expect(fieldHint(cfg, "phone", "ハイフンなし")).toBe("ハイフンなし");
   });
 });

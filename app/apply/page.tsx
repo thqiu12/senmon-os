@@ -9,7 +9,7 @@ import { isNoWrittenExamSchool } from "@/lib/examConfig";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/lib/i18n/LanguageSwitcher";
 import { type ApplicantType, isApplicantType } from "@/lib/applicantType";
-import { fieldEnabled, fieldRequired } from "@/lib/applyFieldVisibility";
+import { fieldEnabled, fieldRequired, fieldLabel, fieldHint } from "@/lib/applyFieldVisibility";
 
 interface FormFieldConfig {
   fieldKey: string;
@@ -325,6 +325,8 @@ function Step1({ form, onChange, errors, formConfig }: {
   const { t } = useT();
   const isEnabled = (key: string) => fieldEnabled(formConfig, key);
   const isRequired = (key: string, defaultReq = true) => fieldRequired(formConfig, key, defaultReq);
+  const labelFor = (key: string, fallback: string) => fieldLabel(formConfig, key, fallback);
+  const hintFor = (key: string, fallback = "") => fieldHint(formConfig, key, fallback);
 
   const hasNameFields = isEnabled("lastName") || isEnabled("firstName") || isEnabled("lastNameKana") || isEnabled("firstNameKana");
   const hasBasicFields = isEnabled("birthDate") || isEnabled("gender") || isEnabled("nationality");
@@ -339,22 +341,22 @@ function Step1({ form, onChange, errors, formConfig }: {
           <SectionTitle icon="user">氏名</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("lastName") && (
-              <Field label="姓（漢字・ローマ字）" required={isRequired("lastName")} error={errors.lastName}>
+              <Field label={labelFor("lastName", "姓（漢字・ローマ字）")} required={isRequired("lastName")} error={errors.lastName}>
                 <Input data-testid="apply-lastName" placeholder="山田" value={form.lastName} error={!!errors.lastName} onChange={e => onChange("lastName", e.target.value)} />
               </Field>
             )}
             {isEnabled("firstName") && (
-              <Field label="名（漢字・ローマ字）" required={isRequired("firstName")} error={errors.firstName}>
+              <Field label={labelFor("firstName", "名（漢字・ローマ字）")} required={isRequired("firstName")} error={errors.firstName}>
                 <Input data-testid="apply-firstName" placeholder="太郎" value={form.firstName} error={!!errors.firstName} onChange={e => onChange("firstName", e.target.value)} />
               </Field>
             )}
             {isEnabled("lastNameKana") && (
-              <Field label="姓（カナ）" required={isRequired("lastNameKana")} error={errors.lastNameKana}>
+              <Field label={labelFor("lastNameKana", "姓（カナ）")} required={isRequired("lastNameKana")} error={errors.lastNameKana}>
                 <Input data-testid="apply-lastNameKana" placeholder="ヤマダ" value={form.lastNameKana} error={!!errors.lastNameKana} onChange={e => onChange("lastNameKana", e.target.value)} />
               </Field>
             )}
             {isEnabled("firstNameKana") && (
-              <Field label="名（カナ）" required={isRequired("firstNameKana")} error={errors.firstNameKana}>
+              <Field label={labelFor("firstNameKana", "名（カナ）")} required={isRequired("firstNameKana")} error={errors.firstNameKana}>
                 <Input data-testid="apply-firstNameKana" placeholder="タロウ" value={form.firstNameKana} error={!!errors.firstNameKana} onChange={e => onChange("firstNameKana", e.target.value)} />
               </Field>
             )}
@@ -369,14 +371,14 @@ function Step1({ form, onChange, errors, formConfig }: {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {isEnabled("birthDate") && (
               <div className="sm:col-span-2">
-                <Field label="生年月日" required={isRequired("birthDate")} error={errors.birthDate}>
+                <Field label={labelFor("birthDate", "生年月日")} required={isRequired("birthDate")} error={errors.birthDate}>
                   <DateSelect testId="apply-birthDate" value={form.birthDate} onChange={v => onChange("birthDate", v)}
                     minYear={new Date().getFullYear() - 73} maxYear={new Date().getFullYear() - 14} hasError={!!errors.birthDate} />
                 </Field>
               </div>
             )}
             {isEnabled("gender") && (
-              <Field label="性別" required={isRequired("gender")} error={errors.gender}>
+              <Field label={labelFor("gender", "性別")} required={isRequired("gender")} error={errors.gender}>
                 <Select data-testid="apply-gender" value={form.gender} error={!!errors.gender} onChange={e => onChange("gender", e.target.value)}>
                   <option value="">{t("選択")}</option>
                   <option value="男性">{t("男性")}</option>
@@ -385,7 +387,7 @@ function Step1({ form, onChange, errors, formConfig }: {
               </Field>
             )}
             {isEnabled("nationality") && (
-              <Field label="国籍" required={isRequired("nationality")} error={errors.nationality}>
+              <Field label={labelFor("nationality", "国籍")} required={isRequired("nationality")} error={errors.nationality}>
                 <Select data-testid="apply-nationality" value={form.nationality} error={!!errors.nationality} onChange={e => onChange("nationality", e.target.value)}>
                   <option value="">{t("選択")}</option>
                   {NATIONALITIES.map(n => <option key={n} value={n}>{t(n)}</option>)}
@@ -402,12 +404,12 @@ function Step1({ form, onChange, errors, formConfig }: {
           <SectionTitle icon="phone">連絡先</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("phone") && (
-              <Field label="電話番号" required={isRequired("phone")} hint="ハイフンなし" error={errors.phone}>
+              <Field label={labelFor("phone", "電話番号")} required={isRequired("phone")} hint={hintFor("phone", "ハイフンなし")} error={errors.phone}>
                 <Input data-testid="apply-phone" type="tel" placeholder="09012345678" value={form.phone} error={!!errors.phone} onChange={e => onChange("phone", e.target.value)} />
               </Field>
             )}
             {isEnabled("email") && (
-              <Field label="メールアドレス" required={isRequired("email")} hint="審査結果の通知に使用" error={errors.email}>
+              <Field label={labelFor("email", "メールアドレス")} required={isRequired("email")} hint={hintFor("email", "審査結果の通知に使用")} error={errors.email}>
                 <Input data-testid="apply-email" type="email" placeholder="example@email.com" value={form.email} error={!!errors.email} onChange={e => onChange("email", e.target.value)} />
               </Field>
             )}
@@ -421,13 +423,13 @@ function Step1({ form, onChange, errors, formConfig }: {
           <SectionTitle icon="home">住所</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {isEnabled("postalCode") && (
-              <Field label="郵便番号" required={isRequired("postalCode")} hint="ハイフンなし7桁" error={errors.postalCode}>
+              <Field label={labelFor("postalCode", "郵便番号")} required={isRequired("postalCode")} hint={hintFor("postalCode", "ハイフンなし7桁")} error={errors.postalCode}>
                 <Input data-testid="apply-postalCode" placeholder="1000001" maxLength={7} value={form.postalCode} error={!!errors.postalCode}
                   onChange={e => onChange("postalCode", e.target.value.replace(/\D/g, ""))} />
               </Field>
             )}
             {isEnabled("prefecture") && (
-              <Field label="都道府県" required={isRequired("prefecture")} error={errors.prefecture}>
+              <Field label={labelFor("prefecture", "都道府県")} required={isRequired("prefecture")} error={errors.prefecture}>
                 <Select data-testid="apply-prefecture" value={form.prefecture} error={!!errors.prefecture} onChange={e => onChange("prefecture", e.target.value)}>
                   <option value="">{t("選択")}</option>
                   {PREFECTURES.map(p => <option key={p} value={p}>{t(p)}</option>)}
@@ -435,19 +437,19 @@ function Step1({ form, onChange, errors, formConfig }: {
               </Field>
             )}
             {isEnabled("city") && (
-              <Field label="市区町村" required={isRequired("city")} error={errors.city}>
+              <Field label={labelFor("city", "市区町村")} required={isRequired("city")} error={errors.city}>
                 <Input data-testid="apply-city" placeholder="新宿区" value={form.city} error={!!errors.city} onChange={e => onChange("city", e.target.value)} />
               </Field>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("address") && (
-              <Field label="番地" required={isRequired("address")} error={errors.address}>
+              <Field label={labelFor("address", "番地")} required={isRequired("address")} error={errors.address}>
                 <Input data-testid="apply-address" placeholder="西新宿1-1-1" value={form.address} error={!!errors.address} onChange={e => onChange("address", e.target.value)} />
               </Field>
             )}
             {isEnabled("addressDetail") && (
-              <Field label="建物名・部屋番号（任意）">
+              <Field label={labelFor("addressDetail", "建物名・部屋番号（任意）")}>
                 <Input placeholder="○○マンション 101号室" value={form.addressDetail} onChange={e => onChange("addressDetail", e.target.value)} />
               </Field>
             )}
@@ -461,7 +463,7 @@ function Step1({ form, onChange, errors, formConfig }: {
           <SectionTitle icon="globe">在日情報・日本語能力</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isEnabled("residenceStatus") && (
-              <Field label="在留資格（日本在住の方）" required={isRequired("residenceStatus", false)} error={errors.residenceStatus}>
+              <Field label={labelFor("residenceStatus", "在留資格（日本在住の方）")} required={isRequired("residenceStatus", false)} error={errors.residenceStatus}>
                 <Select value={form.residenceStatus} error={!!errors.residenceStatus} onChange={e => onChange("residenceStatus", e.target.value)}>
                   <option value="">{isRequired("residenceStatus", false) ? t("選択してください") : t("選択してください（任意）")}</option>
                   {["留学","技術・人文知識・国際業務","特定技能","技能実習","永住者","定住者","日本人の配偶者等","家族滞在","その他"].map(v =>
@@ -470,13 +472,13 @@ function Step1({ form, onChange, errors, formConfig }: {
               </Field>
             )}
             {isEnabled("residenceExpiry") && (
-              <Field label="在留期限（日本在住の方）" required={isRequired("residenceExpiry", false)} error={errors.residenceExpiry}>
+              <Field label={labelFor("residenceExpiry", "在留期限（日本在住の方）")} required={isRequired("residenceExpiry", false)} error={errors.residenceExpiry}>
                 <DateSelect value={form.residenceExpiry} onChange={v => onChange("residenceExpiry", v)}
                   minYear={new Date().getFullYear()} maxYear={new Date().getFullYear() + 10} />
               </Field>
             )}
             {isEnabled("japaneseLevel") && (
-              <Field label="日本語レベル" required={isRequired("japaneseLevel")} error={errors.japaneseLevel}>
+              <Field label={labelFor("japaneseLevel", "日本語レベル")} required={isRequired("japaneseLevel")} error={errors.japaneseLevel}>
                 <Select data-testid="apply-japaneseLevel" value={form.japaneseLevel} error={!!errors.japaneseLevel} onChange={e => onChange("japaneseLevel", e.target.value)}>
                   <option value="">{t("選択してください")}</option>
                   <option value="N1">{t("N1（最上級）")}</option>
@@ -489,7 +491,7 @@ function Step1({ form, onChange, errors, formConfig }: {
               </Field>
             )}
             {isEnabled("jlptCertified") && (
-              <Field label="JLPT合格証明書">
+              <Field label={labelFor("jlptCertified", "JLPT合格証明書")}>
                 <label className="flex items-center gap-3 h-[42px] cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 rounded border-gray-300 accent-blue-600"
                     checked={form.jlptCertified} onChange={e => onChange("jlptCertified", e.target.checked)} />
@@ -575,6 +577,8 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
   const { t } = useT();
   const isEnabled = (key: string) => fieldEnabled(formConfig, key);
   const isRequired = (key: string, defaultReq = true) => fieldRequired(formConfig, key, defaultReq);
+  const labelFor = (key: string, fallback: string) => fieldLabel(formConfig, key, fallback);
+  const hintFor = (key: string, fallback = "") => fieldHint(formConfig, key, fallback);
   // 入学希望年は /api/apply/settings から取得（管理画面で編集可能）。
   // 取得失敗 / 未取得時は現年〜+2 をフォールバックとして使う。
   const currentYear = new Date().getFullYear();
@@ -691,7 +695,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
         <>
           <Divider />
           <SectionTitle icon="pencil">志望動機</SectionTitle>
-          <Field label="志望動機" required={isRequired("applicationReason")} hint="300字以上で具体的にご記入ください" error={errors.applicationReason}>
+          <Field label={labelFor("applicationReason", "志望動機")} required={isRequired("applicationReason")} hint={hintFor("applicationReason", "300字以上で具体的にご記入ください")} error={errors.applicationReason}>
             <textarea
               className={`w-full px-3 py-2.5 text-sm border rounded-lg bg-white transition focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[160px] resize-y
                 ${errors.applicationReason ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
@@ -712,17 +716,17 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           <SectionTitle icon="graduation">最終学歴</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {isEnabled("lastSchoolName") && (
-              <Field label="学校名" required={isRequired("lastSchoolName")} error={errors.lastSchoolName}>
+              <Field label={labelFor("lastSchoolName", "学校名")} required={isRequired("lastSchoolName")} error={errors.lastSchoolName}>
                 <Input placeholder="○○大学" value={form.lastSchoolName} error={!!errors.lastSchoolName} onChange={e => onChange("lastSchoolName", e.target.value)} />
               </Field>
             )}
             {isEnabled("lastSchoolCountry") && (
-              <Field label="国" required={isRequired("lastSchoolCountry")} error={errors.lastSchoolCountry}>
+              <Field label={labelFor("lastSchoolCountry", "国")} required={isRequired("lastSchoolCountry")} error={errors.lastSchoolCountry}>
                 <Input placeholder="中国" value={form.lastSchoolCountry} error={!!errors.lastSchoolCountry} onChange={e => onChange("lastSchoolCountry", e.target.value)} />
               </Field>
             )}
             {isEnabled("lastSchoolGraduate") && (
-              <Field label="卒業状況" required={isRequired("lastSchoolGraduate")} error={errors.lastSchoolGraduate}>
+              <Field label={labelFor("lastSchoolGraduate", "卒業状況")} required={isRequired("lastSchoolGraduate")} error={errors.lastSchoolGraduate}>
                 <Select value={form.lastSchoolGraduate} error={!!errors.lastSchoolGraduate} onChange={e => onChange("lastSchoolGraduate", e.target.value)}>
                   <option value="">{t("選択してください")}</option>
                   {["卒業","卒業見込み","中退","在学中"].map(v => <option key={v} value={v}>{t(v)}</option>)}
@@ -730,7 +734,7 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
               </Field>
             )}
             {isEnabled("lastSchoolGraduate") && (
-              <Field label="卒業（見込）年月" hint="例：2026-03" error={errors.lastSchoolGraduatedOn}>
+              <Field label={labelFor("lastSchoolGraduatedOn", "卒業（見込）年月")} hint={hintFor("lastSchoolGraduatedOn", "例：2026-03")} error={errors.lastSchoolGraduatedOn}>
                 <input type="month" lang="ja"
                   className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-300"
                   value={form.lastSchoolGraduatedOn} onChange={e => onChange("lastSchoolGraduatedOn", e.target.value)} />
@@ -739,14 +743,14 @@ function Step2({ form, onChange, onChangeAdditional, onAddAdditional, onRemoveAd
           </div>
 
           {isEnabled("priorAttendanceRate") && (
-            <Field label="出身校での出席率" required={isRequired("priorAttendanceRate", false)}
-              hint="例：95%、出席日数150日/総授業日数158日" error={errors.priorAttendanceRate}>
+            <Field label={labelFor("priorAttendanceRate", "出身校での出席率")} required={isRequired("priorAttendanceRate", false)}
+              hint={hintFor("priorAttendanceRate", "例：95%、出席日数150日/総授業日数158日")} error={errors.priorAttendanceRate}>
               <Input placeholder="例：95%" value={form.priorAttendanceRate} error={!!errors.priorAttendanceRate}
                 onChange={e => onChange("priorAttendanceRate", e.target.value)} />
             </Field>
           )}
           {isEnabled("workExperience") && (
-            <Field label="職務経歴（任意）" hint="直近の職務経歴をご記入ください">
+            <Field label={labelFor("workExperience", "職務経歴（任意）")} hint={hintFor("workExperience", "直近の職務経歴をご記入ください")}>
               <textarea className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] resize-y hover:border-gray-300"
                 placeholder={t("会社名、職種、期間などをご記入ください")} value={form.workExperience} onChange={e => onChange("workExperience", e.target.value)} />
             </Field>

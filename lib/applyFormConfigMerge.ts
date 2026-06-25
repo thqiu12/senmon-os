@@ -13,6 +13,7 @@ export type ConfigRow = {
   section: string;
   description: string | null;
   options?: string | null;
+  showWhenExamMode?: string | null;
   schoolId: string | null;
   applicantType: string | null;
 };
@@ -27,6 +28,7 @@ export type OutputConfig = {
   section: string;
   description: string | null;
   options?: string | null;
+  showWhenExamMode?: string | null;
 };
 
 /**
@@ -70,6 +72,7 @@ export function mergeFormConfig(
       section: f.section,
       description: null,
       options: null,
+      showWhenExamMode: null,
     });
   }
 
@@ -96,6 +99,7 @@ export function mergeFormConfig(
       section: r.section,
       description: r.description,
       options: r.options ?? null,
+      showWhenExamMode: r.showWhenExamMode ?? null,
     });
     if (r.applicantType === null) commonEnabled.set(r.fieldKey, r.isEnabled);
     else typeEnabled.set(r.fieldKey, r.isEnabled);

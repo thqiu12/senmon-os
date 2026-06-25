@@ -17,6 +17,7 @@ const SELECT = {
   section: true,
   description: true,
   options: true,
+  showWhenExamMode: true,
 } as const;
 
 const SELECT_WITH_CLASS = {
@@ -36,6 +37,7 @@ function fallback() {
     section: f.section,
     description: null,
     options: null,
+    showWhenExamMode: null,
   }));
 }
 

@@ -1521,6 +1521,12 @@ function ApplyPageInner() {
     if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) e.lastSchoolCountry = "国を入力してください";
     if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) e.lastSchoolGraduate = "卒業状況を選択してください";
     if (isFieldRequired("priorAttendanceRate", false) && !form.priorAttendanceRate) e.priorAttendanceRate = "出席率を入力してください";
+    for (const c of (formConfig ?? [])) {
+      if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired) {
+        const v = form.extraData?.[c.fieldKey];
+        if (v === undefined || v === "" || v === false) e[c.fieldKey] = `${c.label || c.fieldKey}を入力してください`;
+      }
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -1583,6 +1589,13 @@ function ApplyPageInner() {
       if (isFieldRequired("lastSchoolName") && !form.lastSchoolName) return false;
       if (isFieldRequired("lastSchoolCountry") && !form.lastSchoolCountry) return false;
       if (isFieldRequired("lastSchoolGraduate") && !form.lastSchoolGraduate) return false;
+      // 必須カスタム項目が未入力なら step1 未充足
+      for (const c of (formConfig ?? [])) {
+        if (isCustomField(c.fieldKey, c.fieldType) && c.isEnabled && c.isRequired) {
+          const v = form.extraData?.[c.fieldKey];
+          if (v === undefined || v === "" || v === false) return false;
+        }
+      }
       return true;
     }
     if (currentStep === 2) {

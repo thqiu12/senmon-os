@@ -72,7 +72,7 @@ export function DynamicField({ fieldKey, form, onChange, onChangeExtra, errors, 
     }
     if (w === "month") {
       return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
-        <DateSelect testId={`apply-${fieldKey}`} value={String(cval ?? "")} onChange={(v: string) => set(v)} minYear={new Date().getFullYear() - 80} maxYear={new Date().getFullYear() + 10} /></Field>);
+        <DateSelect testId={`apply-${fieldKey}`} value={String(cval ?? "")} onChange={(v: string) => set(v)} minYear={new Date().getFullYear() - 80} maxYear={new Date().getFullYear() + 10} hasError={!!cerr} /></Field>);
     }
     if (w === "checkbox") {
       return (<Field label={clabel} hint={chint}>

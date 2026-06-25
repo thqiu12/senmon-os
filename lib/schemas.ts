@@ -90,6 +90,7 @@ export const ApplicationCreateSchema = z.object({
     )
     .max(5)
     .optional(),
+  extraData: z.record(z.union([z.string().max(5000), z.boolean()])).optional().default({}),
 });
 
 export const NotificationSchema = z.object({

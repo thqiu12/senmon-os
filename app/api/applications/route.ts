@@ -434,6 +434,7 @@ export async function POST(request: NextRequest) {
         priorAttendanceRate: body.priorAttendanceRate || null,
         workExperience: body.workExperience || null,
         examMode: body.examMode || "一般",
+        extraData: body.extraData ?? {},
         applicantType: body.applicantType,
         referrerName: body.referrerName || null,
         referrerType: body.referrerType || null,

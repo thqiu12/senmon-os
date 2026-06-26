@@ -120,8 +120,8 @@ export default function FormConfigPage() {
     if (t === "form" || t === "schools" || t === "general" || t === "payment") setActiveTab(t);
   }, []);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
-  // null = 共通スコープ（出願者タイプ）。学校 ID は常に実在校（学校別のみ）。
-  const [selectedApplicantType, setSelectedApplicantType] = useState<ApplicantType | null>(null);
+  // 出願者タイプは常に実在タイプ（日本人 / 留学生）。既定は留学生。共通スコープは廃止。
+  const [selectedApplicantType, setSelectedApplicantType] = useState<ApplicantType>("foreign");
   // 学校タブ: ApplySchool 一覧から動的構築（学校別のみ）。
   const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([]);
   const [configs, setConfigs] = useState<FormFieldConfig[]>([]);
@@ -146,13 +146,13 @@ export default function FormConfigPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ fieldKey: string; label: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchConfigs = useCallback(async (schoolId: string | null, applicantType: ApplicantType | null) => {
+  const fetchConfigs = useCallback(async (schoolId: string | null, applicantType: ApplicantType) => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       if (schoolId) params.set("schoolId", schoolId);
-      if (applicantType) params.set("applicantType", applicantType);
+      params.set("applicantType", applicantType);
       const qs = params.toString();
       const url = qs ? `/api/admin/form-config?${qs}` : "/api/admin/form-config";
       const res = await fetch(url);
@@ -206,7 +206,7 @@ export default function FormConfigPage() {
     setError(null);
   };
 
-  const handleApplicantTypeChange = (t: ApplicantType | null) => {
+  const handleApplicantTypeChange = (t: ApplicantType) => {
     setSelectedApplicantType(t);
     setSuccessMsg(null);
     setError(null);
@@ -471,15 +471,15 @@ export default function FormConfigPage() {
           </div>
         </div>
 
-        {/* 出願者タイプ切替（共通 / 日本人 / 留学生） */}
+        {/* 出願者タイプ切替（日本人 / 留学生）。既定は留学生。 */}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-semibold text-gray-500 mr-1">出願者タイプ</span>
-          {([null, "japanese", "foreign"] as (ApplicantType | null)[]).map(t => {
+          {(["japanese", "foreign"] as ApplicantType[]).map(t => {
             const active = t === selectedApplicantType;
-            const label = t === null ? "共通" : APPLICANT_TYPE_LABEL[t];
+            const label = APPLICANT_TYPE_LABEL[t];
             return (
               <button
-                key={t ?? "__common__"}
+                key={t}
                 onClick={() => handleApplicantTypeChange(t)}
                 className={`px-3 py-1.5 text-sm font-semibold rounded-full border transition-colors
                   ${active

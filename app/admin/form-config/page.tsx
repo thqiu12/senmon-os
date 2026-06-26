@@ -11,6 +11,7 @@ import { SkeletonList } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/Icon";
 import { APPLICANT_TYPE_LABEL, type ApplicantType } from "@/lib/applicantType";
 import { parseExamModeOptions, DEFAULT_EXAM_MODES, type ExamModeOption } from "@/lib/applyExamModes";
+import { findDuplicateLabels } from "@/lib/formConfigDuplicates";
 
 interface FormFieldConfig {
   id: string;
@@ -382,6 +383,10 @@ export default function FormConfigPage() {
 
   const selectedSchoolName = schoolTabs.find(t => t.id === selectedSchoolId)?.name ?? "";
   const customCount = configs.filter(c => c.isCustom).length;
+  // 同一セクション内に同名(有効)の項目が複数あると出願フォームで二重表示される → 警告。
+  const dupGroups = findDuplicateLabels(
+    editableConfigs.map(c => ({ fieldKey: c.fieldKey, label: c.label, section: c.section, isEnabled: c.isEnabled }))
+  );
 
   return (
     <>
@@ -533,6 +538,21 @@ export default function FormConfigPage() {
         {successMsg && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-2">
             <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>{successMsg}
+          </div>
+        )}
+
+        {/* 重複項目の警告（同一セクション×同名の有効項目が複数＝出願フォームで二重表示） */}
+        {dupGroups.length > 0 && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
+            <h3 className="font-bold text-amber-800 mb-1 inline-flex items-center gap-2">
+              <Icon name="info" className="w-4 h-4" />重複している項目があります（出願フォームで二重表示されます）
+            </h3>
+            <p className="text-xs text-amber-700 mb-2">同じセクション内に同じ名前の項目が複数あります。どちらか一方を「無効」または削除して、片方だけにしてください。</p>
+            <ul className="text-sm text-amber-900 space-y-1">
+              {dupGroups.map((g, i) => (
+                <li key={i}>・「{g.section}」の<b>「{g.label}」</b>が {g.fieldKeys.length} 個（{g.fieldKeys.join(" / ")}）</li>
+              ))}
+            </ul>
           </div>
         )}
 

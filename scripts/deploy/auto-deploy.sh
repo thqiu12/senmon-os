@@ -135,6 +135,13 @@ if [ -f scripts/migrate-remove-common.ts ]; then
   npx tsx scripts/migrate-remove-common.ts >> "$LOG" 2>&1 || log "WARN: 全校共通移行でエラー（手動確認推奨）"
 fi
 
+# 共通タイプ(applicantType=null) を各タイプ(日本人/留学生)へコピーしてから削除（冪等）。
+# ビルド前に実行＝新コード配信前に各タイプへ移行完了するため隙間が出ない。撤去後は no-op。
+if [ -f scripts/migrate-remove-common-type.ts ]; then
+  log "共通タイプ→各タイプ 移行スクリプト実行（冪等）"
+  npx tsx scripts/migrate-remove-common-type.ts >> "$LOG" 2>&1 || log "WARN: 共通タイプ移行でエラー（手動確認推奨）"
+fi
+
 # ロールバック用に直前のコミットを記録（失敗時に戻す）
 ROLLBACK_SHA="$LOCAL_SHA"
 

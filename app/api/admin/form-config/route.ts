@@ -68,59 +68,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // ===== 以下、applicantType 未指定（共通）= 学校別のみ（全校共通は廃止）=====
+    // ===== 以下、applicantType 未指定 =====
+    // 共通(applicantType=null)スコープは廃止。管理者は null スコープを編集しないため、
+    // DB の null 行は一切読まず、合成した型なし既定（isEnabled:true）だけを返す。
+    // 実運用では UI が常に applicantType を付与する（上のタイプ別パスに入る）。
+    const defaults = FORM_FIELD_DEFAULTS.map(def => ({
+      id: "",
+      fieldKey: def.fieldKey,
+      schoolId,
+      label: def.label,
+      section: def.section,
+      fieldType: def.fieldType,
+      isEnabled: true,
+      isRequired: def.isRequired,
+      displayOrder: def.displayOrder,
+      isCustom: false,
+    })).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
-    // 合成デフォルト行（DB 未保存 = isCustom:false）。
-    const synthDefault = (fieldKey: string) => {
-      const def = FORM_FIELD_DEFAULTS.find(f => f.fieldKey === fieldKey);
-      if (!def) return null;
-      return {
-        id: "",
-        fieldKey: def.fieldKey,
-        schoolId,
-        label: def.label,
-        section: def.section,
-        fieldType: def.fieldType,
-        isEnabled: true,
-        isRequired: def.isRequired,
-        displayOrder: def.displayOrder,
-        isCustom: false,
-      };
-    };
-
-    if (!schoolId) {
-      // 学校未選択: 既定を合成して返す（全校共通スコープは存在しない）。
-      const defaults = FORM_FIELD_DEFAULTS.map(f => synthDefault(f.fieldKey))
-        .filter(Boolean)
-        .sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));
-      return NextResponse.json(defaults);
-    }
-
-    // Fetch school-specific overrides (applicantType IS NULL = 共通)
-    const schoolConfigs = await prisma.formFieldConfig.findMany({
-      where: { schoolId, applicantType: null },
-      orderBy: { displayOrder: "asc" },
-    });
-
-    const schoolMap = new Map(schoolConfigs.map(c => [c.fieldKey, c]));
-
-    // 既定 + 学校に保存済みのフィールド（custom 含む）を網羅
-    const allFieldKeys = new Set([
-      ...FORM_FIELD_DEFAULTS.map(f => f.fieldKey),
-      ...Array.from(schoolMap.keys()),
-    ]);
-
-    const merged = Array.from(allFieldKeys).map(fieldKey => {
-      const schoolOverride = schoolMap.get(fieldKey);
-      if (schoolOverride) {
-        return { ...schoolOverride, isCustom: true };
-      }
-      return synthDefault(fieldKey);
-    }).filter(Boolean);
-
-    merged.sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));
-
-    return NextResponse.json(merged);
+    return NextResponse.json(defaults);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });

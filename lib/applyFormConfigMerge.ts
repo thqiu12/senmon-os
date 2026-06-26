@@ -35,11 +35,12 @@ export type OutputConfig = {
  * 純関数: 既定 + DB 行を出願者タイプに沿ってマージする（DB 非依存）。
  *
  * 優先順位（後勝ち、高いほど優先）:
- *   既定(type別) < 学校共通(null) < 学校(type)
+ *   既定(type別) < 学校×type
  *
- * rows は schoolId / applicantType を含む DB 行。全校共通(schoolId null)は廃止＝無視し、
- * 学校行(schoolId 非 null)のみを採用する。applicantType が null なら共通、type 一致なら type 行。
- * 該当 type 以外の applicantType を持つ行は無視する。
+ * rows は schoolId / applicantType を含む DB 行。設定は完全にタイプ別になり、
+ * 全校共通(schoolId null) と 共通タイプ(applicantType null) はどちらも廃止＝無視する。
+ * 採用するのは「学校行(schoolId 非 null) かつ applicantType が当該 type に一致」する行のみ。
+ * 型行が無い項目は型別既定（defaultEnabledFor。日本人の在日情報オフ等）に従う。
  * 最終的に isEnabled の行のみを displayOrder 昇順で返す。
  *
  * 注: Next.js の route.ts はルートハンドラ以外の export を許さないため、
@@ -50,12 +51,12 @@ export function mergeFormConfig(
   rows: ConfigRow[],
   type: ApplicantType
 ): OutputConfig[] {
-  // tier: 大きいほど優先（後勝ち）
+  // 採用対象は「学校×当該type」行のみ。それ以外（全校共通 / 共通タイプ / 別タイプ）は無視。
   const tierOf = (r: ConfigRow): number | null => {
     if (r.schoolId === null) return null; // 全校共通は廃止＝無視
-    const typeMatch = r.applicantType === null ? "common" : r.applicantType === type ? "type" : null;
-    if (typeMatch === null) return null;
-    return typeMatch === "common" ? 1 : 2; // 学校共通(null) < 学校type
+    if (r.applicantType === null) return null; // 共通タイプも廃止＝無視
+    if (r.applicantType !== type) return null; // 別タイプは無視
+    return 1; // 学校×該当type のみ
   };
 
   const map = new Map<string, OutputConfig>();
@@ -76,17 +77,13 @@ export function mergeFormConfig(
     });
   }
 
-  // DB 行を tier 昇順に適用（同 tier は入力順）。ラベル等のプロパティは後勝ちで上書き。
-  // ascending tier => later writes always win; no per-key guard needed.
-  // あわせて、isEnabled の最終判定用に「共通(null)行」「該当type行」それぞれの
-  // 最優先 isEnabled を記録する（昇順適用なので最後の set が最優先＝学校 > 全校）。
-  const typeEnabled = new Map<string, boolean>(); // applicantType === type（学校 type, tier 2）
-  const commonEnabled = new Map<string, boolean>(); // applicantType === null（学校共通, tier 1）
+  // 採用行を適用。ラベル等のプロパティは後勝ちで上書き。
+  // あわせて、isEnabled の最終判定用に該当type行の isEnabled を記録する。
+  const typeEnabled = new Map<string, boolean>(); // 学校×当該type 行の isEnabled
 
   const candidates = rows
     .map((r) => ({ r, tier: tierOf(r) }))
-    .filter((x): x is { r: ConfigRow; tier: number } => x.tier !== null)
-    .sort((a, b) => a.tier - b.tier);
+    .filter((x): x is { r: ConfigRow; tier: number } => x.tier !== null);
 
   for (const { r } of candidates) {
     map.set(r.fieldKey, {
@@ -101,21 +98,17 @@ export function mergeFormConfig(
       options: r.options ?? null,
       showWhenExamMode: r.showWhenExamMode ?? null,
     });
-    if (r.applicantType === null) commonEnabled.set(r.fieldKey, r.isEnabled);
-    else typeEnabled.set(r.fieldKey, r.isEnabled);
+    typeEnabled.set(r.fieldKey, r.isEnabled);
   }
 
-  // isEnabled の最終判定（タイプ既定オフの項目を共通行が勝手に有効化しないようにする）:
-  //   1. 該当type行がある → その値（管理者が型別に明示設定）
-  //   2. type の既定がオフ（例: 日本人の在日情報）→ false（共通行では有効化できない）
-  //   3. それ以外 → 共通行があればその値（共通の無効化は尊重）、無ければ既定 true
+  // isEnabled の最終判定:
+  //   1. 学校×type行がある → その値（管理者が型別に明示設定）
+  //   2. 無ければ型別既定（例: 日本人の在日情報はオフ）
   map.forEach((cfg, key) => {
     if (typeEnabled.has(key)) {
       cfg.isEnabled = typeEnabled.get(key)!;
-    } else if (!defaultEnabledFor(key, type)) {
-      cfg.isEnabled = false;
     } else {
-      cfg.isEnabled = commonEnabled.has(key) ? commonEnabled.get(key)! : true;
+      cfg.isEnabled = defaultEnabledFor(key, type);
     }
   });
 

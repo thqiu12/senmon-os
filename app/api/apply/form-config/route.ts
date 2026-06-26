@@ -47,16 +47,16 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get("schoolId") || null;
     const typeParam = searchParams.get("type");
 
-    // type 指定あり・有効: タイプ対応マージ（学校別のみ。全校共通は廃止）
+    // type 指定あり・有効: タイプ対応マージ（学校×当該type のみ。全校共通・共通タイプは廃止）
     if (isApplicantType(typeParam)) {
       const type = typeParam;
-      // 選択中の学校の行のみ取得。schoolId 無指定なら 0 行 → mergeFormConfig が既定で補完。
+      // 選択中の学校・当該タイプの行のみ取得。schoolId 無指定なら 0 行 → mergeFormConfig が既定で補完。
       // isEnabled は merge 後に最終フィルタするためここでは絞らない。
       const rows = await prisma.formFieldConfig.findMany({
         where: {
           AND: [
             schoolId ? { schoolId } : { schoolId: "__none__" },
-            { OR: [{ applicantType: null }, { applicantType: type }] },
+            { applicantType: type },
           ],
         },
         orderBy: { displayOrder: "asc" },

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 // PATCH: エージェント更新
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   const session = await getSession(request);
   try {
     if (!isAdmin(session)) {
@@ -22,33 +23,34 @@ export async function PATCH(
     if (notes !== undefined) data.notes = notes;
     if (isActive !== undefined) data.isActive = isActive;
 
-    const agent = await prisma.agent.update({ where: { id: params.id }, data });
+    const agent = await getTenantDb().agent.update({ where: { id: params.id }, data });
     return NextResponse.json({ success: true, agent });
   } catch (error) {
     console.error("PATCH /api/agents/[id] error:", error);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // DELETE: エージェント削除
-export async function DELETE(
+export const DELETE = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   const session = await getSession(request);
   try {
     if (!isAdmin(session)) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+    const db = getTenantDb();
     // 申請が紐づいていたら agentId を null に
-    await prisma.application.updateMany({
+    await db.application.updateMany({
       where: { agentId: params.id },
       data: { agentId: null },
     });
-    await prisma.agent.delete({ where: { id: params.id } });
+    await db.agent.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/agents/[id] error:", error);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

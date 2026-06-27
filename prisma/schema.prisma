@@ -11,214 +11,245 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// テナント(=契約/隔離/計費の境界)。Plan 2 で導入。
+// Phase A は本モデル追加 + 各モデルへ nullable organizationId(列+index のみ)。
+// FK relation は Phase C でまとめて張る。
+model Organization {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique // サブドメイン {slug}.compass.app
+  customDomain   String?  @unique // 学生端カスタムドメイン
+  plan           String   @default("pro")
+  enabledModules String   @default("[\"admissions\",\"enrollment\"]") // JSON 配列(文字列)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model AdminUser {
-  id              String   @id @default(cuid())
-  username        String   @unique
+  organizationId  String?
+  isPlatformAdmin Boolean   @default(false)
+  id              String    @id @default(cuid())
+  username        String    @unique
   passwordHash    String
-  passwordVersion Int      @default(1) // 1 = legacy SHA-256, 2 = bcrypt
-  tokenVersion    Int      @default(1) // bump to invalidate all outstanding session tokens
+  passwordVersion Int       @default(1) // 1 = legacy SHA-256, 2 = bcrypt
+  tokenVersion    Int       @default(1) // bump to invalidate all outstanding session tokens
   displayName     String
-  role            String   @default("interviewer") // super_admin / admin / interviewer
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  role            String    @default("interviewer") // super_admin / admin / interviewer
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   lastLoginAt     DateTime?
+
+  @@index([organizationId])
 }
 
 model Cohort {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  examDate    String?
-  deadline    String?
-  status      String   @default("受付中") // 受付中/選考中/完了
-  isDefault   Boolean  @default(false)
-  year        Int      @default(2026)   // 年度（例: 2026）
-  round       Int      @default(1)      // 選考回数（例: 1）
-  seqCounter  Int      @default(0)      // 発番済み連番（自動更新）
+  organizationId String?
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  examDate       String?
+  deadline       String?
+  status         String       @default("受付中") // 受付中/選考中/完了
+  isDefault      Boolean      @default(false)
+  year           Int          @default(2026) // 年度（例: 2026）
+  round          Int          @default(1) // 選考回数（例: 1）
+  seqCounter     Int          @default(0) // 発番済み連番（自動更新）
   // 学校・学科別受付設定
-  schoolKey   String?                   // null=全校共通, 値=特定校のみ（後方互換用）
-  applySchoolId String?
-  applySchool   ApplySchool? @relation("CohortApplySchool", fields: [applySchoolId], references: [id])
-  acceptStart DateTime?                 // 受付開始日時
-  acceptEnd   DateTime?                 // 受付終了日時
+  schoolKey      String? // null=全校共通, 値=特定校のみ（後方互換用）
+  applySchoolId  String?
+  applySchool    ApplySchool? @relation("CohortApplySchool", fields: [applySchoolId], references: [id])
+  acceptStart    DateTime? // 受付開始日時
+  acceptEnd      DateTime? // 受付終了日時
 
   // 入学手続きデフォルト設定
-  defaultTuitionPlan     String?  // 全額 / 分割（2期）
-  defaultTuitionAmount   String?  // 例: 350,000円
-  defaultTuitionAmount2  String?  // 第2期金額
-  defaultTuitionDeadline String?  // STEP1締切（例: 2026-05-31）
+  defaultTuitionPlan      String? // 全額 / 分割（2期）
+  defaultTuitionAmount    String? // 例: 350,000円
+  defaultTuitionAmount2   String? // 第2期金額
+  defaultTuitionDeadline  String? // STEP1締切（例: 2026-05-31）
   defaultTuitionDeadline2 String? // 第2期締切
-  defaultTuitionBankInfo String?  // 学費の振込先（合格後の入学手続きに表示）
-  examFeeBankInfo        String?  // 受験料の振込先（出願時に学生へ表示。未設定なら環境変数の既定値）
-  defaultStep2Deadline   String?  // 書類提出締切
-  defaultStep3Deadline   String?  // 署名締切
+  defaultTuitionBankInfo  String? // 学費の振込先（合格後の入学手続きに表示）
+  examFeeBankInfo         String? // 受験料の振込先（出願時に学生へ表示。未設定なら環境変数の既定値）
+  defaultStep2Deadline    String? // 書類提出締切
+  defaultStep3Deadline    String? // 署名締切
   // 選考モード別 学費 JSON: {"一般":"350000","指定推薦":"300000","特待生":"0"}
-  examModeTuitionAmounts String?
+  examModeTuitionAmounts  String?
   // 合否結果の公開日時。未来なら学生には status を「審査中」と返す
-  resultPublishedAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  applications Application[]
+  resultPublishedAt       DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  applications            Application[]
+
+  @@index([organizationId])
 }
 
 model Interviewer {
-  id        String   @id @default(cuid())
-  name      String
-  role      String?  // 役職・担当
-  email     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  interviews InterviewFeedback[]
+  organizationId String?
+  id             String              @id @default(cuid())
+  name           String
+  role           String? // 役職・担当
+  email          String?
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  interviews     InterviewFeedback[]
+
+  @@index([organizationId])
 }
 
 model InterviewFeedback {
-  id            String   @id @default(cuid())
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  interviewerId String?
-  interviewer   Interviewer? @relation(fields: [interviewerId], references: [id])
-  interviewerName String   // 面接官名（手動入力も可）
+  organizationId  String?
+  id              String       @id @default(cuid())
+  applicationId   String
+  application     Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId   String?
+  interviewer     Interviewer? @relation(fields: [interviewerId], references: [id])
+  interviewerName String // 面接官名（手動入力も可）
 
   // 評価項目（1〜5点）
-  scoreJapanese     Int?   // 日本語能力
-  scoreMotivation   Int?   // 志望動機
-  scorePersonality  Int?   // 人柄・態度
-  scoreAcademic     Int?   // 学力・専門性
-  scoreOverall      Int?   // 総合評価
+  scoreJapanese    Int? // 日本語能力
+  scoreMotivation  Int? // 志望動機
+  scorePersonality Int? // 人柄・態度
+  scoreAcademic    Int? // 学力・専門性
+  scoreOverall     Int? // 総合評価
 
   // コメント
-  strengths   String?  // 良い点
-  concerns    String?  // 懸念点
-  notes       String?  // その他メモ
+  strengths String? // 良い点
+  concerns  String? // 懸念点
+  notes     String? // その他メモ
 
   // 推薦
   recommendation String @default("保留") // 合格推薦/不合格推薦/保留
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 model Announcement {
+  organizationId String?
   id             String    @id @default(cuid())
   title          String
   content        String
   targetType     String    @default("all") // all/合格者/specific_cohort/status_filter/filter
-  targetCohortId String?   // 選考バッチ（第N期）で絞り込み
-  targetSchool   String?   // 学校名で絞り込み（主志望 or 併願）
-  targetStatus   String?   // ステータスで絞り込み
+  targetCohortId String? // 選考バッチ（第N期）で絞り込み
+  targetSchool   String? // 学校名で絞り込み（主志望 or 併願）
+  targetStatus   String? // ステータスで絞り込み
   // ↑ targetType="filter" のとき上記3軸を AND 結合（各 null=指定なし）
   sentAt         DateTime?
   sentCount      Int       @default(0)
   createdAt      DateTime  @default(now())
   createdBy      String    @default("管理者")
+
+  @@index([organizationId])
 }
 
 model Application {
-  id              String   @id @default(cuid())
-  applicationNo   String   @unique
-  status          String   @default("受付中") // 受付中/書類確認中/面接待ち/合格/不合格/保留
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  applicationNo  String   @unique
+  status         String   @default("受付中") // 受付中/書類確認中/面接待ち/合格/不合格/保留
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // 論理削除（ゴミ箱）。一覧・集計からは除外し、削除済みビューから復元できる。
-  deletedAt       DateTime?
-  deletedBy       String?   // 削除した管理者（表示名）
-  deleteReason    String?
+  deletedAt    DateTime?
+  deletedBy    String? // 削除した管理者（表示名）
+  deleteReason String?
 
   // 選考バッチ
-  cohortId        String?
-  cohort          Cohort?  @relation(fields: [cohortId], references: [id])
+  cohortId String?
+  cohort   Cohort? @relation(fields: [cohortId], references: [id])
 
   // 個人情報
-  lastName        String
-  firstName       String
-  lastNameKana    String
-  firstNameKana   String
-  birthDate       String
-  gender          String
-  nationality     String
-  phone           String
-  email           String
-  postalCode      String
-  prefecture      String
-  city            String
-  address         String
-  addressDetail   String?
+  lastName      String
+  firstName     String
+  lastNameKana  String
+  firstNameKana String
+  birthDate     String
+  gender        String
+  nationality   String
+  phone         String
+  email         String
+  postalCode    String
+  prefecture    String
+  city          String
+  address       String
+  addressDetail String?
 
   // 在日情報
-  residenceStatus    String?  // 在留資格
-  residenceExpiry    String?  // 在留期限
-  japaneseLevel      String   // N1/N2/N3/N4/N5/なし
-  jlptCertified      Boolean  @default(false)
+  residenceStatus String? // 在留資格
+  residenceExpiry String? // 在留期限
+  japaneseLevel   String // N1/N2/N3/N4/N5/なし
+  jlptCertified   Boolean @default(false)
 
   // 志望校情報（第1志望 後方互換用）— 提出時のスナップショット文字列
-  schoolName         String
-  department         String
-  course             String?
-  enrollmentYear     String
-  enrollmentMonth    String
-  applicationReason  String
+  schoolName        String
+  department        String
+  course            String?
+  enrollmentYear    String
+  enrollmentMonth   String
+  applicationReason String
 
   // FK — 第1志望の正規化参照
-  applySchoolId      String?
-  applySchool        ApplySchool?     @relation("ApplicationApplySchool", fields: [applySchoolId], references: [id])
-  applyDepartmentId  String?
-  applyDepartment    ApplyDepartment? @relation("ApplicationApplyDepartment", fields: [applyDepartmentId], references: [id])
+  applySchoolId     String?
+  applySchool       ApplySchool?     @relation("ApplicationApplySchool", fields: [applySchoolId], references: [id])
+  applyDepartmentId String?
+  applyDepartment   ApplyDepartment? @relation("ApplicationApplyDepartment", fields: [applyDepartmentId], references: [id])
 
   // 複数志望校
   applicationSchools ApplicationSchool[]
 
   // 学歴・職歴
-  lastSchoolName         String
-  lastSchoolCountry      String
-  lastSchoolGraduate     String
-  lastSchoolGraduatedOn  String?  // 最終学歴の卒業（見込）年月（例: 2026-03）
-  priorAttendanceRate    String?  // 出身校での出席率（例: 95%）
-  workExperience         String?
+  lastSchoolName        String
+  lastSchoolCountry     String
+  lastSchoolGraduate    String
+  lastSchoolGraduatedOn String? // 最終学歴の卒業（見込）年月（例: 2026-03）
+  priorAttendanceRate   String? // 出身校での出席率（例: 95%）
+  workExperience        String?
 
   // 面接情報
   interviewDate      String?
   interviewTime      String?
   interviewPlace     String?
   interviewNotes     String?
-  interviewEmailSent Boolean  @default(false)
+  interviewEmailSent Boolean @default(false)
 
   // 選考モード・推薦
-  examMode           String   @default("一般") // 一般/指定推薦/特待生
-  referrerName       String?  // 推薦機関・推薦者名（任意）
-  referrerType       String?  // エージェント/学校/個人/その他
+  examMode     String  @default("一般") // 一般/指定推薦/特待生
+  referrerName String? // 推薦機関・推薦者名（任意）
+  referrerType String? // エージェント/学校/個人/その他
 
   // 選考費支払い
-  examFeeAmount      Int?     // 選考費金額（円）例: 20000 / 40000
-  examFeeStatus      String   @default("未払い") // 未払い/振込済み/確認中/確認済み
-  examFeeReceiptUrl  String?  // 振込証明書アップロードURL
-  examFeeNote        String?  // 備考
+  examFeeAmount     Int? // 選考費金額（円）例: 20000 / 40000
+  examFeeStatus     String  @default("未払い") // 未払い/振込済み/確認中/確認済み
+  examFeeReceiptUrl String? // 振込証明書アップロードURL
+  examFeeNote       String? // 備考
 
   // 合否通知
-  resultEmailSent    Boolean  @default(false)
+  resultEmailSent Boolean @default(false)
 
   // アップロードファイル
-  documents          Document[]
+  documents Document[]
 
   // 管理メモ
-  adminMemo          String?
-  adminNotes         AdminNote[]
+  adminMemo  String?
+  adminNotes AdminNote[]
 
   // AI面接講評(複数フィードバックの合成)。キャッシュして再課金を防ぐ。
-  interviewSummary       String?   // { summary, recommendation, divergence, ... } の JSON
-  interviewSummaryAt     DateTime?
-  interviewSummaryModel  String?
+  interviewSummary      String? // { summary, recommendation, divergence, ... } の JSON
+  interviewSummaryAt    DateTime?
+  interviewSummaryModel String?
 
   // 出願者タイプ: japanese / foreign（既定=foreign＝従来動作）
-  applicantType   String   @default("foreign")
+  applicantType String @default("foreign")
 
   // カスタム項目（動的フォーム）
-  extraData           Json?
+  extraData Json?
 
   // 紹介エージェント
-  agentId             String?
-  agent               Agent?   @relation(fields: [agentId], references: [id])
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id])
 
   // 入学手続き
   enrollmentProcedure EnrollmentProcedure?
@@ -226,58 +257,64 @@ model Application {
   interviewFeedbacks  InterviewFeedback[]
 
   // 基本情報変更申請
-  changeRequests      ChangeRequest[]
+  changeRequests ChangeRequest[]
 
   @@index([email])
   @@index([status, createdAt])
   @@index([cohortId])
   @@index([agentId])
+  @@index([organizationId])
 }
 
 // 出願者が出願後に基本情報の変更を申請するためのリクエスト。
 // 学生が POST → status=申請中 → 管理者が承認/却下。承認時に Application 本体を更新。
 model ChangeRequest {
-  id              String      @id @default(cuid())
-  applicationId   String
-  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   // 対象フィールドの内部キー（Application カラム名そのまま）
-  fieldKey        String
+  fieldKey       String
   // 表示用ラベル（"電話番号" など）。snapshot として保持し、UI 表示でラベル定義が変わっても見れるように。
-  fieldLabel      String
+  fieldLabel     String
   // 変更前の値（DB 上の現在値）
-  oldValue        String?
+  oldValue       String?
   // 変更希望値
-  newValue        String
+  newValue       String
   // 学生からの理由・補足
-  reason          String?
+  reason         String?
   // 申請中 / 承認 / 却下
-  status          String      @default("申請中")
+  status         String      @default("申請中")
   // 管理者対応情報
-  reviewedBy      String?     // AdminUser.id or displayName
-  reviewedAt      DateTime?
-  reviewerNote    String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  reviewedBy     String? // AdminUser.id or displayName
+  reviewedAt     DateTime?
+  reviewerNote   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([applicationId, status])
   @@index([status, createdAt])
+  @@index([organizationId])
 }
 
 model Agent {
-  id           String        @id @default(cuid())
-  name         String
-  country      String        @default("")
-  contactName  String?
-  contactEmail String?
-  notes        String?
-  isActive     Boolean       @default(true)
+  organizationId String?
+  id             String        @id @default(cuid())
+  name           String
+  country        String        @default("")
+  contactName    String?
+  contactEmail   String?
+  notes          String?
+  isActive       Boolean       @default(true)
   // エージェント専用フォームのアクセス用シークレットトークン (URL に embed)。
   // エージェント専用 URL: /prospects/new?token=xxx で agent の入力代行不要。
-  formToken    String?       @unique
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  applications Application[]
-  prospects    Prospect[]
+  formToken      String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  applications   Application[]
+  prospects      Prospect[]
+
+  @@index([organizationId])
 }
 
 // 希望者リスト (Prospect): エージェントが学生を出願システムへ送る前に登録する CRM 的データ。
@@ -288,75 +325,80 @@ model Agent {
 //  - Admin は重複検知（複数エージェントが同じ学生を登録）を一覧で確認
 //  - 出願時に agent を自動紐付け → 返佣計算の信頼性向上
 model Prospect {
-  id              String   @id @default(cuid())
+  organizationId String?
+  id             String  @id @default(cuid())
   // ---- 学生情報（マッチング用） ----
-  lastName        String
-  firstName       String
-  lastNameKana    String?
-  firstNameKana   String?
-  birthDate       String?  // YYYY-MM-DD
-  gender          String?  // 男性/女性/その他
-  nationality     String?
-  email           String?  // マッチングの最優先キー
-  phone           String?
+  lastName       String
+  firstName      String
+  lastNameKana   String?
+  firstNameKana  String?
+  birthDate      String? // YYYY-MM-DD
+  gender         String? // 男性/女性/その他
+  nationality    String?
+  email          String? // マッチングの最優先キー
+  phone          String?
 
   // ---- 出願予定情報 ----
-  intendedSchool      String?  // 志望校名（スナップショット）
-  intendedDepartment  String?  // 志望学科
-  enrollmentYear      String?  // 例: "2027"
-  enrollmentMonth     String?  // 例: "4"
-  expectedApplyDate   String?  // 出願予定日 YYYY-MM-DD
+  intendedSchool     String? // 志望校名（スナップショット）
+  intendedDepartment String? // 志望学科
+  enrollmentYear     String? // 例: "2027"
+  enrollmentMonth    String? // 例: "4"
+  expectedApplyDate  String? // 出願予定日 YYYY-MM-DD
 
   // ---- エージェント情報 ----
-  agentId         String
-  agent           Agent    @relation(fields: [agentId], references: [id])
-  agentNotes      String?  // エージェントからの自由メモ
-  referredAt      DateTime @default(now())
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  agentNotes String? // エージェントからの自由メモ
+  referredAt DateTime @default(now())
 
   // ---- マッチング状態 ----
-  matchedApplicationId String? @unique
+  matchedApplicationId String?   @unique
   matchedAt            DateTime?
   matchedBy            String? // "auto" or admin displayName
-  status               String  @default("候補") // 候補 / 出願済 / 辞退 / 重複（他エージェント優先） / 無効
+  status               String    @default("候補") // 候補 / 出願済 / 辞退 / 重複（他エージェント優先） / 無効
 
   // ---- Admin メタ ----
-  adminMemo       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  adminMemo String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([agentId])
   @@index([email])
   @@index([lastName, firstName])
   @@index([status, createdAt])
+  @@index([organizationId])
 }
 
 model Document {
-  id            String      @id @default(cuid())
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  docType       String      // パスポート/在留カード/卒業証明書/成績証明書/日本語能力証明/その他
-  fileName      String
-  originalName  String
-  filePath      String
-  fileSize      Int
-  mimeType      String
-  uploadedAt    DateTime    @default(now())
+  organizationId String?
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  docType        String // パスポート/在留カード/卒業証明書/成績証明書/日本語能力証明/その他
+  fileName       String
+  originalName   String
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  uploadedAt     DateTime    @default(now())
 
   // 確認状態: 提出済 / 確認済 / 差し戻し
-  status        String      @default("提出済")
-  rejectReason  String?
-  reviewedAt    DateTime?
-  reviewedBy    String?
+  status       String    @default("提出済")
+  rejectReason String?
+  reviewedAt   DateTime?
+  reviewedBy   String?
 
   // AI抽出(Haiku vision)結果。キャッシュして再課金を防ぐ。未抽出なら null。
-  aiExtraction  String?     // 抽出フィールドの JSON 文字列
+  aiExtraction  String? // 抽出フィールドの JSON 文字列
   aiExtractedAt DateTime?
   aiModel       String?
 
   @@index([applicationId])
+  @@index([organizationId])
 }
 
 model AdminNote {
+  organizationId   String?
   id               String      @id @default(cuid())
   applicationId    String
   application      Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
@@ -369,168 +411,191 @@ model AdminNote {
 
   @@index([applicationId, createdAt])
   @@index([applicationId, visibleToStudent])
+  @@index([organizationId])
 }
 
 model EnrollmentProcedure {
-  id            String      @id @default(cuid())
-  applicationId String      @unique
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  instructions  String?
-  deadline      String?
-  publishedAt   DateTime?
-  status        String      @default("未開始")
-  studentMemo   String?
-  completedAt   DateTime?
+  organizationId String?
+  id             String      @id @default(cuid())
+  applicationId  String      @unique
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  instructions   String?
+  deadline       String?
+  publishedAt    DateTime?
+  status         String      @default("未開始")
+  studentMemo    String?
+  completedAt    DateTime?
 
   // ステップ別締切日（管理者が設定）
-  step1Deadline       String?   // 学費納入締切
-  step2Deadline       String?   // 書類提出締切
-  step3Deadline       String?   // 署名締切
+  step1Deadline String? // 学費納入締切
+  step2Deadline String? // 書類提出締切
+  step3Deadline String? // 署名締切
 
   // 学費納入
-  tuitionPlan         String    @default("全額")   // 全額 / 分割（2期）
-  tuitionAmount       String?   // 全額 or 第1期金額
-  tuitionAmount2      String?   // 第2期金額（分割の場合）
-  tuitionDeadline2    String?   // 第2期締切（分割の場合）
-  tuitionBankInfo     String?   // 振込先情報（管理者が設定）
-  tuitionPaid         Boolean   @default(false)   // 管理者確認済み
-  tuitionPaidAt       DateTime?
+  tuitionPlan      String    @default("全額") // 全額 / 分割（2期）
+  tuitionAmount    String? // 全額 or 第1期金額
+  tuitionAmount2   String? // 第2期金額（分割の場合）
+  tuitionDeadline2 String? // 第2期締切（分割の場合）
+  tuitionBankInfo  String? // 振込先情報（管理者が設定）
+  tuitionPaid      Boolean   @default(false) // 管理者確認済み
+  tuitionPaidAt    DateTime?
 
-  docChecklist        String?   // JSON: [{name, required, done}]
-  docSubmitted        Boolean   @default(false)
-  docSubmittedAt      DateTime?
+  docChecklist   String? // JSON: [{name, required, done}]
+  docSubmitted   Boolean   @default(false)
+  docSubmittedAt DateTime?
 
-  visaStatus          String    @default("未申請")
-  visaNote            String?
-  dormApply           Boolean   @default(false)
-  dormStatus          String    @default("未申請")
-  dormNote            String?
+  visaStatus String  @default("未申請")
+  visaNote   String?
+  dormApply  Boolean @default(false)
+  dormStatus String  @default("未申請")
+  dormNote   String?
 
   // 管理者確認メモ
-  adminNote           String?
+  adminNote String?
 
   // 校方確認フロー
-  schoolConfirmed     Boolean   @default(false)   // 管理者が内容確認OK
-  schoolConfirmedAt   DateTime?
-  schoolConfirmedBy   String?
+  schoolConfirmed   Boolean   @default(false) // 管理者が内容確認OK
+  schoolConfirmedAt DateTime?
+  schoolConfirmedBy String?
 
   // 入学許可書
   admitLetterIssued   Boolean   @default(false)
   admitLetterIssuedAt DateTime?
 
   // 入学式・ビザ案内
-  ceremonyNotified    Boolean   @default(false)
-  ceremonyDate        String?
-  ceremonyPlace       String?
-  ceremonyNotes       String?
-  visaGuideNotified   Boolean   @default(false)
-  visaGuideNotes      String?
+  ceremonyNotified  Boolean @default(false)
+  ceremonyDate      String?
+  ceremonyPlace     String?
+  ceremonyNotes     String?
+  visaGuideNotified Boolean @default(false)
+  visaGuideNotes    String?
 
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 model EnrollmentSignature {
-  id            String      @id @default(cuid())
-  applicationId String      @unique
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  signatureData String
-  signedAt      DateTime    @default(now())
-  signerName    String
+  organizationId String?
+  id             String      @id @default(cuid())
+  applicationId  String      @unique
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  signatureData  String
+  signedAt       DateTime    @default(now())
+  signerName     String
+
+  @@index([organizationId])
 }
 
 // ===== 在籍管理システム =====
 
 // 学校グループ
 model School {
-  id          String   @id @default(cuid())
-  name        String   // 例: 羽場学園 / 平井学園
-  shortName   String   // 例: haba / hirai
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  name           String // 例: 羽場学園 / 平井学園
+  shortName      String // 例: haba / hirai
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  courses         Course[]
-  teachers        Teacher[]
-  students        Student[]
-  timetables      Timetable[]
-  calendarEvents  CalendarEvent[]
-  schoolNotices   SchoolNotice[]
+  courses        Course[]
+  teachers       Teacher[]
+  students       Student[]
+  timetables     Timetable[]
+  calendarEvents CalendarEvent[]
+  schoolNotices  SchoolNotice[]
+
+  @@index([organizationId])
 }
 
 // コース（専攻・課程）
 model Course {
-  id          String   @id @default(cuid())
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
-  name        String   // 例: 日本語科 / 鍼灸科
-  code        String?  // 例: JPN / ACU
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  name           String // 例: 日本語科 / 鍼灸科
+  code           String? // 例: JPN / ACU
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
-  classes     Class[]
-  subjects    Subject[]
+  classes  Class[]
+  subjects Subject[]
+
+  @@index([organizationId])
 }
 
 // クラス（コース×学年×年度）
 model Class {
-  id           String   @id @default(cuid())
-  courseId     String
-  course       Course   @relation(fields: [courseId], references: [id])
-  name         String   // 例: 2026年4月入学 日本語科A
-  year         Int      // 入学年度
-  month        Int      // 入学月（4 or 10）
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id])
+  name           String // 例: 2026年4月入学 日本語科A
+  year           Int // 入学年度
+  month          Int // 入学月（4 or 10）
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
-  students     Student[]
-  timetables   Timetable[]
+  students   Student[]
+  timetables Timetable[]
+
+  @@index([organizationId])
 }
 
 // 科目
 model Subject {
-  id          String   @id @default(cuid())
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id])
-  name        String   // 例: 総合日本語 / 文法 / 会話
-  code        String?
-  hoursPerWeek Int     @default(1)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id])
+  name           String // 例: 総合日本語 / 文法 / 会話
+  code           String?
+  hoursPerWeek   Int      @default(1)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
   timetableSlots TimetableSlot[]
   attendances    Attendance[]
   homeworks      Homework[]
+
+  @@index([organizationId])
 }
 
 // 担当教師
 model Teacher {
-  id          String   @id @default(cuid())
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
-  name        String
-  email       String?
-  subjects    String?  // 担当科目メモ
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  name           String
+  email          String?
+  subjects       String? // 担当科目メモ
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
   timetableSlots TimetableSlot[]
   attendances    Attendance[]
   homeworkGrades HomeworkSubmission[]
+
+  @@index([organizationId])
 }
 
 // 在籍学生
 model Student {
-  id            String   @id @default(cuid())
-  schoolId      String
-  school        School   @relation(fields: [schoolId], references: [id])
-  classId       String?
-  class         Class?   @relation(fields: [classId], references: [id])
+  organizationId String?
+  id             String  @id @default(cuid())
+  schoolId       String
+  school         School  @relation(fields: [schoolId], references: [id])
+  classId        String?
+  class          Class?  @relation(fields: [classId], references: [id])
 
   // 出願データから引き継ぎ
-  applicationId String?  @unique
-  studentNo     String   @unique // 学籍番号
+  applicationId String?   @unique
+  studentNo     String    @unique // 学籍番号
   lastName      String
   firstName     String
   lastNameKana  String?
@@ -539,12 +604,12 @@ model Student {
   phone         String?
   nationality   String?
   birthDate     String?
-  enrolledAt    DateTime @default(now())  // 入学日
-  graduatedAt   DateTime?                // 卒業日
-  status        String   @default("在籍") // 在籍/休学/退学/卒業
+  enrolledAt    DateTime  @default(now()) // 入学日
+  graduatedAt   DateTime? // 卒業日
+  status        String    @default("在籍") // 在籍/休学/退学/卒業
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   attendances         Attendance[]
   leaveRequests       LeaveRequest[]
@@ -555,310 +620,352 @@ model Student {
   @@index([schoolId, classId])
   @@index([status])
   @@index([email])
+  @@index([organizationId])
 }
 
 // 時間割
 model Timetable {
-  id        String   @id @default(cuid())
-  schoolId  String
-  school    School   @relation(fields: [schoolId], references: [id])
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id])
-  name      String?  // 例: 2026年度前期
-  validFrom String   // 有効開始日
-  validTo   String?  // 有効終了日
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  name           String? // 例: 2026年度前期
+  validFrom      String // 有効開始日
+  validTo        String? // 有効終了日
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
-  slots     TimetableSlot[]
+  slots TimetableSlot[]
+
+  @@index([organizationId])
 }
 
 // 時間割スロット（曜日×時限×科目×教師）
 model TimetableSlot {
-  id          String   @id @default(cuid())
-  timetableId String
-  timetable   Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
-  subjectId   String
-  subject     Subject  @relation(fields: [subjectId], references: [id])
-  teacherId   String?
-  teacher     Teacher? @relation(fields: [teacherId], references: [id])
-  dayOfWeek   Int      // 1=月 2=火 3=水 4=木 5=金 6=土
-  period      Int      // 1〜8時限
-  startTime   String   // 例: 09:00
-  endTime     String   // 例: 10:30
-  room        String?  // 教室
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String    @id @default(cuid())
+  timetableId    String
+  timetable      Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject   @relation(fields: [subjectId], references: [id])
+  teacherId      String?
+  teacher        Teacher?  @relation(fields: [teacherId], references: [id])
+  dayOfWeek      Int // 1=月 2=火 3=水 4=木 5=金 6=土
+  period         Int // 1〜8時限
+  startTime      String // 例: 09:00
+  endTime        String // 例: 10:30
+  room           String? // 教室
+  createdAt      DateTime  @default(now())
 
   attendances Attendance[]
+
+  @@index([organizationId])
 }
 
 // 出席記録
 model Attendance {
-  id              String   @id @default(cuid())
+  organizationId  String?
+  id              String         @id @default(cuid())
   studentId       String
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subjectId       String
-  subject         Subject  @relation(fields: [subjectId], references: [id])
+  subject         Subject        @relation(fields: [subjectId], references: [id])
   timetableSlotId String?
   timetableSlot   TimetableSlot? @relation(fields: [timetableSlotId], references: [id])
   teacherId       String?
-  teacher         Teacher? @relation(fields: [teacherId], references: [id])
-  date            String   // YYYY-MM-DD
-  status          String   // 出席/欠席/遅刻/早退/公欠
+  teacher         Teacher?       @relation(fields: [teacherId], references: [id])
+  date            String // YYYY-MM-DD
+  status          String // 出席/欠席/遅刻/早退/公欠
   note            String?
-  recordedAt      DateTime @default(now())
-  createdAt       DateTime @default(now())
+  recordedAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
 
   @@unique([studentId, timetableSlotId, date])
   @@index([studentId, date])
   @@index([date])
   @@index([subjectId, date])
+  @@index([organizationId])
 }
 
 // 欠席届・休暇申請
 model LeaveRequest {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type        String   // 欠席届/遅刻届/早退届/休学申請
-  startDate   String
-  endDate     String
-  reason      String
-  status      String   @default("申請中") // 申請中/承認/却下
-  proofFilePath String? // 証明書ファイルパス
-  proofFileName String?
-  adminNote   String?
-  reviewedAt  DateTime?
-  reviewedBy  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String    @id @default(cuid())
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type           String // 欠席届/遅刻届/早退届/休学申請
+  startDate      String
+  endDate        String
+  reason         String
+  status         String    @default("申請中") // 申請中/承認/却下
+  proofFilePath  String? // 証明書ファイルパス
+  proofFileName  String?
+  adminNote      String?
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
 }
 
 // 課題
 model Homework {
-  id          String   @id @default(cuid())
-  subjectId   String
-  subject     Subject  @relation(fields: [subjectId], references: [id])
-  title       String
-  description String?
-  dueDate     String
-  maxScore    Int      @default(100)
-  isPublished Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  title          String
+  description    String?
+  dueDate        String
+  maxScore       Int      @default(100)
+  isPublished    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   submissions HomeworkSubmission[]
+
+  @@index([organizationId])
 }
 
 // 課題提出
 model HomeworkSubmission {
-  id          String   @id @default(cuid())
-  homeworkId  String
-  homework    Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  teacherId   String?  // 採点担当
-  teacher     Teacher? @relation(fields: [teacherId], references: [id])
-  filePath    String?
-  fileName    String?
-  comment     String?  // 学生のコメント
-  score       Int?     // 採点
-  feedback    String?  // 教師フィードバック
-  status      String   @default("未提出") // 未提出/提出済/採点済/返却済
-  submittedAt DateTime?
-  gradedAt    DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String    @id @default(cuid())
+  homeworkId     String
+  homework       Homework  @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId      String? // 採点担当
+  teacher        Teacher?  @relation(fields: [teacherId], references: [id])
+  filePath       String?
+  fileName       String?
+  comment        String? // 学生のコメント
+  score          Int? // 採点
+  feedback       String? // 教師フィードバック
+  status         String    @default("未提出") // 未提出/提出済/採点済/返却済
+  submittedAt    DateTime?
+  gradedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([homeworkId, studentId])
+  @@index([organizationId])
 }
 
 // 証明書申請
 model CertificateRequest {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type        String   // 在籍証明書/出席率証明書/成績証明書/卒業見込証明書
-  purpose     String?  // 使用目的
-  copies      Int      @default(1)
-  status      String   @default("申請中") // 申請中/作成中/承認済/発行済/却下
-  pdfPath     String?  // 生成済みPDF
-  adminNote   String?
-  issuedAt    DateTime?
-  issuedBy    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String    @id @default(cuid())
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type           String // 在籍証明書/出席率証明書/成績証明書/卒業見込証明書
+  purpose        String? // 使用目的
+  copies         Int       @default(1)
+  status         String    @default("申請中") // 申請中/作成中/承認済/発行済/却下
+  pdfPath        String? // 生成済みPDF
+  adminNote      String?
+  issuedAt       DateTime?
+  issuedBy       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
 }
 
 // 年間カレンダーイベント
 model CalendarEvent {
-  id          String   @id @default(cuid())
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  title       String
-  eventDate   String   // YYYY-MM-DD
-  endDate     String?  // YYYY-MM-DD（複数日の場合）
-  category    String   @default("一般") // 休日/試験/行事/締切/一般
-  description String?
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title          String
+  eventDate      String // YYYY-MM-DD
+  endDate        String? // YYYY-MM-DD（複数日の場合）
+  category       String   @default("一般") // 休日/試験/行事/締切/一般
+  description    String?
+  isPublished    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 // 学校掲示板（お知らせ）- 学生向け
 model SchoolNotice {
-  id          String   @id @default(cuid())
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  title       String
-  content     String
-  category    String   @default("一般") // 重要/一般/イベント/緊急
-  isPinned    Boolean  @default(false)
-  isPublished Boolean  @default(true)
-  publishedAt DateTime @default(now())
-  createdBy   String   @default("管理者")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title          String
+  content        String
+  category       String   @default("一般") // 重要/一般/イベント/緊急
+  isPinned       Boolean  @default(false)
+  isPublished    Boolean  @default(true)
+  publishedAt    DateTime @default(now())
+  createdBy      String   @default("管理者")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 // チャットメッセージ（学生↔担任）
 model ChatMessage {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  senderType  String   // student / teacher
-  senderName  String
-  message     String
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  senderType     String // student / teacher
+  senderName     String
+  message        String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   @@index([studentId, createdAt])
+  @@index([organizationId])
 }
 
 // 複数志望校
 model ApplicationSchool {
+  organizationId  String?
   id              String      @id @default(cuid())
   applicationId   String
   application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  priority        Int         // 1=第1志望, 2=第2志望, 3=第3志望
+  priority        Int // 1=第1志望, 2=第2志望, 3=第3志望
   // スナップショット（提出時刻の表示用）
   schoolName      String
   department      String
   course          String?
   enrollmentYear  String
   enrollmentMonth String
-  result          String?     // 合格/不合格/保留/辞退/null(未確定)
+  result          String? // 合格/不合格/保留/辞退/null(未確定)
   memo            String?
 
   // 志望校ごとの面接試験日程（併願時にそれぞれ別日程を設定するため）
   // 未設定の場合は Application.interviewDate（第1志望共通の値）にフォールバック。
-  interviewDate   String?     // YYYY-MM-DD
-  interviewTime   String?     // HH:MM
-  interviewPlace  String?
-  interviewNotes  String?
+  interviewDate  String? // YYYY-MM-DD
+  interviewTime  String? // HH:MM
+  interviewPlace String?
+  interviewNotes String?
 
   // 志望校ごとの筆記試験日程（一般課程で利用。指定推薦・特待生等は writtenExamExempted=true）
-  writtenExamDate     String?     // YYYY-MM-DD
-  writtenExamTime     String?     // HH:MM
+  writtenExamDate     String? // YYYY-MM-DD
+  writtenExamTime     String? // HH:MM
   writtenExamPlace    String?
   writtenExamNotes    String?
   writtenExamExempted Boolean @default(false)
 
   // FK — 正規化された参照
-  applySchoolId      String?
-  applySchool        ApplySchool?     @relation("ApplicationSchoolApplySchool", fields: [applySchoolId], references: [id])
-  applyDepartmentId  String?
-  applyDepartment    ApplyDepartment? @relation("ApplicationSchoolApplyDepartment", fields: [applyDepartmentId], references: [id])
+  applySchoolId     String?
+  applySchool       ApplySchool?     @relation("ApplicationSchoolApplySchool", fields: [applySchoolId], references: [id])
+  applyDepartmentId String?
+  applyDepartment   ApplyDepartment? @relation("ApplicationSchoolApplyDepartment", fields: [applyDepartmentId], references: [id])
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([applicationId, priority])
   @@index([applySchoolId])
   @@index([applyDepartmentId])
+  @@index([organizationId])
 }
 
 model FormFieldConfig {
-  id           String   @id @default(cuid())
-  fieldKey     String
-  schoolId     String?  // null = 全校共通（グローバルデフォルト）
-  label        String
-  fieldType    String   @default("text")  // text, select, textarea, checkbox, date, tel, email, file
-  isEnabled    Boolean  @default(true)
-  isRequired   Boolean  @default(true)
-  displayOrder Int      @default(0)
-  section      String   @default("個人情報")
-  description  String?  // ヒントテキスト（ファイルフィールド等で使用）
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  fieldKey       String
+  schoolId       String? // null = 全校共通（グローバルデフォルト）
+  label          String
+  fieldType      String   @default("text") // text, select, textarea, checkbox, date, tel, email, file
+  isEnabled      Boolean  @default(true)
+  isRequired     Boolean  @default(true)
+  displayOrder   Int      @default(0)
+  section        String   @default("個人情報")
+  description    String? // ヒントテキスト（ファイルフィールド等で使用）
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  applicantType String?  // null=共通 / "japanese" / "foreign"
-  options       String?  // select等の選択肢（改行/カンマ区切り）。examMode行は区分配置JSON。
+  applicantType    String? // null=共通 / "japanese" / "foreign"
+  options          String? // select等の選択肢（改行/カンマ区切り）。examMode行は区分配置JSON。
   showWhenExamMode String? // 選考区分IDが入っていると、その区分選択時のみ表示（null=常時）
+
   @@unique([fieldKey, schoolId, applicantType])
+  @@index([organizationId])
 }
 
 model ApplySchool {
-  id           String   @id @default(cuid())
-  schoolKey    String   @unique   // e.g. 'chuo-seminar'
-  name         String             // e.g. '中央ゼミナール'
-  hojin        String             // e.g. '学校法人 羽場学園'
-  icon         String   @default("school") // IconName キー（@/components/ui/Icon）。旧データの絵文字は表示時に school へフォールバック
-  description  String?            // トップ画面カードのキャッチ文（管理画面で編集）
-  notifyEmail  String?            // 新規出願の管理者通知先（未設定なら旧マップ→ENV.ADMIN_EMAIL）
-  isActive     Boolean  @default(true)
-  displayOrder Int      @default(0)
-  departments  String             // JSON snapshot for backward compat; canonical source is ApplyDepartment
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  organizationId String?
+  id             String   @id @default(cuid())
+  schoolKey      String   @unique // e.g. 'chuo-seminar'
+  name           String // e.g. '中央ゼミナール'
+  hojin          String // e.g. '学校法人 羽場学園'
+  icon           String   @default("school") // IconName キー（@/components/ui/Icon）。旧データの絵文字は表示時に school へフォールバック
+  description    String? // トップ画面カードのキャッチ文（管理画面で編集）
+  notifyEmail    String? // 新規出願の管理者通知先（未設定なら旧マップ→ENV.ADMIN_EMAIL）
+  isActive       Boolean  @default(true)
+  displayOrder   Int      @default(0)
+  departments    String // JSON snapshot for backward compat; canonical source is ApplyDepartment
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  applyDepartments    ApplyDepartment[]
-  applications        Application[]       @relation("ApplicationApplySchool")
-  applicationSchools  ApplicationSchool[] @relation("ApplicationSchoolApplySchool")
-  enrollmentQuotas    EnrollmentQuota[]   @relation("EnrollmentQuotaApplySchool")
-  cohorts             Cohort[]            @relation("CohortApplySchool")
+  applyDepartments   ApplyDepartment[]
+  applications       Application[]       @relation("ApplicationApplySchool")
+  applicationSchools ApplicationSchool[] @relation("ApplicationSchoolApplySchool")
+  enrollmentQuotas   EnrollmentQuota[]   @relation("EnrollmentQuotaApplySchool")
+  cohorts            Cohort[]            @relation("CohortApplySchool")
+
+  @@index([organizationId])
 }
 
 // 学校 × 学科の正規化テーブル（旧: ApplySchool.departments JSON）
 model ApplyDepartment {
-  id            String   @id @default(cuid())
-  applySchoolId String
-  applySchool   ApplySchool @relation(fields: [applySchoolId], references: [id], onDelete: Cascade)
-  name          String
-  duration      String   @default("2年制")
-  courses       String   @default("[]") // JSON array of course names
-  displayOrder  Int      @default(0)
-  isActive      Boolean  @default(true)
-  hasWrittenExam Boolean @default(true)  // 筆記試験の有無（false=筆記なし学科。受験票・成績欄・採番に影響）
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  organizationId String?
+  id             String      @id @default(cuid())
+  applySchoolId  String
+  applySchool    ApplySchool @relation(fields: [applySchoolId], references: [id], onDelete: Cascade)
+  name           String
+  duration       String      @default("2年制")
+  courses        String      @default("[]") // JSON array of course names
+  displayOrder   Int         @default(0)
+  isActive       Boolean     @default(true)
+  hasWrittenExam Boolean     @default(true) // 筆記試験の有無（false=筆記なし学科。受験票・成績欄・採番に影響）
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  applications        Application[]       @relation("ApplicationApplyDepartment")
-  applicationSchools  ApplicationSchool[] @relation("ApplicationSchoolApplyDepartment")
-  enrollmentQuotas    EnrollmentQuota[]   @relation("EnrollmentQuotaApplyDepartment")
+  applications       Application[]       @relation("ApplicationApplyDepartment")
+  applicationSchools ApplicationSchool[] @relation("ApplicationSchoolApplyDepartment")
+  enrollmentQuotas   EnrollmentQuota[]   @relation("EnrollmentQuotaApplyDepartment")
 
   @@unique([applySchoolId, name])
   @@index([applySchoolId])
+  @@index([organizationId])
 }
 
 // システム全体の設定（key-value、軽量）。
 // enrollmentYears 等、UI の選択肢をハードコードせず管理画面から変えるためのテーブル。
 model SystemSetting {
-  key       String   @id
-  value     String   // JSON-encoded
-  updatedAt DateTime @updatedAt
-  updatedBy String?  // 最後に変更した管理者ユーザー
+  organizationId String?
+  key            String   @id
+  value          String // JSON-encoded
+  updatedAt      DateTime @updatedAt
+  updatedBy      String? // 最後に変更した管理者ユーザー
+
+  @@index([organizationId])
 }
 
 // 定員管理（学校×学科×入学年度）
 model EnrollmentQuota {
-  id                String   @id @default(cuid())
+  organizationId String?
+  id             String  @id @default(cuid())
   // 後方互換: 学校名/学科名のスナップショット。書き込み時に FK から派生する。
-  schoolName        String
-  department        String
-  enrollmentYear    String   // 例: 2027
-  quota             Int
-  memo              String?
+  schoolName     String
+  department     String
+  enrollmentYear String // 例: 2027
+  quota          Int
+  memo           String?
 
   // FK — 新規データは必ずセット、旧データは backfill 後にセット
   applySchoolId     String?
@@ -866,32 +973,35 @@ model EnrollmentQuota {
   applyDepartmentId String?
   applyDepartment   ApplyDepartment? @relation("EnrollmentQuotaApplyDepartment", fields: [applyDepartmentId], references: [id])
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([schoolName, department, enrollmentYear])
   @@unique([applySchoolId, applyDepartmentId, enrollmentYear])
   @@index([applySchoolId])
+  @@index([organizationId])
 }
 
 // 操作ログ（監査ログ）。管理側の書込操作を1行ずつ記録する。
 // 追加のみ＝非破壊。操作者名/対象ラベルは操作時のスナップショットで保持し、
 // 後でユーザーや対象がリネーム・削除されてもログは読めるようにする。
 model AuditLog {
-  id          String   @id @default(cuid())
-  actorId     String?  // 管理ユーザーID（system は null）
-  actorName   String   // 操作時の表示名スナップショット
-  actorRole   String?  // 操作時のロール
-  action      String   // 操作キー（例: application.status）
-  targetType  String?  // Application / Cohort / User / EnrollmentProcedure 等
-  targetId    String?
-  targetLabel String?  // 人が読めるラベル（例: 25-1-001 山田太郎）
-  summary     String   // 日本語1行の概要
-  meta        String?  // 任意の構造化情報（JSON文字列, 例: {"from":"受付中","to":"合格"}）
-  ip          String?
-  createdAt   DateTime @default(now())
+  organizationId String?
+  id             String   @id @default(cuid())
+  actorId        String? // 管理ユーザーID（system は null）
+  actorName      String // 操作時の表示名スナップショット
+  actorRole      String? // 操作時のロール
+  action         String // 操作キー（例: application.status）
+  targetType     String? // Application / Cohort / User / EnrollmentProcedure 等
+  targetId       String?
+  targetLabel    String? // 人が読めるラベル（例: 25-1-001 山田太郎）
+  summary        String // 日本語1行の概要
+  meta           String? // 任意の構造化情報（JSON文字列, 例: {"from":"受付中","to":"合格"}）
+  ip             String?
+  createdAt      DateTime @default(now())
 
   @@index([createdAt])
   @@index([targetType, targetId])
   @@index([action])
+  @@index([organizationId])
 }

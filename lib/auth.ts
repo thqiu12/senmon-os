@@ -9,6 +9,9 @@ export interface AdminSession {
   userId: string;
   role: AdminRole;
   isValid: boolean;
+  // テナント(Plan 2)。getSession が user から設定。型は任意(既存の session リテラル非破壊)。
+  organizationId?: string | null; // 所属テナント。PlatformAdmin は null
+  isPlatformAdmin?: boolean; // true=テナント横断の運営者
 }
 
 // セッショントークンの有効期間（サーバー側で強制）。Cookie の maxAge と揃える。
@@ -59,7 +62,13 @@ export async function getSession(request: NextRequest): Promise<AdminSession | n
     const user = await prisma.adminUser.findUnique({ where: { id: parsed.userId } });
     if (!user || !user.isActive) return null;
     if (user.tokenVersion !== parsed.tokenVersion) return null;
-    return { userId: user.id, role: user.role as AdminRole, isValid: true };
+    return {
+      userId: user.id,
+      role: user.role as AdminRole,
+      isValid: true,
+      organizationId: user.organizationId,
+      isPlatformAdmin: user.isPlatformAdmin,
+    };
   } catch {
     return null;
   }

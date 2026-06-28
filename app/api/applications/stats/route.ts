@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { logError } from "@/lib/logger";
 
 const PASS_STATUSES = ["合格", "補欠合格"];
 const REVIEWED_STATUSES = ["合格", "補欠合格", "不合格", "保留"];
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
   try {
+    const db = getTenantDb();
     const { searchParams } = new URL(request.url);
     const cohortId = searchParams.get("cohortId");
 
@@ -20,13 +22,13 @@ export async function GET(request: NextRequest) {
       const cohortFilter = cohortId === "none" ? { cohortId: null, deletedAt: null } : { cohortId, deletedAt: null };
 
       const [statusGroups, total, withDocs] = await Promise.all([
-        prisma.application.groupBy({
+        db.application.groupBy({
           by: ["status"],
           where: cohortFilter,
           _count: { _all: true },
         }),
-        prisma.application.count({ where: cohortFilter }),
-        prisma.application.count({
+        db.application.count({ where: cohortFilter }),
+        db.application.count({
           where: { ...cohortFilter, documents: { some: {} } },
         }),
       ]);
@@ -57,13 +59,13 @@ export async function GET(request: NextRequest) {
     todayStart.setHours(0, 0, 0, 0);
 
     const [statusGroups, todayCount, passedApps] = await Promise.all([
-      prisma.application.groupBy({
+      db.application.groupBy({
         by: ["status"],
         where: { deletedAt: null },
         _count: { _all: true },
       }),
-      prisma.application.count({ where: { createdAt: { gte: todayStart }, deletedAt: null } }),
-      prisma.application.findMany({
+      db.application.count({ where: { createdAt: { gte: todayStart }, deletedAt: null } }),
+      db.application.findMany({
         where: { status: { in: PASS_STATUSES }, deletedAt: null },
         select: {
           enrollmentProcedure: {
@@ -111,4 +113,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/applications/stats", error);
     return NextResponse.json({ error: "統計の取得に失敗しました" }, { status: 500 });
   }
-}
+});

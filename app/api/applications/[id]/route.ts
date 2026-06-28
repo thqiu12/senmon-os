@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability, DECISION_STATUSES } from "@/lib/permissions";
 import { ApplicationPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
@@ -8,17 +9,17 @@ import { getClientIp } from "@/lib/security";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 
-export async function GET(
+export const GET = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get("email");
     const session = await getSession(request);
     const isAdmin = checkAdmin(session);
 
-    const application = await prisma.application.findUnique({
+    const application = await getTenantDb().application.findFirst({
       where: { id: params.id },
       include: {
         documents: true,
@@ -51,18 +52,19 @@ export async function GET(
     logError("GET /api/applications/[id]", error);
     return NextResponse.json({ error: "申請の取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
   try {
+    const db = getTenantDb();
     const parsed = ApplicationPatchSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -73,17 +75,17 @@ export async function PATCH(
     const body = parsed.data;
 
     // 操作ログ用に変更前の状態を控える（status の from→to に使う）
-    const before = await prisma.application.findUnique({
+    const before = await db.application.findFirst({
       where: { id: params.id },
       select: { status: true, applicationNo: true, lastName: true, firstName: true },
     });
 
     if (body.cohortId) {
-      const exists = await prisma.cohort.findUnique({ where: { id: body.cohortId }, select: { id: true } });
+      const exists = await db.cohort.findFirst({ where: { id: body.cohortId }, select: { id: true } });
       if (!exists) return NextResponse.json({ error: "cohortId が無効です" }, { status: 400 });
     }
     if (body.agentId) {
-      const exists = await prisma.agent.findUnique({ where: { id: body.agentId }, select: { id: true } });
+      const exists = await db.agent.findFirst({ where: { id: body.agentId }, select: { id: true } });
       if (!exists) return NextResponse.json({ error: "agentId が無効です" }, { status: 400 });
     }
 
@@ -123,7 +125,7 @@ export async function PATCH(
       changeRequests: { orderBy: { createdAt: "desc" } },
     } as const;
 
-    const application = await prisma.$transaction(async (tx) => {
+    const application = await db.$transaction(async (tx) => {
       const updated = await tx.application.update({
         where: { id: params.id },
         data: updateData,
@@ -131,18 +133,18 @@ export async function PATCH(
       });
 
       if (body.status === "合格" || body.status === "補欠合格") {
-        const existing = await tx.enrollmentProcedure.findUnique({
+        const existing = await tx.enrollmentProcedure.findFirst({
           where: { applicationId: params.id },
         });
         if (!existing) {
           const cohort = updated.cohort
-            ? await tx.cohort.findUnique({ where: { id: updated.cohort.id } })
+            ? await tx.cohort.findFirst({ where: { id: updated.cohort.id } })
             : null;
           // 入学手続き書類は フォーム管理（section=入学手続き書類・学校別）から生成。
           // 学校固有が全校共通(schoolId=null)を上書き。未設定なら従来の既定にフォールバック。
           let appSchoolKey: string | null = null;
           if (updated.applySchoolId) {
-            const as = await tx.applySchool.findUnique({ where: { id: updated.applySchoolId }, select: { schoolKey: true } });
+            const as = await tx.applySchool.findFirst({ where: { id: updated.applySchoolId }, select: { schoolKey: true } });
             appSchoolKey = as?.schoolKey ?? null;
           }
           const enrollDocFields = await tx.formFieldConfig.findMany({
@@ -208,7 +210,7 @@ export async function PATCH(
       }
 
       if (body.addNote) {
-        const user = session ? await tx.adminUser.findUnique({
+        const user = session ? await tx.adminUser.findFirst({
           where: { id: session.userId },
           select: { displayName: true, username: true },
         }) : null;
@@ -224,7 +226,7 @@ export async function PATCH(
       }
 
       // 副作用（procedure 作成・note 追加）後の最新状態を返す
-      return tx.application.findUnique({ where: { id: params.id }, include: includeFull });
+      return tx.application.findFirst({ where: { id: params.id }, include: includeFull });
     });
 
     // 操作ログ: ステータス変更はそれ専用、それ以外の編集は update として記録
@@ -251,12 +253,12 @@ export async function PATCH(
     logError("PATCH /api/applications/[id]", error);
     return NextResponse.json({ error: "申請の更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
   try {
     if (!session) {
@@ -265,11 +267,12 @@ export async function DELETE(
     if (!(await hasCapability(session, "application.delete"))) {
       return NextResponse.json({ error: "申請を削除する権限がありません" }, { status: 403 });
     }
+    const db = getTenantDb();
     // 論理削除（ゴミ箱へ）。データ・書類・履歴は保持され、削除済みビューから復元できる。
     const body = await request.json().catch(() => ({}));
     const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
-    const admin = await prisma.adminUser.findUnique({ where: { id: session.userId }, select: { displayName: true } });
-    const deleted = await prisma.application.update({
+    const admin = await db.adminUser.findFirst({ where: { id: session.userId }, select: { displayName: true } });
+    const deleted = await db.application.update({
       where: { id: params.id },
       data: { deletedAt: new Date(), deletedBy: admin?.displayName || session.userId, deleteReason: reason },
     });
@@ -286,4 +289,4 @@ export async function DELETE(
     logError("DELETE /api/applications/[id]", error);
     return NextResponse.json({ error: "申請の削除に失敗しました" }, { status: 500 });
   }
-}
+});

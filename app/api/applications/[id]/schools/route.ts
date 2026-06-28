@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 
 // POST: 志望校追加
-export async function POST(
+export const POST = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -32,29 +33,37 @@ export async function POST(
       );
     }
 
-    // 同じpriorityが存在する場合は上書き
-    const school = await prisma.applicationSchool.upsert({
-      where: { applicationId_priority: { applicationId: params.id, priority: prio } },
-      update: { schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null },
-      create: { id: require("crypto").randomUUID(), applicationId: params.id, priority: prio, schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null, updatedAt: new Date() },
+    // 同じpriorityが存在する場合は上書き（手動 upsert: org スコープの findFirst→update/create。
+    // 複合ユニーク + org 注入の upsert は挙動が不確実なため、安全な findFirst+update/create にする）
+    const db = getTenantDb();
+    const fields = { schoolName, department, course: course || null, enrollmentYear, enrollmentMonth, result: result || null, memo: memo || null };
+    const existing = await db.applicationSchool.findFirst({
+      where: { applicationId: params.id, priority: prio },
+      select: { id: true },
     });
+    const school = existing
+      ? await db.applicationSchool.update({ where: { id: existing.id }, data: fields })
+      : await db.applicationSchool.create({
+          data: { id: require("crypto").randomUUID(), applicationId: params.id, priority: prio, ...fields, updatedAt: new Date() },
+        });
 
     return NextResponse.json(school, { status: 201 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "追加に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // PATCH: 志望校更新（result変更・試験日程設定など）
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   try {
+    const db = getTenantDb();
     const body = await request.json();
     const { schoolId } = body;
     if (!schoolId) return NextResponse.json({ error: "schoolIdが必要です" }, { status: 400 });
@@ -86,7 +95,7 @@ export async function PATCH(
     }
 
     // 所有チェック: 該当 schoolId が本当に params.id 申請のものか確認
-    const existing = await prisma.applicationSchool.findUnique({
+    const existing = await db.applicationSchool.findFirst({
       where: { id: schoolId },
       select: { applicationId: true },
     });
@@ -94,7 +103,7 @@ export async function PATCH(
       return NextResponse.json({ error: "対象の志望校が見つかりません" }, { status: 404 });
     }
 
-    const school = await prisma.applicationSchool.update({
+    const school = await db.applicationSchool.update({
       where: { id: schoolId },
       data: updateData,
     });
@@ -106,7 +115,7 @@ export async function PATCH(
       k.startsWith("interview") || k.startsWith("writtenExam"),
     );
     if (isScheduleChange) {
-      const app = await prisma.application.findUnique({
+      const app = await db.application.findFirst({
         where: { id: params.id },
         include: { applicationSchools: true },
       });
@@ -175,24 +184,25 @@ export async function PATCH(
     console.error("PATCH /api/applications/[id]/schools error:", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // DELETE: 志望校削除
-export async function DELETE(
+export const DELETE = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   try {
+    const db = getTenantDb();
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     if (!schoolId) return NextResponse.json({ error: "schoolIdが必要です" }, { status: 400 });
 
     // 所有チェック: 該当 schoolId が本当に params.id の申請のものか確認
     // （PATCH と同様。誤った schoolId で他申請の志望校を消さないため）
-    const existing = await prisma.applicationSchool.findUnique({
+    const existing = await db.applicationSchool.findFirst({
       where: { id: schoolId },
       select: { applicationId: true },
     });
@@ -200,9 +210,9 @@ export async function DELETE(
       return NextResponse.json({ error: "対象の志望校が見つかりません" }, { status: 404 });
     }
 
-    await prisma.applicationSchool.delete({ where: { id: schoolId } });
+    await db.applicationSchool.delete({ where: { id: schoolId } });
     return NextResponse.json({ success: true });
   } catch (e) {
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ChangeRequestCreateSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/security";
@@ -16,10 +17,10 @@ import { ALLOWED_FIELDS } from "@/lib/change-request-fields";
 
 // ALLOWED_FIELDS は lib/change-request-fields.ts に切り出し済み（route.ts から export 不可のため）
 
-export async function GET(
+export const GET = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
 
   try {
@@ -37,7 +38,7 @@ export async function GET(
       }
     }
 
-    const items = await prisma.changeRequest.findMany({
+    const items = await getTenantDb().changeRequest.findMany({
       where: { applicationId: params.id },
       orderBy: { createdAt: "desc" },
     });
@@ -46,12 +47,12 @@ export async function GET(
     logError("GET /api/applications/[id]/change-requests", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(
+export const POST = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`change-req:${ip}`, 10, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -100,8 +101,10 @@ export async function POST(
     return NextResponse.json({ error: `「${fieldDef.label}」の値が不正です` }, { status: 400 });
   }
 
+  const db = getTenantDb();
+
   // 現在値を取得
-  const app = await prisma.application.findUnique({
+  const app = await db.application.findFirst({
     where: { id: params.id },
     select: {
       [fieldKey]: true,
@@ -118,7 +121,7 @@ export async function POST(
   }
 
   // 同じフィールドで申請中のリクエストが既にあれば、新規追加を拒否（重複防止）
-  const dup = await prisma.changeRequest.findFirst({
+  const dup = await db.changeRequest.findFirst({
     where: { applicationId: params.id, fieldKey, status: "申請中" },
   });
   if (dup) {
@@ -129,7 +132,7 @@ export async function POST(
   }
 
   try {
-    const created = await prisma.changeRequest.create({
+    const created = await db.changeRequest.create({
       data: {
         applicationId: params.id,
         fieldKey,
@@ -144,7 +147,7 @@ export async function POST(
     logError("POST /api/applications/[id]/change-requests", e);
     return NextResponse.json({ error: "申請の作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // 許可フィールド定義を公開して、UI 側でドロップダウン生成等に再利用できるよう OPTIONS で返す
 export async function OPTIONS() {

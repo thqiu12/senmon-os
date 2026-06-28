@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { verifyStudentOwnership } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { ChatPostSchema } from "@/lib/schemas";
 import crypto from "crypto";
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`chat:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -21,10 +22,11 @@ export async function POST(request: NextRequest) {
     }
     const { applicationNo, studentNo, email, message } = parsed.data;
 
+    const db = getTenantDb();
     let student: { id: string; lastName: string; firstName: string } | null = null;
 
     if (studentNo) {
-      student = await prisma.student.findFirst({
+      student = await db.student.findFirst({
         where: { studentNo, email },
         select: { id: true, lastName: true, firstName: true },
       });
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
       if (!ownership.valid) {
         return NextResponse.json({ error: "本人確認に失敗しました" }, { status: 401 });
       }
-      student = await prisma.student.findUnique({
+      student = await db.student.findFirst({
         where: { applicationId: ownership.applicationId },
         select: { id: true, lastName: true, firstName: true },
       });
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "在籍情報が見つかりません" }, { status: 404 });
     }
 
-    const msg = await prisma.chatMessage.create({
+    const msg = await db.chatMessage.create({
       data: {
         id: crypto.randomUUID(),
         studentId: student.id,
@@ -58,4 +60,4 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/student-portal/chat error:", e);
     return NextResponse.json({ error: "送信に失敗しました" }, { status: 500 });
   }
-}
+});

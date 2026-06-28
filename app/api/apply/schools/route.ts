@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { FALLBACK_DEPARTMENTS } from "@/lib/schoolsFallback";
 
 // 常に動的レンダリング（キャッシュ無効）
@@ -7,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 // GET: 有効な志望校一覧（認証不要・公開）
 // Returns active schools ordered by displayOrder
-export async function GET() {
+export const GET = withTenant(async () => {
   try {
-    const schools = await prisma.applySchool.findMany({
+    const schools = await getTenantDb().applySchool.findMany({
       where: { isActive: true },
       orderBy: { displayOrder: "asc" },
       select: {
@@ -46,4 +47,4 @@ export async function GET() {
     console.error("GET /api/apply/schools error:", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

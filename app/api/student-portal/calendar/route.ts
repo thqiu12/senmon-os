@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`calendar:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (month) {
       where.eventDate = { gte: `${month}-01`, lte: `${month}-31` };
     }
-    const events = await prisma.calendarEvent.findMany({
+    const events = await getTenantDb().calendarEvent.findMany({
       where,
       orderBy: { eventDate: "asc" },
     });
@@ -30,4 +31,4 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/student-portal/calendar error:", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

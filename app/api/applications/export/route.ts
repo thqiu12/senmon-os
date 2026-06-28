@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { escapeCsv, formatDateTimeJP } from "@/lib/utils";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { logError } from "@/lib/logger";
 import { statusWhere } from "@/lib/schemas";
@@ -17,7 +18,7 @@ const HEADERS = [
 
 const PAGE_SIZE = 500;
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -32,6 +33,8 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = { deletedAt: null };
     const sw = statusWhere(status);
     if (sw !== undefined) where.status = sw;
+    // org スコープ済みクライアントを stream 構築前に捕捉(後で start が走っても org に束縛される)
+    const db = getTenantDb();
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -55,7 +58,7 @@ export async function GET(request: NextRequest) {
           // eslint-disable-next-line no-constant-condition
           while (true) {
             const batch: Prisma.ApplicationGetPayload<{ include: typeof include }>[] =
-              await prisma.application.findMany({
+              await db.application.findMany({
                 where,
                 orderBy: { id: "asc" },
                 take: PAGE_SIZE,
@@ -118,4 +121,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/applications/export", error);
     return NextResponse.json({ error: "CSVエクスポートに失敗しました" }, { status: 500 });
   }
-}
+});

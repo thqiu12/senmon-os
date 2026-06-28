@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { FeePatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 
@@ -8,10 +9,10 @@ import { logError } from "@/lib/logger";
 const STUDENT_ALLOWED = new Set(["examFeeAmount", "examFeeReceiptUrl", "examFeeStatus"]);
 const STUDENT_ALLOWED_STATUS = new Set(["未払い", "確認中"]);
 
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
   let body: unknown;
   try {
@@ -67,7 +68,7 @@ export async function PATCH(
   }
 
   try {
-    const updated = await prisma.application.update({
+    const updated = await getTenantDb().application.update({
       where: { id: params.id },
       data: parsed.data,
       select: { id: true, examFeeStatus: true, examFeeAmount: true, examFeeReceiptUrl: true },
@@ -77,4 +78,4 @@ export async function PATCH(
     logError("PATCH /api/applications/[id]/fee", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});

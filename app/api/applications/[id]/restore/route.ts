@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { logError } from "@/lib/logger";
 import { getClientIp } from "@/lib/security";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 
 // 論理削除（ゴミ箱）された出願を復元する。
-export async function POST(
+export const POST = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
   try {
     if (!session) {
@@ -19,7 +20,7 @@ export async function POST(
     if (!(await hasCapability(session, "application.delete"))) {
       return NextResponse.json({ error: "復元する権限がありません" }, { status: 403 });
     }
-    const restored = await prisma.application.update({
+    const restored = await getTenantDb().application.update({
       where: { id: params.id },
       data: { deletedAt: null, deletedBy: null, deleteReason: null },
     });
@@ -35,4 +36,4 @@ export async function POST(
     logError("POST /api/applications/[id]/restore", error);
     return NextResponse.json({ error: "復元に失敗しました" }, { status: 500 });
   }
-}
+});

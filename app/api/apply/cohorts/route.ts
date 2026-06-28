@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 // 現在受付中の選考バッチを返す
 // ?schoolKey=xxx を渡すと: 当該校 + 全校共通(schoolKey=null) のみ返す
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const schoolKey = searchParams.get("schoolKey");
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       where.OR = [{ schoolKey }, { schoolKey: null }];
     }
 
-    const cohorts = await prisma.cohort.findMany({
+    const cohorts = await getTenantDb().cohort.findMany({
       where,
       select: {
         id: true,
@@ -59,4 +60,4 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json([], { status: 200 });
   }
-}
+});

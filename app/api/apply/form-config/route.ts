@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 import { isApplicantType } from "@/lib/applicantType";
 import { mergeFormConfig } from "@/lib/applyFormConfigMerge";
@@ -41,7 +42,7 @@ function fallback() {
   }));
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId") || null;
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
       const type = typeParam;
       // 選択中の学校・当該タイプの行のみ取得。schoolId 無指定なら 0 行 → mergeFormConfig が既定で補完。
       // isEnabled は merge 後に最終フィルタするためここでは絞らない。
-      const rows = await prisma.formFieldConfig.findMany({
+      const rows = await getTenantDb().formFieldConfig.findMany({
         where: {
           AND: [
             schoolId ? { schoolId } : { schoolId: "__none__" },
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
     }
 
     // applicantType:null で絞り、type別行(admin が後から作成し得る)を共通結果に混入させない。
-    const schoolConfigs = await prisma.formFieldConfig.findMany({
+    const schoolConfigs = await getTenantDb().formFieldConfig.findMany({
       where: { schoolId, applicantType: null },
       orderBy: { displayOrder: "asc" },
       select: SELECT,
@@ -114,4 +115,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/apply/form-config", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

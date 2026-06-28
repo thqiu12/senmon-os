@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { verifyStudentOwnership } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import crypto from "crypto";
@@ -27,30 +28,32 @@ const STUDENT_INCLUDE = {
   },
 };
 
+// withTenant 文脈内(GET)から呼ばれる → getTenantDb() が org スコープで使える。
 async function getStudentData(student: { id: string }) {
+  const db = getTenantDb();
   // 出席記録（直近3ヶ月）
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const dateFrom = threeMonthsAgo.toISOString().slice(0, 10);
 
   const [attendances, leaveRequests, certRequests, homeworkSubs, chatMessages] = await Promise.all([
-    prisma.attendance.findMany({
+    db.attendance.findMany({
       where: { studentId: student.id, date: { gte: dateFrom } },
       orderBy: { date: "desc" },
       include: { subject: { select: { name: true } } },
       take: 100,
     }),
-    prisma.leaveRequest.findMany({
+    db.leaveRequest.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
-    prisma.certificateRequest.findMany({
+    db.certificateRequest.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
-    prisma.homeworkSubmission.findMany({
+    db.homeworkSubmission.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -63,7 +66,7 @@ async function getStudentData(student: { id: string }) {
       },
       take: 30,
     }),
-    prisma.chatMessage.findMany({
+    db.chatMessage.findMany({
       where: { studentId: student.id },
       orderBy: { createdAt: "asc" },
       take: 50,
@@ -92,7 +95,7 @@ async function getStudentData(student: { id: string }) {
 }
 
 // GET: 学生ポータルデータ取得
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`portal:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
@@ -106,11 +109,12 @@ export async function GET(request: NextRequest) {
   if (!email) return NextResponse.json({ error: "メールアドレスが必要です" }, { status: 400 });
 
   try {
+    const db = getTenantDb();
     let student = null;
 
     if (studentNo) {
       // 在籍学生ポータル：学籍番号+メールで検索
-      student = await prisma.student.findFirst({
+      student = await db.student.findFirst({
         where: { studentNo, email },
         include: STUDENT_INCLUDE,
       });
@@ -119,7 +123,7 @@ export async function GET(request: NextRequest) {
       // 出願経由：applicationNo+メールで本人確認してから検索
       const ownership = await verifyStudentOwnership(applicationNo, email);
       if (!ownership.valid) return NextResponse.json({ enrolled: false });
-      student = await prisma.student.findUnique({
+      student = await db.student.findFirst({
         where: { applicationId: ownership.applicationId },
         include: STUDENT_INCLUDE,
       });
@@ -152,10 +156,10 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "データ取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // POST: 欠席届・証明書申請
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`portal-post:${ip}`, 10, 60_000)) {
     return NextResponse.json({ error: "アクセスが多すぎます" }, { status: 429 });
@@ -165,13 +169,14 @@ export async function POST(request: NextRequest) {
     const { applicationNo, studentNo, email, action } = body;
     if (!email) return NextResponse.json({ error: "認証情報が必要です" }, { status: 400 });
 
+    const db = getTenantDb();
     let student;
     if (studentNo) {
-      student = await prisma.student.findFirst({ where: { studentNo, email } });
+      student = await db.student.findFirst({ where: { studentNo, email } });
     } else if (applicationNo) {
       const ownership = await verifyStudentOwnership(applicationNo, email);
       if (!ownership.valid) return NextResponse.json({ error: "認証に失敗しました" }, { status: 401 });
-      student = await prisma.student.findUnique({ where: { applicationId: ownership.applicationId } });
+      student = await db.student.findFirst({ where: { applicationId: ownership.applicationId } });
     }
 
     if (!student) return NextResponse.json({ error: "在籍情報が見つかりません" }, { status: 404 });
@@ -181,7 +186,7 @@ export async function POST(request: NextRequest) {
       if (!type || !startDate || !endDate || !reason) {
         return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 });
       }
-      const leave = await prisma.leaveRequest.create({
+      const leave = await db.leaveRequest.create({
         data: { id: crypto.randomUUID(), studentId: student.id, type, startDate, endDate, reason, status: "申請中",
           proofFilePath: proofFilePath || null, updatedAt: new Date() },
       });
@@ -191,7 +196,7 @@ export async function POST(request: NextRequest) {
     if (action === "cert_request") {
       const { type, purpose, copies } = body;
       if (!type) return NextResponse.json({ error: "証明書種別が必要です" }, { status: 400 });
-      const cert = await prisma.certificateRequest.create({
+      const cert = await db.certificateRequest.create({
         data: { id: crypto.randomUUID(), studentId: student.id, type, purpose: purpose || null, copies: copies || 1, status: "申請中", updatedAt: new Date() },
       });
       return NextResponse.json({ success: true, cert });
@@ -202,4 +207,4 @@ export async function POST(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "処理に失敗しました" }, { status: 500 });
   }
-}
+});

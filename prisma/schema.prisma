@@ -891,7 +891,8 @@ model FormFieldConfig {
   applicantType    String? // null=共通 / "japanese" / "foreign"
   options          String? // select等の選択肢（改行/カンマ区切り）。examMode行は区分配置JSON。
   showWhenExamMode String? // 選考区分IDが入っていると、その区分選択時のみ表示（null=常時）
-
+  labelEn          String? // 英語ラベル（保存時にAI翻訳。EN表示で使用。未設定なら辞書/日本語）
+  descriptionEn    String? // 英語ヒント（同上）
   @@unique([fieldKey, schoolId, applicantType])
   @@index([organizationId])
 }

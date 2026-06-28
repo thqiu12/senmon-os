@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
-    const schools = await prisma.school.findMany({
+    const schools = await getTenantDb().school.findMany({
       orderBy: { name: "asc" },
       include: {
         courses: { where: { isActive: true }, orderBy: { name: "asc" } },
@@ -18,4 +19,4 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

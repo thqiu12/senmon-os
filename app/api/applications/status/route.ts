@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`status:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const application = await prisma.application.findUnique({
+    const application = await getTenantDb().application.findUnique({
       where: { applicationNo },
       include: {
         documents: {
@@ -193,4 +194,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { ENV } from "@/lib/env";
 import { logError } from "@/lib/logger";
@@ -18,13 +19,13 @@ import {
 export const dynamic = "force-dynamic";
 
 // GET: 書類チェック（0-token ルール層 + 保存済み AI 照合結果）
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withTenant(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "document.review"))) {
     return NextResponse.json({ error: "書類を審査する権限がありません" }, { status: 403 });
   }
   try {
-    const app = await prisma.application.findUnique({
+    const app = await getTenantDb().application.findFirst({
       where: { id: params.id },
       select: {
         id: true,
@@ -92,4 +93,4 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     logError("GET /api/applications/[id]/doc-check", e);
     return NextResponse.json({ error: "書類チェックに失敗しました" }, { status: 500 });
   }
-}
+});

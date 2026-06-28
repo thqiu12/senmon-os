@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { ENV } from "@/lib/env";
 import { logError } from "@/lib/logger";
@@ -60,7 +61,7 @@ function parseJsonLoose(text: string): DocExtraction | null {
 }
 
 // POST: 指定書類を Haiku 4.5 vision で抽出 → 保存 → フォーム値と照合
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withTenant(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "document.review"))) {
     return NextResponse.json({ error: "書類を審査する権限がありません" }, { status: 403 });
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (!documentId) return NextResponse.json({ error: "documentId は必須です" }, { status: 400 });
 
   try {
-    const doc = await prisma.document.findUnique({
+    const db = getTenantDb();
+    const doc = await db.document.findFirst({
       where: { id: documentId },
       select: {
         id: true,
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "抽出結果を解析できませんでした", raw: text.slice(0, 500) }, { status: 502 });
     }
 
-    await prisma.document.update({
+    await db.document.update({
       where: { id: doc.id },
       data: {
         aiExtraction: JSON.stringify(extraction),
@@ -165,4 +167,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const m = e instanceof Error ? e.message : "抽出に失敗しました";
     return NextResponse.json({ error: m }, { status: 500 });
   }
-}
+});

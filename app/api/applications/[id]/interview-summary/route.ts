@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { aiEnabled, generateText, parseJsonLoose, HAIKU } from "@/lib/anthropic";
 import { logError } from "@/lib/logger";
@@ -63,8 +64,9 @@ function buildUser(app: {
   return lines.join("\n");
 }
 
+// withTenant 文脈内(GET/POST)から呼ばれる → getTenantDb() が org スコープで使える。
 async function loadApp(id: string) {
-  return prisma.application.findUnique({
+  return getTenantDb().application.findFirst({
     where: { id },
     select: {
       id: true,
@@ -89,7 +91,7 @@ async function loadApp(id: string) {
 }
 
 // GET: 保存済みの面接講評（あれば）+ 状態
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withTenant(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "result.decide"))) {
     return NextResponse.json({ error: "合否を判断する権限がありません" }, { status: 403 });
@@ -111,10 +113,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     logError("GET /api/applications/[id]/interview-summary", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // POST: 面接講評+合否提案を生成・保存（決定はしない）
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withTenant(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "result.decide"))) {
     return NextResponse.json({ error: "合否を判断する権限がありません" }, { status: 403 });
@@ -140,7 +142,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "講評の生成結果を解析できませんでした" }, { status: 502 });
     }
 
-    await prisma.application.update({
+    await getTenantDb().application.update({
       where: { id: app.id },
       data: {
         interviewSummary: JSON.stringify(summary),
@@ -155,4 +157,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const m = e instanceof Error ? e.message : "生成に失敗しました";
     return NextResponse.json({ error: m }, { status: 500 });
   }
-}
+});

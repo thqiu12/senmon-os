@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { aiEnabled, generateText, parseJsonLoose, SONNET } from "@/lib/anthropic";
 import { logError } from "@/lib/logger";
@@ -27,15 +28,15 @@ const SYSTEM = [
 ].join("\n");
 
 // GET: AI が有効か（UIのボタン出し分け用）
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "notification.send"))) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
   return NextResponse.json({ aiEnabled: aiEnabled() });
-}
+});
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withTenant(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "notification.send"))) {
     return NextResponse.json({ error: "メールを送信する権限がありません" }, { status: 403 });
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   try {
-    const app = await prisma.application.findUnique({
+    const app = await getTenantDb().application.findFirst({
       where: { id: params.id },
       select: {
         applicationNo: true,
@@ -106,4 +107,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const m = e instanceof Error ? e.message : "生成に失敗しました";
     return NextResponse.json({ error: m }, { status: 500 });
   }
-}
+});

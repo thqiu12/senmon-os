@@ -1,7 +1,11 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 /**
  * 希望者リスト（Prospect）と Application の自動マッチング。
+ *
+ * テナント文脈内（withTenant ハンドラ）からのみ呼ばれる前提。
+ * getTenantDb() で organizationId スコープの Prisma を取得する。
+ * （呼び出し元: applications POST の自動マッチ・prospects/duplicates GET。いずれも withTenant 配下）
  *
  * 優先順位:
  *  1. email 完全一致（最強の識別子）
@@ -26,12 +30,13 @@ export interface MatchResult {
 }
 
 export async function matchProspect(input: MatchInput): Promise<MatchResult> {
+  const db = getTenantDb();
   // email は大文字小文字を無視して照合するため小文字化（SQLite は既定で case-sensitive）
   const normEmail = input.email ? input.email.trim().toLowerCase() : "";
 
   // Step 1: email 一致（保存側も normalize 済み前提。後方互換のため両方の可能性に備える）
   if (normEmail) {
-    const emailMatches = await prisma.prospect.findMany({
+    const emailMatches = await db.prospect.findMany({
       where: { matchedApplicationId: null, NOT: { email: null } },
       orderBy: { referredAt: "asc" },
       include: { agent: { select: { name: true } } },
@@ -51,7 +56,7 @@ export async function matchProspect(input: MatchInput): Promise<MatchResult> {
   // Step 2: 氏名 + 生年月日。複数のエージェントがヒットした場合は曖昧なので
   // 自動採用せず admin の手動紐付けに委ねる（commission 誤付与防止）。
   if (input.birthDate) {
-    const byNameBirth = await prisma.prospect.findMany({
+    const byNameBirth = await db.prospect.findMany({
       where: {
         lastName: input.lastName,
         firstName: input.firstName,
@@ -76,7 +81,7 @@ export async function matchProspect(input: MatchInput): Promise<MatchResult> {
   }
 
   // Step 3: 氏名のみ。複数ヒットは曖昧なのでマッチ無し扱い（admin が手動紐付け）
-  const byName = await prisma.prospect.findMany({
+  const byName = await db.prospect.findMany({
     where: {
       lastName: input.lastName,
       firstName: input.firstName,
@@ -101,10 +106,11 @@ export async function matchProspect(input: MatchInput): Promise<MatchResult> {
  * Application.agentId にも prospect.agentId をセット（紐付け成功時のみ）。
  */
 export async function linkProspectToApplication(input: MatchInput): Promise<MatchResult> {
+  const db = getTenantDb();
   const result = await matchProspect(input);
   if (result.prospect) {
-    await prisma.$transaction([
-      prisma.prospect.update({
+    await db.$transaction([
+      db.prospect.update({
         where: { id: result.prospect.id },
         data: {
           matchedApplicationId: input.applicationId,
@@ -113,7 +119,7 @@ export async function linkProspectToApplication(input: MatchInput): Promise<Matc
           status: "出願済",
         },
       }),
-      prisma.application.update({
+      db.application.update({
         where: { id: input.applicationId },
         data: { agentId: result.prospect.agentId },
       }),
@@ -142,7 +148,8 @@ export interface DuplicateGroup {
 }
 
 export async function findDuplicateProspects(): Promise<DuplicateGroup[]> {
-  const all = await prisma.prospect.findMany({
+  const db = getTenantDb();
+  const all = await db.prospect.findMany({
     where: { status: { not: "無効" } },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { referredAt: "asc" }],
     include: { agent: { select: { name: true } } },

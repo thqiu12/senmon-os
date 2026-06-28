@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { generateEnrollmentPledgePDF } from "@/lib/pdf/generate-pdf";
 import { verifyStudentOwnership, getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
 // 入学誓約書（電子署名済み）のPDF。学生本人（出願番号＋メール）または管理者がDL可能。
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const applicationNo = searchParams.get("applicationNo");
@@ -20,12 +21,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
     }
 
+    const db = getTenantDb();
+
     // 管理者はメール不要、学生は本人確認
     const session = await getSession(request);
     const admin = !!session && isAdmin(session);
     let applicationId: string | null = null;
     if (admin) {
-      const app = await prisma.application.findFirst({ where: { applicationNo }, select: { id: true } });
+      const app = await db.application.findFirst({ where: { applicationNo }, select: { id: true } });
       applicationId = app?.id ?? null;
     } else {
       if (!email) {
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
-    const application = await prisma.application.findUnique({
+    const application = await db.application.findFirst({
       where: { id: applicationId },
       include: { enrollmentSignature: true },
     });
@@ -84,4 +87,4 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/documents/enrollment-pledge error:", error);
     return NextResponse.json({ error: "PDF生成に失敗しました" }, { status: 500 });
   }
-}
+});

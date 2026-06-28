@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { generateAdmissionPDF } from "@/lib/pdf/generate-pdf";
 import { verifyStudentOwnership } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const applicationNo = searchParams.get("applicationNo");
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
-    const application = await prisma.application.findUnique({
+    const application = await getTenantDb().application.findFirst({
       where: { id: ownership.applicationId },
       include: { enrollmentProcedure: true },
     });
@@ -78,4 +79,4 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/documents/admission-letter error:", error);
     return NextResponse.json({ error: "PDF生成に失敗しました" }, { status: 500 });
   }
-}
+});

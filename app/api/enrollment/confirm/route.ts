@@ -1,12 +1,13 @@
 import { getSession } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { getClientIp } from "@/lib/security";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 
 // POST: 管理者が入学手続きを確認・承認する
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   try {
     if (!session) {
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "パラメータが不足しています" }, { status: 400 });
     }
 
-    const procedure = await prisma.enrollmentProcedure.findUnique({
+    const db = getTenantDb();
+    const procedure = await db.enrollmentProcedure.findFirst({
       where: { applicationId },
       include: { application: true },
     });
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "無効なアクション" }, { status: 400 });
     }
 
-    const updated = await prisma.enrollmentProcedure.update({
+    const updated = await db.enrollmentProcedure.update({
       where: { applicationId },
       data: updateData,
     });
@@ -107,4 +109,4 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/enrollment/confirm error:", error);
     return NextResponse.json({ error: "確認処理に失敗しました" }, { status: 500 });
   }
-}
+});

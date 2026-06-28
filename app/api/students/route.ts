@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 // GET: 学生一覧
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const students = await prisma.student.findMany({
+    const students = await getTenantDb().student.findMany({
       where,
       orderBy: { studentNo: "asc" },
       include: {
@@ -40,10 +41,10 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // PATCH: 学生情報更新
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -54,10 +55,10 @@ export async function PATCH(request: NextRequest) {
     const data: Record<string, unknown> = {};
     const fields = ["classId", "status", "phone", "email", "enrolledAt", "graduatedAt", "studentNo"];
     fields.forEach(f => { if (body[f] !== undefined) data[f] = body[f]; });
-    const student = await prisma.student.update({ where: { id }, data });
+    const student = await getTenantDb().student.update({ where: { id }, data });
     return NextResponse.json(student);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
@@ -10,7 +11,7 @@ import { checkRateLimit, getClientIp } from "@/lib/security";
  * 「自分が登録した希望者一覧」を表示するための公開エンドポイント。
  * トークンに紐づくエージェントの希望者だけを返す。
  */
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`prospect-token:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -22,7 +23,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const agent = await prisma.agent.findUnique({
+    const db = getTenantDb();
+    const agent = await db.agent.findFirst({
       where: { formToken: token },
       select: { id: true, name: true, isActive: true },
     });
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "エージェントが見つかりません" }, { status: 404 });
     }
 
-    const prospects = await prisma.prospect.findMany({
+    const prospects = await db.prospect.findMany({
       where: { agentId: agent.id },
       orderBy: [{ referredAt: "desc" }],
       select: {
@@ -53,4 +55,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/prospects/by-token", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

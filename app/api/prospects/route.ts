@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ProspectCreateSchema } from "@/lib/schemas";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { logError } from "@/lib/logger";
@@ -11,7 +12,7 @@ import { logError } from "@/lib/logger";
  *  GET : admin が一覧取得（フィルタ・ソート対応）
  */
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`prospect:${ip}`, 20, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
   const { agentId, formToken, ...rest } = parsed.data;
 
   try {
-    const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+    const db = getTenantDb();
+    const agent = await db.agent.findFirst({ where: { id: agentId } });
     if (!agent || !agent.isActive) {
       return NextResponse.json({ error: "エージェントが見つかりません" }, { status: 404 });
     }
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const created = await prisma.prospect.create({
+    const created = await db.prospect.create({
       data: {
         agentId,
         lastName: rest.lastName,
@@ -79,9 +81,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/prospects", e);
     return NextResponse.json({ error: "登録に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const rows = await prisma.prospect.findMany({
+    const rows = await getTenantDb().prospect.findMany({
       where,
       orderBy:
         orderBy === "name"
@@ -120,4 +122,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/prospects", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

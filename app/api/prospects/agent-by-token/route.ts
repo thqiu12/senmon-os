@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 
 /**
@@ -9,7 +10,7 @@ import { checkRateLimit, getClientIp } from "@/lib/security";
  * トークンに対応するエージェント情報（id + name）だけを返す。
  * トークン不正なら 404。contactEmail 等の機密は返さない。
  */
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`prospect-token:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "トークンが不正です" }, { status: 400 });
   }
 
-  const agent = await prisma.agent.findUnique({
+  const agent = await getTenantDb().agent.findFirst({
     where: { formToken: token },
     select: { id: true, name: true, isActive: true },
   });
@@ -29,4 +30,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ id: agent.id, name: agent.name });
-}
+});

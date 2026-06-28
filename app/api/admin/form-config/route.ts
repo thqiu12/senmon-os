@@ -4,6 +4,8 @@ import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
 import { hasCapability } from "@/lib/permissions";
 import { FORM_FIELD_DEFAULTS, defaultEnabledFor } from "@/lib/formFieldDefaults";
 import { isApplicantType, type ApplicantType } from "@/lib/applicantType";
+import { translateLabelsToEn } from "@/lib/translateFormLabels";
+import { aiEnabled } from "@/lib/anthropic";
 
 // schoolId=xxx -> school-specific merged with global
 // schoolId not provided -> global only
@@ -141,6 +143,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 追加的副作用: 新規ラベル/ヒントをAI英訳して labelEn/descriptionEn 保存。
+    // キー未設定（aiEnabled()=false）や失敗時は no-op（作成は壊さない）。
+    if (aiEnabled() && created.label) {
+      try {
+        const tr = await translateLabelsToEn([
+          { key: "L", ja: created.label },
+          { key: "D", ja: created.description || "" },
+        ]);
+        if (tr.L || tr.D) {
+          await prisma.formFieldConfig.update({
+            where: { id: created.id },
+            data: { labelEn: tr.L ?? null, descriptionEn: tr.D ?? null },
+          });
+        }
+      } catch {
+        // 翻訳失敗は無視（作成済みデータは返す）
+      }
+    }
+
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     console.error(e);
@@ -197,18 +218,50 @@ export async function PUT(request: NextRequest) {
         // 1リクエスト=1スコープの運用前提で許容（厳密化が必要になれば sentinel 値かトランザクション直列化）。
         return prisma.formFieldConfig.findFirst({
           where: { fieldKey: item.fieldKey, schoolId, applicantType },
-        }).then(existing => {
-          if (existing) {
-            return prisma.formFieldConfig.update({ where: { id: existing.id }, data: updateData });
-          }
-          return prisma.formFieldConfig.create({
-            data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, updatedAt: new Date(), ...updateData },
-          });
+        }).then(async existing => {
+          // updateData は labelEn/descriptionEn を含まないため、update は既存の英訳値を保持する
+          // (null 上書きしない)。create では未指定 = null（後段の翻訳パスで補完）。
+          const description = item.description ?? null;
+          const needLabel = !!item.label?.trim() && (!existing || existing.label !== item.label || !existing.labelEn);
+          const needDesc = !!description?.trim() && (!existing || existing.description !== description || !existing.descriptionEn);
+          const row = existing
+            ? await prisma.formFieldConfig.update({ where: { id: existing.id }, data: updateData })
+            : await prisma.formFieldConfig.create({
+                data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, updatedAt: new Date(), ...updateData },
+              });
+          return { row, fieldKey: item.fieldKey, label: item.label, description, needLabel, needDesc };
         });
       })
     );
 
-    return NextResponse.json(results);
+    // 追加的副作用: 新規/変更されたラベル・ヒントを1回のバッチでAI英訳し labelEn/descriptionEn 保存。
+    // キー未設定（aiEnabled()=false）なら translateLabelsToEn は {} を返し second pass はスキップ
+    // → labelEn/descriptionEn は据え置き（新規は null）で従来挙動のまま。
+    const transItems: { key: string; ja: string }[] = [];
+    for (const r of results) {
+      if (r.needLabel) transItems.push({ key: "L:" + r.fieldKey, ja: r.label });
+      if (r.needDesc && r.description) transItems.push({ key: "D:" + r.fieldKey, ja: r.description });
+    }
+    const tr = transItems.length ? await translateLabelsToEn(transItems) : {};
+    if (Object.keys(tr).length) {
+      await Promise.all(
+        results.map((r) => {
+          const labelEn = tr["L:" + r.fieldKey];
+          const descEn = tr["D:" + r.fieldKey];
+          if (!labelEn && !descEn) return null;
+          return prisma.formFieldConfig.update({
+            where: { id: r.row.id },
+            data: {
+              ...(labelEn ? { labelEn } : {}),
+              ...(descEn ? { descriptionEn: descEn } : {}),
+            },
+          });
+        }).filter(Boolean) as Promise<unknown>[]
+      );
+    }
+
+    // クライアント互換: 従来どおり永続化された行の配列を返す。
+    return NextResponse.json(results.map((r) => r.row));
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   const cohortFilter = searchParams.get("cohortId") || "";
 
   try {
-    const applications = await prisma.application.findMany({
+    const applications = await getTenantDb().application.findMany({
       where: {
         deletedAt: null,
         status: { in: ["合格", "補欠合格"] },
@@ -110,4 +111,4 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/admin/enrollment-list error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});

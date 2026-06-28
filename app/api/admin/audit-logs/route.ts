@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isCoreAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { logError } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 50; // 1ページ最大50件
 
 // 操作ログ（監査ログ）の一覧。全職員の操作が見えるため最高管理者・管理者のみ。
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isCoreAdmin(session)) {
     return NextResponse.json({ error: "操作ログを閲覧する権限がありません" }, { status: 403 });
@@ -41,14 +42,15 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    const db = getTenantDb();
     const [logs, total] = await Promise.all([
-      prisma.auditLog.findMany({
+      db.auditLog.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
       }),
-      prisma.auditLog.count({ where }),
+      db.auditLog.count({ where }),
     ]);
 
     return NextResponse.json({
@@ -62,4 +64,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/admin/audit-logs", error);
     return NextResponse.json({ error: "操作ログの取得に失敗しました" }, { status: 500 });
   }
-}
+});

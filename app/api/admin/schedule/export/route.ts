@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { logError } from "@/lib/logger";
 import { statusWhere } from "@/lib/schemas";
 
@@ -56,7 +57,7 @@ function rowToCsv(row: Record<string, unknown>): string {
   return HEADERS.map((h) => csvEscape(row[h])).join(",");
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     // 試験日が設定されているスロットを持つ申請を取得（per-school と Application-level の両方をスキャン）
     const sw = statusWhere(statusFilter);
-    const applications = await prisma.application.findMany({
+    const applications = await getTenantDb().application.findMany({
       where: sw !== undefined ? { status: sw, deletedAt: null } : { deletedAt: null },
       orderBy: [{ createdAt: "asc" }],
       include: {
@@ -238,4 +239,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/admin/schedule/export", e);
     return NextResponse.json({ error: "エクスポートに失敗しました" }, { status: 500 });
   }
-}
+});

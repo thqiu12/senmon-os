@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { logError } from "@/lib/logger";
 import { schoolAggKey } from "@/lib/schoolAgg";
 
@@ -12,13 +13,14 @@ const PIPELINE = new Set(["受付中", "書類待ち", "書類確認中", "面�
 const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase().replace(/[\s　]+/g, "");
 const normEssay = (s: string | null | undefined) => (s || "").trim().replace(/[\s　]+/g, " ").toLowerCase();
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   try {
+    const db = getTenantDb();
     const [apps, quotas, deptLabels] = await Promise.all([
-      prisma.application.findMany({
+      db.application.findMany({
         where: { deletedAt: null },
         select: {
           id: true, applicationNo: true, schoolName: true, department: true, enrollmentYear: true, status: true,
@@ -30,9 +32,9 @@ export async function GET(request: NextRequest) {
           documents: { select: { status: true } },
         },
       }),
-      prisma.enrollmentQuota.findMany(),
+      db.enrollmentQuota.findMany(),
       // 学科FKがある行は志望校マスタの正規名で表示する
-      prisma.applyDepartment.findMany({ select: { id: true, name: true, applySchool: { select: { name: true } } } }),
+      db.applyDepartment.findMany({ select: { id: true, name: true, applySchool: { select: { name: true } } } }),
     ]);
     const deptLabelMap = new Map(deptLabels.map((d) => [d.id, { schoolName: d.applySchool.name, department: d.name }]));
 
@@ -235,4 +237,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/admin/analytics", e);
     return NextResponse.json({ error: "分析に失敗しました" }, { status: 500 });
   }
-}
+});

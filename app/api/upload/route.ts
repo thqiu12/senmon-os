@@ -3,7 +3,8 @@ import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { fileTypeFromBuffer } from "file-type";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { getSession, isAdmin } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
@@ -20,7 +21,7 @@ function uploadRoot(): string {
   return path.isAbsolute(ENV.UPLOAD_DIR) ? ENV.UPLOAD_DIR : path.join(process.cwd(), ENV.UPLOAD_DIR);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   // 共有IP(学校PCルーム)から多数が複数ファイルを一斉アップロードするため上限を大きく。
   // 1ファイルあたりのサイズは別途 MAX_FILE_SIZE_MB で制限済み。
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const db = getTenantDb();
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const applicationId = formData.get("applicationId") as string | null;
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     } else {
       // 動的フォーム設定の file 欄ラベルを許可するか判定
       // ※ DB に該当 label のファイル欄が無ければ拒否（オープン許可ではない）
-      const configured = await prisma.formFieldConfig.findFirst({
+      const configured = await db.formFieldConfig.findFirst({
         where: { fieldType: "file", label: docTypeRaw, isEnabled: true },
         select: { id: true },
       });
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
       if (!applicationNo || !email) {
         return NextResponse.json({ error: "applicationNoとemailが必要です" }, { status: 400 });
       }
-      const app = await prisma.application.findFirst({
+      const app = await db.application.findFirst({
         where: { applicationNo, email },
         select: { id: true },
       });
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "applicationIdが不正です" }, { status: 400 });
     }
 
-    const application = await prisma.application.findUnique({
+    const application = await db.application.findFirst({
       where: { id: resolvedApplicationId },
     });
     if (!application) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
     // （入学手続き_書類は別経路のため対象外）
     const supersededIds: string[] = [];
     if (!docType.startsWith("入学手続き_")) {
-      const rejected = await prisma.document.findMany({
+      const rejected = await db.document.findMany({
         where: {
           applicationId: resolvedApplicationId,
           docType,
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
         supersededIds.push(r.id);
       }
       if (supersededIds.length > 0) {
-        await prisma.document.deleteMany({ where: { id: { in: supersededIds } } });
+        await db.document.deleteMany({ where: { id: { in: supersededIds } } });
       }
     }
 
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
     // （旧実装は create→update の 2 段で、update 失敗時に空 filePath の行が残るリスクがあった）。
     const docId = crypto.randomUUID();
     const downloadUrl = `/api/documents/${docId}/file`;
-    const document = await prisma.document.create({
+    const document = await db.document.create({
       data: {
         id: docId,
         applicationId: resolvedApplicationId,
@@ -196,9 +198,9 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/upload error:", error);
     return NextResponse.json({ error: "ファイルのアップロードに失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("id");
@@ -209,7 +211,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ドキュメントIDが必要です" }, { status: 400 });
     }
 
-    const document = await prisma.document.findUnique({ where: { id: documentId } });
+    const db = getTenantDb();
+    const document = await db.document.findFirst({ where: { id: documentId } });
     if (!document) return NextResponse.json({ error: "ドキュメントが見つかりません" }, { status: 404 });
 
     const session = await getSession(request);
@@ -217,7 +220,7 @@ export async function DELETE(request: NextRequest) {
       if (!applicationNo || !email) {
         return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
       }
-      const app = await prisma.application.findFirst({
+      const app = await db.application.findFirst({
         where: { applicationNo, email },
         select: { id: true },
       });
@@ -236,10 +239,10 @@ export async function DELETE(request: NextRequest) {
       /* file already missing, continue */
     }
 
-    await prisma.document.delete({ where: { id: documentId } });
+    await db.document.delete({ where: { id: documentId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/upload error:", error);
     return NextResponse.json({ error: "ファイルの削除に失敗しました" }, { status: 500 });
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ChangeRequestReviewSchema } from "@/lib/schemas";
 import { ALLOWED_FIELDS } from "@/lib/change-request-fields";
 import { logError } from "@/lib/logger";
@@ -13,10 +14,10 @@ import { logError } from "@/lib/logger";
  *
  * 同じトランザクション内で実行し、片方失敗時は両方ロールバック。
  */
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string; reqId: string } },
-) {
+) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -38,7 +39,8 @@ export async function PATCH(
   }
 
   try {
-    const req = await prisma.changeRequest.findUnique({ where: { id: params.reqId } });
+    const db = getTenantDb();
+    const req = await db.changeRequest.findFirst({ where: { id: params.reqId } });
     if (!req) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     if (req.applicationId !== params.id) {
       return NextResponse.json({ error: "申請が一致しません" }, { status: 400 });
@@ -60,7 +62,7 @@ export async function PATCH(
 
     // レビュアー識別: AdminUser.displayName か username を取得
     const reviewer = session
-      ? await prisma.adminUser.findUnique({
+      ? await db.adminUser.findFirst({
           where: { id: session.userId },
           select: { displayName: true, username: true },
         })
@@ -69,7 +71,7 @@ export async function PATCH(
 
     const newStatus = parsed.data.action === "approve" ? "承認" : "却下";
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await db.$transaction(async (tx) => {
       // ChangeRequest を更新
       const r = await tx.changeRequest.update({
         where: { id: params.reqId },
@@ -117,13 +119,13 @@ export async function PATCH(
     logError("PATCH /api/applications/[id]/change-requests/[reqId]", e);
     return NextResponse.json({ error: "処理に失敗しました" }, { status: 500 });
   }
-}
+});
 
 /** 学生本人が誤って申請したものを取り下げる用途で DELETE を実装。 */
-export async function DELETE(
+export const DELETE = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string; reqId: string } },
-) {
+) => {
   const session = await getSession(request);
 
   let body: unknown = {};
@@ -134,7 +136,8 @@ export async function DELETE(
   }
 
   try {
-    const req = await prisma.changeRequest.findUnique({ where: { id: params.reqId } });
+    const db = getTenantDb();
+    const req = await db.changeRequest.findFirst({ where: { id: params.reqId } });
     if (!req) return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     if (req.applicationId !== params.id) {
       return NextResponse.json({ error: "申請が一致しません" }, { status: 400 });
@@ -151,7 +154,7 @@ export async function DELETE(
       if (!b.applicationNo || !b.email) {
         return NextResponse.json({ error: "認証情報が必要です" }, { status: 401 });
       }
-      const app = await prisma.application.findUnique({
+      const app = await db.application.findFirst({
         where: { id: params.id },
         select: { applicationNo: true, email: true },
       });
@@ -160,10 +163,10 @@ export async function DELETE(
       }
     }
 
-    await prisma.changeRequest.delete({ where: { id: params.reqId } });
+    await db.changeRequest.delete({ where: { id: params.reqId } });
     return NextResponse.json({ success: true });
   } catch (e) {
     logError("DELETE /api/applications/[id]/change-requests/[reqId]", e);
     return NextResponse.json({ error: "取り下げに失敗しました" }, { status: 500 });
   }
-}
+});

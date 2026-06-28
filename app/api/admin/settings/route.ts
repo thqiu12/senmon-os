@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession, isAdmin } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { getEnrollmentYears, getSetting, setSetting } from "@/lib/settings";
 import { logError } from "@/lib/logger";
 
@@ -16,7 +17,7 @@ const SettingsSchema = z.object({
   enrollmentMonth: z.string().regex(/^(1[0-2]|[1-9])$/, "1〜12 の月を指定してください").optional(),
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       getSetting("enrollmentMonth"),
     ]);
     // 最終更新情報も併せて
-    const meta = await prisma.systemSetting.findMany({
+    const meta = await getTenantDb().systemSetting.findMany({
       select: { key: true, updatedAt: true, updatedBy: true },
     });
     return NextResponse.json({
@@ -39,9 +40,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/admin/settings", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -64,7 +65,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     // 操作者ラベル取得
-    const me = session ? await prisma.adminUser.findUnique({
+    const me = session ? await getTenantDb().adminUser.findFirst({
       where: { id: session.userId },
       select: { displayName: true, username: true },
     }) : null;
@@ -93,4 +94,4 @@ export async function PUT(request: NextRequest) {
     logError("PUT /api/admin/settings", e);
     return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
   }
-}
+});

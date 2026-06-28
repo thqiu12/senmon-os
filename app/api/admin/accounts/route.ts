@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isSuperAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hashPassword, PWD_VERSION_BCRYPT } from "@/lib/password";
 import { AdminAccountCreateSchema, AdminAccountUpdateSchema } from "@/lib/schemas";
 import { getClientIp } from "@/lib/security";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import crypto from "crypto";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isSuperAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
   try {
-    const users = await prisma.adminUser.findMany({
+    const users = await getTenantDb().adminUser.findMany({
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -30,9 +31,9 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isSuperAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
       );
     }
     const { username, password, displayName, role } = parsed.data;
-    const exists = await prisma.adminUser.findUnique({ where: { username } });
+    const db = getTenantDb();
+    const exists = await db.adminUser.findFirst({ where: { username } });
     if (exists) {
       return NextResponse.json(
         { error: "このユーザー名は既に使用されています" },
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const passwordHash = await hashPassword(password);
-    const user = await prisma.adminUser.create({
+    const user = await db.adminUser.create({
       data: {
         id: crypto.randomUUID(),
         username,
@@ -85,9 +87,9 @@ export async function POST(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isSuperAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -105,9 +107,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const db = getTenantDb();
     // --- 自己ロックアウト / 最後の super_admin 喪失を防止 ---
     // 対象が自分自身 or super_admin を降格/無効化するケースを検査。
-    const target = await prisma.adminUser.findUnique({
+    const target = await db.adminUser.findFirst({
       where: { id },
       select: { id: true, role: true, isActive: true },
     });
@@ -122,7 +125,7 @@ export async function PATCH(request: NextRequest) {
       target.role === "super_admin" && parsed.data.isActive === false;
     if (demotingFromSuper || deactivating) {
       // 他にアクティブな super_admin が残るか確認
-      const otherActiveSupers = await prisma.adminUser.count({
+      const otherActiveSupers = await db.adminUser.count({
         where: {
           role: "super_admin",
           isActive: true,
@@ -149,7 +152,7 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.isActive === false) {
       data.tokenVersion = { increment: 1 }; // 無効化したアカウントの既存トークンも無効化
     }
-    const user = await prisma.adminUser.update({
+    const user = await db.adminUser.update({
       where: { id },
       data,
       select: { id: true, username: true, displayName: true, role: true, isActive: true },
@@ -169,9 +172,9 @@ export async function PATCH(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isSuperAdmin(session)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -186,8 +189,9 @@ export async function DELETE(request: NextRequest) {
         { status: 400 },
       );
     }
-    const target = await prisma.adminUser.findUnique({ where: { id }, select: { displayName: true, username: true } });
-    await prisma.adminUser.delete({ where: { id } });
+    const db = getTenantDb();
+    const target = await db.adminUser.findFirst({ where: { id }, select: { displayName: true, username: true } });
+    await db.adminUser.delete({ where: { id } });
     await logAudit(session, {
       action: AUDIT_ACTIONS.ACCOUNT_DELETE,
       targetType: "User", targetId: id, targetLabel: target ? `${target.displayName}（${target.username}）` : id,
@@ -199,4 +203,4 @@ export async function DELETE(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { PAYMENT_CONFIG_KEY, parsePaymentMap, resolvePayment, emptyConfig } from "@/lib/paymentConfig";
 
 // 受験料・学費の振込先＋QR。?schoolKey= があれば学校別設定を解決（全校共通フォールバックなし）。
 // 受験料の振込先テキストは「支払い設定 > 選考管理(#7) の examFeeBankInfo」の順で優先。
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const schoolKey = searchParams.get("schoolKey");
 
   let bankInfoText: string | null = null;
   let resolved = emptyConfig();
   try {
-    const cohorts = await prisma.cohort.findMany({
+    const db = getTenantDb();
+    const cohorts = await db.cohort.findMany({
       where: schoolKey
         ? { status: "受付中", OR: [{ schoolKey }, { schoolKey: null }] }
         : { status: "受付中" },
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
     const global = cohorts.find((c) => !c.schoolKey && c.examFeeBankInfo);
     bankInfoText = (specific?.examFeeBankInfo || global?.examFeeBankInfo) ?? null;
 
-    const row = await prisma.systemSetting.findUnique({ where: { key: PAYMENT_CONFIG_KEY } });
+    const row = await db.systemSetting.findFirst({ where: { key: PAYMENT_CONFIG_KEY } });
     resolved = resolvePayment(parsePaymentMap(row?.value), schoolKey);
   } catch {
     /* DB未接続などのときは環境変数の既定値にフォールバック */
@@ -39,4 +41,4 @@ export async function GET(request: NextRequest) {
     tuitionBankInfo: resolved.tuition.bankInfo || null, // 学費の振込先テキスト
     tuitionQr: resolved.tuition.qr,        // 学費のQR（data URI）
   });
-}
+});

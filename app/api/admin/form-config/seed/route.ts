@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 
@@ -8,7 +9,7 @@ import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
 // Body (optional): { schoolId: string | null }
 // - schoolId == null or omitted -> seed global defaults (schoolId IS NULL)
 // - schoolId == "xxx" -> seed school-specific from global defaults if school-specific is empty
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "form.edit"))) {
     return NextResponse.json({ error: "出願フォームを編集する権限がありません" }, { status: 403 });
@@ -23,8 +24,9 @@ export async function POST(request: NextRequest) {
       // no body or invalid JSON - treat as global seed
     }
 
+    const db = getTenantDb();
     // Check if configs already exist for this schoolId
-    const existing = await prisma.formFieldConfig.count({
+    const existing = await db.formFieldConfig.count({
       where: { schoolId: schoolId },
     });
 
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
       }));
     } else {
       // Copy from global defaults (DB) if they exist, otherwise from FORM_FIELD_DEFAULTS
-      const globalConfigs = await prisma.formFieldConfig.findMany({
+      const globalConfigs = await db.formFieldConfig.findMany({
         where: { schoolId: null },
         orderBy: { displayOrder: "asc" },
       });
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const created = await prisma.formFieldConfig.createMany({
+    const created = await db.formFieldConfig.createMany({
       data: seedData.map(f => ({ id: require("crypto").randomUUID(), ...f, schoolId, updatedAt: new Date() })),
     });
 
@@ -92,4 +94,4 @@ export async function POST(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "シードに失敗しました" }, { status: 500 });
   }
-}
+});

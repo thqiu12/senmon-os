@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { QuotaSchema } from "@/lib/schemas";
 import { resolveSchoolFk } from "@/lib/school-fk";
 import { schoolAggKey } from "@/lib/schoolAgg";
 
 // GET: 定員統計一覧
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   try {
+    const db = getTenantDb();
     // 定員レコード一覧
-    const quotas = await prisma.enrollmentQuota.findMany({
+    const quotas = await db.enrollmentQuota.findMany({
       orderBy: [{ schoolName: "asc" }, { enrollmentYear: "desc" }, { department: "asc" }],
     });
 
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
     const ACCEPTED = new Set(["合格"]);
     const PENDING = new Set(["受付中", "書類待ち", "書類確認中", "面接待ち", "結果待ち", "補欠合格", "保留"]);
 
-    const grouped = await prisma.application.groupBy({
+    const grouped = await db.application.groupBy({
       by: ["applySchoolId", "applyDepartmentId", "schoolName", "department", "enrollmentYear", "status"],
       where: { deletedAt: null },
       _count: { id: true },
@@ -83,10 +85,10 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // POST: 定員設定の追加・更新
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
     const { schoolName, department, enrollmentYear, quota, memo } = parsed.data;
     const fk = await resolveSchoolFk({ schoolName, department });
-    const q = await prisma.enrollmentQuota.upsert({
+    const q = await getTenantDb().enrollmentQuota.upsert({
       where: { schoolName_department_enrollmentYear: { schoolName, department, enrollmentYear } },
       update: {
         quota, memo: memo ?? null,
@@ -121,10 +123,10 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // DELETE: 定員設定削除
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -132,9 +134,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "idが必要です" }, { status: 400 });
-    await prisma.enrollmentQuota.delete({ where: { id } });
+    await getTenantDb().enrollmentQuota.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e) {
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

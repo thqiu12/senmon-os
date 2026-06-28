@@ -45,7 +45,7 @@ export function DynamicField({ fieldKey, form, onChange, onChangeExtra, errors, 
   onChangeExtra?: (key: string, v: string | boolean) => void;
   errors: Record<string, string>; formConfig: FormFieldConfig[] | null;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const e = registryEntry(fieldKey);
   if (!e) {
     const cfg = (formConfig ?? []).find((c) => c.fieldKey === fieldKey);
@@ -53,8 +53,8 @@ export function DynamicField({ fieldKey, form, onChange, onChangeExtra, errors, 
     const w = genericWidget(cfg.fieldType);
     const cval = form.extraData?.[fieldKey];
     const set = (v: string | boolean) => onChangeExtra?.(fieldKey, v);
-    const clabel = fieldLabel(formConfig, fieldKey, cfg.label || fieldKey);
-    const chint = fieldHint(formConfig, fieldKey, "");
+    const clabel = fieldLabel(formConfig, fieldKey, cfg.label || fieldKey, lang);
+    const chint = fieldHint(formConfig, fieldKey, "", lang);
     const creq = fieldRequired(formConfig, fieldKey, false);
     const cerr = errors[fieldKey];
     if (w === "select") {
@@ -83,8 +83,8 @@ export function DynamicField({ fieldKey, form, onChange, onChangeExtra, errors, 
     return (<Field label={clabel} required={creq} hint={chint} error={cerr}>
       <Input data-testid={`apply-${fieldKey}`} value={String(cval ?? "")} error={!!cerr} onChange={(ev) => set(ev.target.value)} /></Field>);
   }
-  const label = fieldLabel(formConfig, fieldKey, DEFAULT_LABELS[fieldKey] ?? fieldKey);
-  const hint = fieldHint(formConfig, fieldKey, DEFAULT_HINTS[fieldKey] ?? "");
+  const label = fieldLabel(formConfig, fieldKey, DEFAULT_LABELS[fieldKey] ?? fieldKey, lang);
+  const hint = fieldHint(formConfig, fieldKey, DEFAULT_HINTS[fieldKey] ?? "", lang);
   const req = fieldRequired(formConfig, fieldKey, !OPTIONAL_DEFAULT.has(fieldKey));
   const val = form[fieldKey as keyof FormData];
   const err = errors[fieldKey];

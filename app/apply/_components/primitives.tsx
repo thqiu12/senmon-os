@@ -17,6 +17,8 @@ export interface FormFieldConfig {
   section: string;
   description?: string | null;
   options?: string | null;
+  labelEn?: string | null;
+  descriptionEn?: string | null;
 }
 
 export interface FormData {

@@ -11,6 +11,8 @@ export interface FieldConfigEntry {
   isRequired: boolean;
   label?: string;
   description?: string | null;
+  labelEn?: string | null;
+  descriptionEn?: string | null;
 }
 
 // config 未ロード/空（フォールバック）= 既定で表示。
@@ -44,21 +46,32 @@ export function fieldLabel(
   formConfig: FieldConfigEntry[] | null | undefined,
   key: string,
   fallback: string,
+  lang?: "ja" | "en",
 ): string {
   if (!formConfig || formConfig.length === 0) return fallback;
   const cfg = formConfig.find((c) => c.fieldKey === key);
+  if (lang === "en") {
+    const le = cfg?.labelEn?.trim();
+    if (le) return le;
+  }
   const l = cfg?.label?.trim();
   return l ? l : fallback;
 }
 
 // ヒント（説明文）: config の description があればそれを、無ければ fallback。
+// 英語モードで descriptionEn があればそれを優先。
 export function fieldHint(
   formConfig: FieldConfigEntry[] | null | undefined,
   key: string,
   fallback = "",
+  lang?: "ja" | "en",
 ): string {
   if (!formConfig || formConfig.length === 0) return fallback;
   const cfg = formConfig.find((c) => c.fieldKey === key);
+  if (lang === "en") {
+    const de = cfg?.descriptionEn?.trim();
+    if (de) return de;
+  }
   const d = cfg?.description?.trim();
   return d ? d : fallback;
 }

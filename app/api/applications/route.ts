@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { generateApplicationNo, buildApplicationNo } from "@/lib/utils";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
+import { tenantPrisma } from "@/lib/tenant/prisma-tenant";
+import { requireOrgId } from "@/lib/tenant/context";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 import { ApplicationCreateSchema, statusWhere } from "@/lib/schemas";
@@ -140,7 +143,8 @@ const ADMISSION_EMAILS: Record<string, string> = {
   "神奈川柔整鍼灸専門学校": "admission@hirai-gakuen.ac.jp",
 };
 
-// 管理者へメール通知
+// 管理者へメール通知。fire-and-forget で呼ばれる(レスポンス後に走る)ため、
+// ALS 文脈に依存せず orgId を明示的に受け取り tenantPrisma(orgId) で org スコープする。
 async function sendAdminNotification(application: {
   applicationNo: string;
   lastName: string;
@@ -152,11 +156,11 @@ async function sendAdminNotification(application: {
   japaneseLevel: string;
   enrollmentYear: string;
   enrollmentMonth: string;
-}, schoolNames?: string[]) {
+}, schoolNames: string[] | undefined, orgId: string) {
   // 併願なら該当する全志望校のメールへ通知（重複除去）。未登録校は ENV.ADMIN_EMAIL にフォールバック。
   const names = (schoolNames && schoolNames.length ? schoolNames : [application.schoolName]).filter(Boolean);
   // 志望校マスタの通知先(notifyEmail)を最優先。無ければ旧ハードコードマップ、最後に ENV.ADMIN_EMAIL。
-  const masterSchools = await prisma.applySchool.findMany({ where: { name: { in: names } }, select: { name: true, notifyEmail: true } });
+  const masterSchools = await tenantPrisma(orgId).applySchool.findMany({ where: { name: { in: names } }, select: { name: true, notifyEmail: true } });
   const masterMap = new Map(masterSchools.map((s) => [s.name, s.notifyEmail]));
   const matched = Array.from(new Set(names.map((n) => masterMap.get(n) || ADMISSION_EMAILS[n]).filter(Boolean)));
   const recipients = matched.length ? matched : (ENV.ADMIN_EMAIL ? [ENV.ADMIN_EMAIL] : []);
@@ -201,7 +205,7 @@ ${baseUrl}/admin
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -217,6 +221,7 @@ export async function GET(request: NextRequest) {
     if (!isAdmin(session)) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+    const db = getTenantDb();
 
     const agentId = searchParams.get("agentId");
     const cohortId = searchParams.get("cohortId");
@@ -251,7 +256,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [applications, total] = await Promise.all([
-      prisma.application.findMany({
+      db.application.findMany({
         where,
         skip,
         take: limit,
@@ -274,7 +279,7 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.application.count({ where }),
+      db.application.count({ where }),
     ]);
 
     return NextResponse.json({
@@ -290,9 +295,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   // 学校PCルーム等は全員が同一グローバルIP(NAT)から一斉に出願するため、IP上限は緩めに。
   // 1人あたりの乱用は下の「同一メール5分以内は409」で別途防いでいる。
@@ -300,6 +305,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "申請の送信が多すぎます。しばらく後に再試行してください" }, { status: 429 });
   }
   try {
+    // org 文脈(公開出願は host/既定 org で解決)。fire-and-forget へ渡すため orgId も保持。
+    const orgId = requireOrgId();
+    const db = tenantPrisma(orgId);
+
     const parsed = ApplicationCreateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -311,7 +320,7 @@ export async function POST(request: NextRequest) {
 
     // 直近5分間に同じメールから出願済みなら拒否（誤クリック・ボット連投対策）
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const recent = await prisma.application.findFirst({
+    const recent = await db.application.findFirst({
       where: { email: body.email, createdAt: { gte: fiveMinAgo } },
       select: { applicationNo: true },
     });
@@ -331,7 +340,7 @@ export async function POST(request: NextRequest) {
     });
     let primarySchoolKey: string | null = null;
     if (primary.applySchoolId) {
-      const ps = await prisma.applySchool.findUnique({
+      const ps = await db.applySchool.findFirst({
         where: { id: primary.applySchoolId },
         select: { schoolKey: true },
       });
@@ -343,7 +352,7 @@ export async function POST(request: NextRequest) {
     // 行の取得形は apply form-config の typed path と同一にする。
     {
       const type = body.applicantType;
-      const rows = await prisma.formFieldConfig.findMany({
+      const rows = await db.formFieldConfig.findMany({
         where: {
           AND: [
             { OR: [{ schoolId: null }, ...(primarySchoolKey ? [{ schoolId: primarySchoolKey }] : [])] },
@@ -398,7 +407,7 @@ export async function POST(request: NextRequest) {
     const isCohortOpen = (c: { acceptStart: Date | null; acceptEnd: Date | null }) =>
       (!c.acceptStart || c.acceptStart <= nowTs) && (!c.acceptEnd || c.acceptEnd >= nowTs);
 
-    const cohortCandidates = await prisma.cohort.findMany({
+    const cohortCandidates = await db.cohort.findMany({
       where: {
         status: "受付中",
         OR: [
@@ -413,11 +422,11 @@ export async function POST(request: NextRequest) {
       openCohorts.find((c) => primary.applySchoolId && c.applySchoolId === primary.applySchoolId) ??
       openCohorts.find((c) => primarySchoolKey && c.schoolKey === primarySchoolKey) ??
       openCohorts.find((c) => !c.applySchoolId && !c.schoolKey) ??
-      (await prisma.cohort.findFirst({ where: { isDefault: true } }));
+      (await db.cohort.findFirst({ where: { isDefault: true } }));
 
     if (chosenCohort) {
       // 回次の seqCounter を原子的にインクリメント（同時出願でも番号が重複しない）
-      const updated = await prisma.cohort.update({
+      const updated = await db.cohort.update({
         where: { id: chosenCohort.id },
         data: { seqCounter: { increment: 1 } },
       });
@@ -447,14 +456,14 @@ export async function POST(request: NextRequest) {
       .filter((id): id is string => !!id);
     const deptHasWritten = new Map<string, boolean>();
     if (deptIds.length > 0) {
-      const depts = await prisma.applyDepartment.findMany({
+      const depts = await db.applyDepartment.findMany({
         where: { id: { in: deptIds } },
         select: { id: true, hasWrittenExam: true },
       });
       for (const d of depts) deptHasWritten.set(d.id, d.hasWrittenExam);
     }
 
-    const application = await prisma.application.create({
+    const application = await db.application.create({
       data: {
         applicationNo,
         cohortId,
@@ -497,8 +506,10 @@ export async function POST(request: NextRequest) {
         applySchoolId: primary.applySchoolId,
         applyDepartmentId: primary.applyDepartmentId,
         applicationSchools: {
+          // 注: ネストした create には拡張は organizationId を注入しないため、明示的に付与する。
           create: [
             {
+              organizationId: orgId,
               priority: 1,
               schoolName: primary.schoolName || body.schoolName,
               department: primary.department || body.department,
@@ -513,6 +524,7 @@ export async function POST(request: NextRequest) {
               }),
             },
             ...additional.map((s, idx) => ({
+              organizationId: orgId,
               priority: idx + 2,
               schoolName: s.schoolName,
               department: s.department,
@@ -550,7 +562,7 @@ export async function POST(request: NextRequest) {
 
     // 管理者へメール通知（非同期・失敗しても無視）。併願は全志望校のメールへ。
     const allSchoolNames = [application.schoolName, ...additional.map((s) => s.schoolName)];
-    void sendAdminNotification(application, allSchoolNames).catch(() => {});
+    void sendAdminNotification(application, allSchoolNames, orgId).catch(() => {});
 
     // 学生へ出願番号確認メール送信（非同期・失敗しても無視）
     void sendStudentConfirmation(application).catch(() => {});
@@ -570,4 +582,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { CohortCreateSchema, CohortPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
@@ -33,7 +34,7 @@ async function buildData(
   if ("schoolKey" in body) {
     const key = body.schoolKey as string | null;
     if (key) {
-      const s = await prisma.applySchool.findUnique({
+      const s = await getTenantDb().applySchool.findFirst({
         where: { schoolKey: key },
         select: { id: true },
       });
@@ -45,13 +46,13 @@ async function buildData(
   return d;
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   try {
-    const cohorts = await prisma.cohort.findMany({
+    const cohorts = await getTenantDb().cohort.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { applications: true } } },
     });
@@ -60,9 +61,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/cohorts", error);
     return NextResponse.json({ error: "選考一覧の取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "cohort.manage"))) {
     return NextResponse.json({ error: "選考を操作する権限がありません" }, { status: 403 });
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
     const data = await buildData(parsed.data as Prisma.CohortCreateInput, raw);
 
-    const cohort = await prisma.$transaction(async (tx) => {
+    const cohort = await getTenantDb().$transaction(async (tx) => {
       if (parsed.data.isDefault) {
         await tx.cohort.updateMany({ data: { isDefault: false } });
       }
@@ -95,9 +96,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/cohorts", error);
     return NextResponse.json({ error: "選考の作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "cohort.manage"))) {
     return NextResponse.json({ error: "選考を操作する権限がありません" }, { status: 403 });
@@ -116,7 +117,7 @@ export async function PATCH(request: NextRequest) {
     }
     const data = await buildData(parsed.data as Prisma.CohortUpdateInput, raw);
 
-    const cohort = await prisma.$transaction(async (tx) => {
+    const cohort = await getTenantDb().$transaction(async (tx) => {
       if (parsed.data.isDefault) {
         await tx.cohort.updateMany({ where: { id: { not: id } }, data: { isDefault: false } });
       }
@@ -133,9 +134,9 @@ export async function PATCH(request: NextRequest) {
     logError("PATCH /api/cohorts", error);
     return NextResponse.json({ error: "選考の更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "cohort.manage"))) {
     return NextResponse.json({ error: "選考を操作する権限がありません" }, { status: 403 });
@@ -144,15 +145,16 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
-    const count = await prisma.application.count({ where: { cohortId: id } });
+    const db = getTenantDb();
+    const count = await db.application.count({ where: { cohortId: id } });
     if (count > 0) {
       return NextResponse.json(
         { error: `この選考には${count}件の申請が紐付いているため削除できません` },
         { status: 400 },
       );
     }
-    const target = await prisma.cohort.findUnique({ where: { id }, select: { name: true } });
-    await prisma.cohort.delete({ where: { id } });
+    const target = await db.cohort.findFirst({ where: { id }, select: { name: true } });
+    await db.cohort.delete({ where: { id } });
     await logAudit(session, {
       action: AUDIT_ACTIONS.COHORT_DELETE,
       targetType: "Cohort", targetId: id, targetLabel: target?.name ?? id,
@@ -164,4 +166,4 @@ export async function DELETE(request: NextRequest) {
     logError("DELETE /api/cohorts", error);
     return NextResponse.json({ error: "選考の削除に失敗しました" }, { status: 500 });
   }
-}
+});

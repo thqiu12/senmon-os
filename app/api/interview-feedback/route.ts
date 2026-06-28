@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, canReviewInterviews } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { InterviewFeedbackSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (!applicationId) {
       return NextResponse.json({ error: "applicationIdが必要です" }, { status: 400 });
     }
-    const feedbacks = await prisma.interviewFeedback.findMany({
+    const feedbacks = await getTenantDb().interviewFeedback.findMany({
       where: { applicationId },
       include: { interviewer: { select: { id: true, name: true, role: true } } },
       orderBy: { createdAt: "asc" },
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/interview-feedback", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const data = parsed.data;
-    const feedback = await prisma.interviewFeedback.create({
+    const feedback = await getTenantDb().interviewFeedback.create({
       data: {
         applicationId: data.applicationId,
         interviewerId: data.interviewerId ?? null,
@@ -59,9 +60,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/interview-feedback", e);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -75,7 +76,7 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       );
     }
-    const feedback = await prisma.interviewFeedback.update({
+    const feedback = await getTenantDb().interviewFeedback.update({
       where: { id },
       data: parsed.data,
       include: { interviewer: { select: { id: true, name: true, role: true } } },
@@ -85,19 +86,19 @@ export async function PATCH(request: NextRequest) {
     logError("PATCH /api/interview-feedback", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
-    await prisma.interviewFeedback.delete({ where: { id } });
+    await getTenantDb().interviewFeedback.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e) {
     logError("DELETE /api/interview-feedback", e);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

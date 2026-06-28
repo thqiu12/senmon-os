@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, isAdmin, canReviewInterviews } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { InterviewerCreateSchema, InterviewerPatchSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   // 面接官は面接レビュー画面で面接官リストを参照するため GET は許可（作成/編集/削除は isAdmin のまま）
   if (!canReviewInterviews(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
-    const interviewers = await prisma.interviewer.findMany({
+    const interviewers = await getTenantDb().interviewer.findMany({
       orderBy: { name: "asc" },
       include: { _count: { select: { interviews: true } } },
     });
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/interviewers", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const interviewer = await prisma.interviewer.create({
+    const interviewer = await getTenantDb().interviewer.create({
       data: { ...parsed.data, role: parsed.data.role ?? null, email: parsed.data.email ?? null },
     });
     return NextResponse.json(interviewer, { status: 201 });
@@ -39,9 +40,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/interviewers", e);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -55,25 +56,25 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       );
     }
-    const interviewer = await prisma.interviewer.update({ where: { id }, data: parsed.data });
+    const interviewer = await getTenantDb().interviewer.update({ where: { id }, data: parsed.data });
     return NextResponse.json(interviewer);
   } catch (e) {
     logError("PATCH /api/interviewers", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
-    await prisma.interviewer.delete({ where: { id } });
+    await getTenantDb().interviewer.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e) {
     logError("DELETE /api/interviewers", e);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

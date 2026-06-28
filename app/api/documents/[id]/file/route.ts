@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import path from "path";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ENV } from "@/lib/env";
 import { logError } from "@/lib/logger";
 
@@ -10,12 +11,12 @@ function uploadRoot(): string {
   return path.isAbsolute(ENV.UPLOAD_DIR) ? ENV.UPLOAD_DIR : path.join(process.cwd(), ENV.UPLOAD_DIR);
 }
 
-export async function GET(
+export const GET = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   try {
-    const doc = await prisma.document.findUnique({
+    const doc = await getTenantDb().document.findFirst({
       where: { id: params.id },
       select: {
         applicationId: true,
@@ -66,4 +67,4 @@ export async function GET(
     logError("GET /api/documents/[id]/file", e);
     return NextResponse.json({ error: "ファイル取得に失敗しました" }, { status: 500 });
   }
-}
+});

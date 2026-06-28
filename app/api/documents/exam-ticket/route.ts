@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { verifyStudentOwnership } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { generateExamTicketPDF } from "@/lib/pdf/exam-ticket";
 import { examModesForConfig, examModeLabel } from "@/lib/applyExamModes";
 import { logError } from "@/lib/logger";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`exam-ticket:${ip}`, 10, 60_000)) {
     return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
-    const app = await prisma.application.findUnique({
+    const db = getTenantDb();
+    const app = await db.application.findFirst({
       where: { id: ownership.applicationId },
       include: {
         documents: {
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
     try {
       const schoolKey = app.applySchool?.schoolKey ?? null;
       if (schoolKey) {
-        const rows = await prisma.formFieldConfig.findMany({
+        const rows = await db.formFieldConfig.findMany({
           where: {
             fieldKey: "examMode",
             schoolId: schoolKey,
@@ -194,4 +196,4 @@ export async function GET(request: NextRequest) {
     logError("GET /api/documents/exam-ticket", error);
     return NextResponse.json({ error: "PDF生成に失敗しました" }, { status: 500 });
   }
-}
+});

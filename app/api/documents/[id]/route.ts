@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { logError } from "@/lib/logger";
 import { z } from "zod";
@@ -10,10 +11,10 @@ const DocumentReviewSchema = z.object({
   rejectReason: z.string().max(1000).optional().nullable(),
 });
 
-export async function PATCH(
+export const PATCH = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -37,13 +38,14 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    const db = getTenantDb();
     const reviewer = session
-      ? await prisma.adminUser.findUnique({
+      ? await db.adminUser.findFirst({
           where: { id: session.userId },
           select: { displayName: true, username: true },
         })
       : null;
-    const updated = await prisma.document.update({
+    const updated = await db.document.update({
       where: { id: params.id },
       data: {
         status,
@@ -57,4 +59,4 @@ export async function PATCH(
     logError("PATCH /api/documents/[id]", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});

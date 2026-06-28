@@ -48,6 +48,9 @@ export default defineConfig({
           "npx prisma db push --skip-generate --accept-data-loss && " +
           "npx tsx prisma/seed.ts && " +
           "SEED_DEMO=1 npx tsx prisma/demo-seed.ts && " +
+          // Plan 2: テナント基盤。org(知日グループ)を作り全シードデータに organizationId を付与。
+          // これが無いと withTenant 化したルートが「テナントを解決できません」で 400 になる。
+          "npx tsx prisma/backfill-organization.ts && " +
           "npm run dev -- -p 3070",
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,

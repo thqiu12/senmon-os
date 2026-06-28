@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { EnrollmentUpsertSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import { getClientIp } from "@/lib/security";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { z } from "zod";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const applicationId = searchParams.get("applicationId");
@@ -20,17 +21,18 @@ export async function GET(request: NextRequest) {
 
     const session = await getSession(request);
     const adminAccess = isAdmin(session);
+    const db = getTenantDb();
 
     let procedure;
     if (applicationId) {
       if (!adminAccess) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-      procedure = await prisma.enrollmentProcedure.findUnique({ where: { applicationId } });
+      procedure = await db.enrollmentProcedure.findFirst({ where: { applicationId } });
     } else if (applicationNo && email) {
       const ownership = await verifyStudentOwnership(applicationNo, email);
       if (!ownership.valid) {
         return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
       }
-      procedure = await prisma.enrollmentProcedure.findUnique({
+      procedure = await db.enrollmentProcedure.findFirst({
         where: { applicationId: ownership.applicationId },
       });
     } else {
@@ -42,9 +44,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/enrollment", error);
     return NextResponse.json({ error: "入学手続き情報の取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
       data.docChecklist = typeof docChecklist === "string" ? docChecklist : JSON.stringify(docChecklist);
     }
 
-    const procedure = await prisma.enrollmentProcedure.upsert({
+    const db = getTenantDb();
+    const procedure = await db.enrollmentProcedure.upsert({
       where: { applicationId },
       create: {
         applicationId,
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 操作ログ（管理側）。公開 / 学費確認 / それ以外の更新で出し分ける。
-    const app = await prisma.application.findUnique({
+    const app = await db.application.findFirst({
       where: { id: applicationId },
       select: { applicationNo: true, lastName: true, firstName: true },
     });
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
     logError("POST /api/enrollment", error);
     return NextResponse.json({ error: "入学手続き情報の保存に失敗しました" }, { status: 500 });
   }
-}
+});
 
 const StudentReportSchema = z.object({
   applicationNo: z.string().min(1).max(50),
@@ -118,7 +121,7 @@ const StudentReportSchema = z.object({
   markComplete: z.boolean().optional(),
 });
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   try {
     const parsed = StudentReportSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -134,7 +137,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
     }
 
-    const app = await prisma.application.findUnique({
+    const db = getTenantDb();
+    const app = await db.application.findFirst({
       where: { id: ownership.applicationId },
       include: { enrollmentProcedure: true },
     });
@@ -150,7 +154,7 @@ export async function PATCH(request: NextRequest) {
       updateData.status = "完了";
     }
 
-    const procedure = await prisma.enrollmentProcedure.update({
+    const procedure = await db.enrollmentProcedure.update({
       where: { applicationId: app.id },
       data: updateData,
     });
@@ -160,4 +164,4 @@ export async function PATCH(request: NextRequest) {
     logError("PATCH /api/enrollment", error);
     return NextResponse.json({ error: "手続き情報の更新に失敗しました" }, { status: 500 });
   }
-}
+});

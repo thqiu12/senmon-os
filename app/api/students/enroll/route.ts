@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 // POST: 出願→在籍転換（管理者が一括操作）
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -16,8 +17,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "applicationIdsとschoolIdが必要です" }, { status: 400 });
     }
 
+    const db = getTenantDb();
     // 学校の存在確認
-    const school = await prisma.school.findUnique({ where: { id: schoolId } });
+    const school = await db.school.findFirst({ where: { id: schoolId } });
     if (!school) return NextResponse.json({ error: "学校が見つかりません" }, { status: 404 });
 
     const results = [];
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     for (const appId of applicationIds) {
       try {
-        const app = await prisma.application.findUnique({
+        const app = await db.application.findFirst({
           where: { id: appId },
           include: { enrollmentProcedure: true },
         });
@@ -38,15 +40,15 @@ export async function POST(request: NextRequest) {
         }
 
         // 既存チェック
-        const existing = await prisma.student.findUnique({ where: { applicationId: appId } });
+        const existing = await db.student.findFirst({ where: { applicationId: appId } });
         if (existing) { errors.push({ id: appId, error: "既に在籍登録済み" }); continue; }
 
         // 学籍番号生成（学校コード + 年度 + 連番）
         const year = new Date().getFullYear().toString().slice(-2);
-        const count = await prisma.student.count({ where: { schoolId } });
+        const count = await db.student.count({ where: { schoolId } });
         const studentNo = `${school.shortName.toUpperCase()}${year}-${String(count + 1).padStart(4, "0")}`;
 
-        const student = await prisma.student.create({
+        const student = await db.student.create({
           data: {
             schoolId,
             classId: classId || null,
@@ -80,4 +82,4 @@ export async function POST(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "転換に失敗しました" }, { status: 500 });
   }
-}
+});

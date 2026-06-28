@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { AttendanceRecordsSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
     if (classId) where.student = { classId };
 
-    const records = await prisma.attendance.findMany({
+    const records = await getTenantDb().attendance.findMany({
       where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: {
@@ -45,9 +46,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/attendance", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -58,8 +59,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    const db = getTenantDb();
     const ops = parsed.data.records.map((r) =>
-      prisma.attendance.upsert({
+      db.attendance.upsert({
         where: {
           studentId_timetableSlotId_date: {
             studentId: r.studentId,
@@ -83,10 +85,10 @@ export async function POST(request: NextRequest) {
         },
       }),
     );
-    const records = await prisma.$transaction(ops);
+    const records = await db.$transaction(ops);
     return NextResponse.json({ success: true, count: records.length, records });
   } catch (e) {
     logError("POST /api/attendance", e);
     return NextResponse.json({ error: "出席記録の保存に失敗しました" }, { status: 500 });
   }
-}
+});

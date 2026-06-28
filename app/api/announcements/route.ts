@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, isAdmin } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { escapeHtml } from "@/lib/security";
 import { AnnouncementCreateSchema } from "@/lib/schemas";
 import { logError, logger } from "@/lib/logger";
@@ -9,13 +10,13 @@ import { ENV } from "@/lib/env";
 import { buildRecipientWhere } from "@/lib/announcement-targeting";
 import { hasCapability } from "@/lib/permissions";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   try {
-    const announcements = await prisma.announcement.findMany({
+    const announcements = await getTenantDb().announcement.findMany({
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(announcements);
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/announcements", error);
     return NextResponse.json({ error: "一覧の取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const announcement = await prisma.announcement.create({
+    const announcement = await getTenantDb().announcement.create({
       data: { ...parsed.data, createdBy: session?.userId ?? "管理者" },
     });
     return NextResponse.json(announcement, { status: 201 });
@@ -46,9 +47,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/announcements", error);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -75,16 +76,16 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       );
     }
-    const updated = await prisma.announcement.update({ where: { id }, data: parsed.data });
+    const updated = await getTenantDb().announcement.update({ where: { id }, data: parsed.data });
     return NextResponse.json(updated);
   } catch (error) {
     logError("PATCH /api/announcements", error);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // 未送信のお知らせのみ削除可。送信済みは操作ログとして必ず保持する。
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -93,12 +94,13 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
+    const db = getTenantDb();
 
     // sentAt=null 条件付きの deleteMany で原子的に「未送信のみ削除」。
     // （送信済みを誤って消さない／レース時も安全）
-    const result = await prisma.announcement.deleteMany({ where: { id, sentAt: null } });
+    const result = await db.announcement.deleteMany({ where: { id, sentAt: null } });
     if (result.count === 0) {
-      const existing = await prisma.announcement.findUnique({
+      const existing = await db.announcement.findFirst({
         where: { id },
         select: { sentAt: true },
       });
@@ -115,9 +117,11 @@ export async function DELETE(request: NextRequest) {
     logError("DELETE /api/announcements", error);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});
 
+// withTenant 文脈内(PATCH の send アクション)からのみ呼ばれる → getTenantDb() が使える。
 async function handleSend(id: string) {
+  const db = getTenantDb();
   // メール送信は Resend に統一。未設定なら送信済みフラグを立てずに 503 を返す（後で再送可能）。
   if (!ENV.RESEND_API_KEY) {
     return NextResponse.json(
@@ -127,7 +131,7 @@ async function handleSend(id: string) {
   }
 
   // 幂等：既送信なら拒否（sentAt を claim）
-  const claim = await prisma.announcement.updateMany({
+  const claim = await db.announcement.updateMany({
     where: { id, sentAt: null },
     data: { sentAt: new Date() },
   });
@@ -135,7 +139,7 @@ async function handleSend(id: string) {
     return NextResponse.json({ error: "既に送信済みです" }, { status: 409 });
   }
 
-  const announcement = await prisma.announcement.findUnique({ where: { id } });
+  const announcement = await db.announcement.findFirst({ where: { id } });
   if (!announcement) {
     return NextResponse.json({ error: "お知らせが見つかりません" }, { status: 404 });
   }
@@ -148,7 +152,7 @@ async function handleSend(id: string) {
     targetStatus: announcement.targetStatus,
   });
 
-  const recipients = await prisma.application.findMany({
+  const recipients = await db.application.findMany({
     where,
     select: { email: true },
     distinct: ["email"],
@@ -179,7 +183,7 @@ async function handleSend(id: string) {
   // 全件失敗（誰にも届いていない）なら送信済みフラグを戻し、再送可能にする。
   // 1件でも成功していれば戻さない（受信者単位の重複排除が無く、再送は二重送信になるため）。
   const allFailed = sentCount === 0 && failCount > 0;
-  await prisma.announcement.update({
+  await db.announcement.update({
     where: { id },
     data: { sentCount, ...(allFailed ? { sentAt: null } : {}) },
   });

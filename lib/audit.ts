@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AdminSession } from "@/lib/auth";
+import { currentOrgId } from "@/lib/tenant/context";
 
 /**
  * 操作ログ（監査ログ）。管理側の書込操作を1行ずつ記録する。
@@ -48,6 +49,8 @@ export async function logAudit(session: AdminSession | null, entry: AuditEntry):
 
     await prisma.auditLog.create({
       data: {
+        // テナント(Plan 2)。actor の所属 org → 文脈 org の順。非リクエスト文脈では null。
+        organizationId: session?.organizationId ?? currentOrgId(),
         actorId,
         actorName,
         actorRole,

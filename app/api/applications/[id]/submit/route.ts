@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { checkRateLimit, getClientIp } from "@/lib/security";
 import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 
-export async function POST(
+export const POST = withTenant(async (
   request: NextRequest,
   { params }: { params: { id: string } },
-) {
+) => {
   const ip = getClientIp(request);
   // 共有IP(学校PCルーム)から多数が同時に最終送信するため上限を緩める。
   if (!checkRateLimit(`submit:${ip}`, APPLY_RATE_LIMITS.submit.max, APPLY_RATE_LIMITS.submit.windowMs)) {
@@ -15,7 +16,8 @@ export async function POST(
   }
 
   try {
-    const application = await prisma.application.findUnique({
+    const db = getTenantDb();
+    const application = await db.application.findFirst({
       where: { id: params.id },
       select: { id: true, status: true, email: true },
     });
@@ -45,7 +47,7 @@ export async function POST(
       );
     }
 
-    const updated = await prisma.application.update({
+    const updated = await db.application.update({
       where: { id: params.id },
       data: { status: "受付中" },
       select: { id: true, applicationNo: true, status: true },
@@ -56,4 +58,4 @@ export async function POST(
     console.error("POST /api/applications/[id]/submit error:", error);
     return NextResponse.json({ error: "提出に失敗しました" }, { status: 500 });
   }
-}
+});

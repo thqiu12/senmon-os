@@ -62,4 +62,16 @@ describe("tenant isolation", () => {
     ).rejects.toThrow();
     expect(await prisma.agent.findUnique({ where: { id: agentBId } })).not.toBeNull();
   });
+
+  it("$transaction 内の操作も org スコープされる(cohorts/announcements 移行の前提)", async () => {
+    // tx 内 findMany が他テナント行を返さないこと
+    const seen = await tenantPrisma(orgA).$transaction(async (tx) => tx.agent.findMany());
+    expect(seen.every((r) => r.organizationId === orgA)).toBe(true);
+    expect(seen.some((r) => r.id === agentBId)).toBe(false);
+    // tx 内 create も orgA が自動付与されること
+    const created = await tenantPrisma(orgA).$transaction(async (tx) =>
+      tx.agent.create({ data: { name: "txAgentA" } }),
+    );
+    expect(created.organizationId).toBe(orgA);
+  });
 });

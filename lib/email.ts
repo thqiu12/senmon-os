@@ -121,3 +121,42 @@ export async function sendBatch(
   }
   return { sent, failed };
 }
+
+// ===== OC（オープンキャンパス）予約確認メール =====
+export interface OCConfirmationInput {
+  to: string;
+  name: string;
+  reservationNo: string;
+  eventTitle: string;
+  startAt: Date;
+  location?: string | null;
+  isOnline?: boolean;
+  onlineUrl?: string | null;
+  cancelUrl: string;
+}
+
+/** OC予約の確認メール（予約番号＋キャンセルリンク）。RESEND未設定なら sendEmail が no-op で {ok:false}。 */
+export async function sendOCConfirmation(input: OCConfirmationInput): Promise<SendEmailResult> {
+  const dt = input.startAt;
+  const when = `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日 ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+  const place = input.isOnline
+    ? `オンライン${input.onlineUrl ? `（参加URL: ${input.onlineUrl}）` : ""}`
+    : input.location || "（会場は追ってご案内します）";
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = `
+  <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+    <h2 style="color:#1d4ed8">オープンキャンパスのご予約を受け付けました</h2>
+    <p>${esc(input.name)} 様</p>
+    <p>下記の内容でご予約を承りました。当日お会いできるのを楽しみにしております。</p>
+    <table style="border-collapse:collapse;width:100%;margin:16px 0">
+      <tr><td style="padding:8px;background:#f3f4f6;width:120px">予約番号</td><td style="padding:8px"><b>${esc(input.reservationNo)}</b></td></tr>
+      <tr><td style="padding:8px;background:#f3f4f6">イベント</td><td style="padding:8px">${esc(input.eventTitle)}</td></tr>
+      <tr><td style="padding:8px;background:#f3f4f6">日時</td><td style="padding:8px">${esc(when)}</td></tr>
+      <tr><td style="padding:8px;background:#f3f4f6">場所</td><td style="padding:8px">${esc(place)}</td></tr>
+    </table>
+    <p>ご都合が悪くなった場合は、下記からキャンセル・確認ができます。</p>
+    <p><a href="${esc(input.cancelUrl)}" style="display:inline-block;padding:10px 18px;background:#1d4ed8;color:#fff;border-radius:8px;text-decoration:none">予約の確認・キャンセル</a></p>
+    <p style="color:#6b7280;font-size:12px;margin-top:24px">※このメールに心当たりがない場合は破棄してください。</p>
+  </div>`;
+  return sendEmail({ to: input.to, subject: `【オープンキャンパス予約完了】${input.eventTitle}（${input.reservationNo}）`, html });
+}

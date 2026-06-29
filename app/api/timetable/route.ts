@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
+import { requireOrgId } from "@/lib/tenant/context";
 import { TimetableCreateSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (classId) where.classId = classId;
     if (schoolId) where.schoolId = schoolId;
 
-    const timetables = await prisma.timetable.findMany({
+    const timetables = await getTenantDb().timetable.findMany({
       where,
       include: {
         class: { select: { id: true, name: true } },
@@ -34,9 +36,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/timetable", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -48,7 +50,9 @@ export async function POST(request: NextRequest) {
       );
     }
     const { schoolId, classId, name, validFrom, validTo, slots } = parsed.data;
-    const timetable = await prisma.timetable.create({
+    // ネスト create(slots)は拡張が org を注入しないため明示的に付与する。
+    const orgId = requireOrgId();
+    const timetable = await getTenantDb().timetable.create({
       data: {
         schoolId,
         classId,
@@ -59,6 +63,7 @@ export async function POST(request: NextRequest) {
         slots: slots && slots.length > 0
           ? {
               create: slots.map((s) => ({
+                organizationId: orgId,
                 subjectId: s.subjectId,
                 teacherId: s.teacherId ?? null,
                 dayOfWeek: s.dayOfWeek,
@@ -77,4 +82,4 @@ export async function POST(request: NextRequest) {
     logError("POST /api/timetable", e);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});

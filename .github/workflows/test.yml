@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: テナント隔離ガード（route が base prisma を直接使っていないか）
+        run: npm run lint:tenant
+
       - name: Prisma generate
         run: npx prisma generate
 

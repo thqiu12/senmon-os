@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 // GET: 課題一覧
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const subjectId = searchParams.get("subjectId");
     const where: Record<string, unknown> = {};
     if (subjectId) where.subjectId = subjectId;
-    const homeworks = await prisma.homework.findMany({
+    const homeworks = await getTenantDb().homework.findMany({
       where,
       orderBy: { dueDate: "asc" },
       include: {
@@ -23,10 +24,10 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // POST: 課題作成
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (!body.subjectId || !body.title || !body.dueDate) {
       return NextResponse.json({ error: "subjectId・title・dueDateは必須です" }, { status: 400 });
     }
-    const hw = await prisma.homework.create({
+    const hw = await getTenantDb().homework.create({
       data: {
         id: require("crypto").randomUUID(),
         subjectId: body.subjectId,
@@ -50,21 +51,22 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // PATCH: 課題更新（採点・フィードバック含む）
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const submissionId = searchParams.get("submissionId");
+    const db = getTenantDb();
 
     if (submissionId) {
       // 採点・フィードバック
       const body = await request.json();
-      const sub = await prisma.homeworkSubmission.update({
+      const sub = await db.homeworkSubmission.update({
         where: { id: submissionId },
         data: {
           ...(body.score !== undefined && { score: body.score }),
@@ -79,7 +81,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: "IDが必要です" }, { status: 400 });
     const body = await request.json();
-    const hw = await prisma.homework.update({
+    const hw = await db.homework.update({
       where: { id },
       data: {
         ...(body.title && { title: body.title }),
@@ -93,4 +95,4 @@ export async function PATCH(request: NextRequest) {
   } catch (e) {
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});

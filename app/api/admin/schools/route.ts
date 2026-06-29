@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ApplySchoolUpsertSchema } from "@/lib/schemas";
 import { FALLBACK_DEPARTMENTS } from "@/lib/schoolsFallback";
 import { logError } from "@/lib/logger";
 
 type DeptInput = { name: string; duration?: string; courses?: string[]; hasWrittenExam?: boolean };
 
+// withTenant 文脈内(POST/PUT)から呼ばれる → getTenantDb() が org スコープで使える。
 async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
+  const db = getTenantDb();
   // 既存の active な学科を取得
-  const existing = await prisma.applyDepartment.findMany({
+  const existing = await db.applyDepartment.findMany({
     where: { applySchoolId },
   });
   const incomingNames = new Set(depts.map((d) => d.name));
@@ -17,7 +20,7 @@ async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
   // 入力にない学科は inactive にする（FK 参照を保つため削除はしない）
   const stale = existing.filter((e) => e.isActive && !incomingNames.has(e.name));
   if (stale.length > 0) {
-    await prisma.applyDepartment.updateMany({
+    await db.applyDepartment.updateMany({
       where: { id: { in: stale.map((s) => s.id) } },
       data: { isActive: false },
     });
@@ -27,7 +30,7 @@ async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
   for (let i = 0; i < depts.length; i++) {
     const d = depts[i];
     if (!d.name) continue;
-    await prisma.applyDepartment.upsert({
+    await db.applyDepartment.upsert({
       where: { applySchoolId_name: { applySchoolId, name: d.name } },
       create: {
         applySchoolId,
@@ -49,13 +52,13 @@ async function syncDepartments(applySchoolId: string, depts: DeptInput[]) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   try {
-    const schools = await prisma.applySchool.findMany({
+    const schools = await getTenantDb().applySchool.findMany({
       orderBy: { displayOrder: "asc" },
       include: {
         applyDepartments: {
@@ -102,9 +105,9 @@ export async function GET(request: NextRequest) {
     logError("GET /api/admin/schools", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const { departments, ...rest } = parsed.data;
-    const school = await prisma.applySchool.create({
+    const school = await getTenantDb().applySchool.create({
       data: { ...rest, departments: JSON.stringify(departments) },
     });
     await syncDepartments(school.id, departments as DeptInput[]);
@@ -131,9 +134,9 @@ export async function POST(request: NextRequest) {
     const status = msg.includes("重複") ? 409 : 500;
     return NextResponse.json({ error: msg }, { status });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -150,7 +153,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     const { departments, ...rest } = parsed.data;
-    const updated = await prisma.applySchool.update({
+    const updated = await getTenantDb().applySchool.update({
       where: { id },
       data: {
         ...rest,
@@ -165,9 +168,9 @@ export async function PUT(request: NextRequest) {
     logError("PUT /api/admin/schools", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -186,18 +189,19 @@ export async function DELETE(request: NextRequest) {
     const id = fromQuery || fromBody;
     if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 });
 
+    const db = getTenantDb();
     // ApplySchool に紐づく Application があれば削除を拒否（snapshot 保持のため）
-    const cnt = await prisma.application.count({ where: { applySchoolId: id } });
+    const cnt = await db.application.count({ where: { applySchoolId: id } });
     if (cnt > 0) {
       return NextResponse.json(
         { error: `この学校には ${cnt} 件の申請が紐付いているため削除できません。「無効化」をお試しください。` },
         { status: 409 },
       );
     }
-    await prisma.applySchool.delete({ where: { id } });
+    await db.applySchool.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e) {
     logError("DELETE /api/admin/schools", e);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});

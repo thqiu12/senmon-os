@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin as checkAdmin } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { FORM_FIELD_DEFAULTS, defaultEnabledFor } from "@/lib/formFieldDefaults";
 import { isApplicantType, type ApplicantType } from "@/lib/applicantType";
@@ -11,7 +12,7 @@ import { aiEnabled } from "@/lib/anthropic";
 // schoolId not provided -> global only
 // applicantType=japanese|foreign -> その (schoolId, applicantType) スコープの設定行を返す
 // applicantType 未指定（共通）-> applicantType=null。共通スコープは従来挙動を一切変えない。
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!checkAdmin(session)) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     // 特定の applicantType が指定された場合: その (schoolId, applicantType) スコープを返す。
     // 保存済み行があればそれを、無ければ FORM_FIELD_DEFAULTS から defaultEnabledFor で補完。
     if (applicantType) {
-      const scopedConfigs = await prisma.formFieldConfig.findMany({
+      const scopedConfigs = await getTenantDb().formFieldConfig.findMany({
         where: { schoolId, applicantType },
         orderBy: { displayOrder: "asc" },
       });
@@ -92,10 +93,10 @@ export async function GET(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // POST: create a new field config
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "form.edit"))) {
     return NextResponse.json({ error: "出願フォームを編集する権限がありません" }, { status: 403 });
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
     // Auto-generate fieldKey from label if not provided
     const fieldKey = body.fieldKey || `custom_${Date.now()}`;
 
-    const created = await prisma.formFieldConfig.create({
+    const created = await getTenantDb().formFieldConfig.create({
       data: {
         id: require("crypto").randomUUID(),
         fieldKey,
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
           { key: "D", ja: created.description || "" },
         ]);
         if (tr.L || tr.D) {
-          await prisma.formFieldConfig.update({
+          await getTenantDb().formFieldConfig.update({
             where: { id: created.id },
             data: { labelEn: tr.L ?? null, descriptionEn: tr.D ?? null },
           });
@@ -167,10 +168,10 @@ export async function POST(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // PUT: upsert array of field configs (with schoolId field)
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "form.edit"))) {
     return NextResponse.json({ error: "出願フォームを編集する権限がありません" }, { status: 403 });
@@ -182,6 +183,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "配列形式で送信してください" }, { status: 400 });
     }
 
+    const db = getTenantDb();
     const results = await Promise.all(
       body.map((item: {
         fieldKey: string;
@@ -216,7 +218,7 @@ export async function PUT(request: NextRequest) {
         // 既知の制約: SQLite は unique index 内の NULL を区別するため、null スコープ
         // (全校共通/共通タイプ) では一意制約が効かず、同時保存で重複行が生じ得る。単一管理者・
         // 1リクエスト=1スコープの運用前提で許容（厳密化が必要になれば sentinel 値かトランザクション直列化）。
-        return prisma.formFieldConfig.findFirst({
+        return db.formFieldConfig.findFirst({
           where: { fieldKey: item.fieldKey, schoolId, applicantType },
         }).then(async existing => {
           // updateData は labelEn/descriptionEn を含まないため、update は既存の英訳値を保持する
@@ -225,8 +227,8 @@ export async function PUT(request: NextRequest) {
           const needLabel = !!item.label?.trim() && (!existing || existing.label !== item.label || !existing.labelEn);
           const needDesc = !!description?.trim() && (!existing || existing.description !== description || !existing.descriptionEn);
           const row = existing
-            ? await prisma.formFieldConfig.update({ where: { id: existing.id }, data: updateData })
-            : await prisma.formFieldConfig.create({
+            ? await db.formFieldConfig.update({ where: { id: existing.id }, data: updateData })
+            : await db.formFieldConfig.create({
                 data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, updatedAt: new Date(), ...updateData },
               });
           return { row, fieldKey: item.fieldKey, label: item.label, description, needLabel, needDesc };
@@ -249,7 +251,7 @@ export async function PUT(request: NextRequest) {
           const labelEn = tr["L:" + r.fieldKey];
           const descEn = tr["D:" + r.fieldKey];
           if (!labelEn && !descEn) return null;
-          return prisma.formFieldConfig.update({
+          return db.formFieldConfig.update({
             where: { id: r.row.id },
             data: {
               ...(labelEn ? { labelEn } : {}),
@@ -266,10 +268,10 @@ export async function PUT(request: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // DELETE: delete a field config (only custom_ or doc_ prefixed fields)
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "form.edit"))) {
     return NextResponse.json({ error: "出願フォームを編集する権限がありません" }, { status: 403 });
@@ -288,21 +290,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "コアフィールドは削除できません" }, { status: 403 });
     }
 
+    const db = getTenantDb();
     // (schoolId, applicantType) スコープを厳密に一致させ、別タイプの行を誤削除しない。
     const scopedApplicantType = isApplicantType(applicantType) ? applicantType : null;
-    const target = await prisma.formFieldConfig.findFirst({ where: { fieldKey, schoolId, applicantType: scopedApplicantType } });
+    const target = await db.formFieldConfig.findFirst({ where: { fieldKey, schoolId, applicantType: scopedApplicantType } });
     if (!target) return NextResponse.json({ error: "フィールドが見つかりません" }, { status: 404 });
-    await prisma.formFieldConfig.delete({ where: { id: target.id } });
+    await db.formFieldConfig.delete({ where: { id: target.id } });
 
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
-}
+});
 
 // PATCH: 特定学校の全カスタム設定を削除（全校共通に戻す）
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!(await hasCapability(session, "form.edit"))) {
     return NextResponse.json({ error: "出願フォームを編集する権限がありません" }, { status: 403 });
@@ -311,10 +314,10 @@ export async function PATCH(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("resetSchoolId");
     if (!schoolId) return NextResponse.json({ error: "resetSchoolIdが必要です" }, { status: 400 });
-    const result = await prisma.formFieldConfig.deleteMany({ where: { schoolId } });
+    const result = await getTenantDb().formFieldConfig.deleteMany({ where: { schoolId } });
     return NextResponse.json({ success: true, deleted: result.count });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "リセットに失敗しました" }, { status: 500 });
   }
-}
+});

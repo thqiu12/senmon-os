@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSession, isAdmin, verifyStudentOwnership } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant/with-tenant";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { LeaveRequestSchema } from "@/lib/schemas";
 import { logError } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
@@ -8,7 +9,7 @@ import { z } from "zod";
 
 const LEAVE_STATUSES = new Set(["申請中", "承認", "却下"]);
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.LeaveRequestWhereInput = {};
     if (studentId) where.studentId = studentId;
     if (status) where.status = status;
-    const requests = await prisma.leaveRequest.findMany({
+    const requests = await getTenantDb().leaveRequest.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
@@ -31,14 +32,14 @@ export async function GET(request: NextRequest) {
     logError("GET /api/leave-requests", e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
-}
+});
 
 const StudentPostSchema = LeaveRequestSchema.extend({
   applicationNo: z.string().max(50).optional(),
   email: z.string().email().max(254).optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   try {
     const parsed = StudentPostSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
     }
     const { studentId, type, startDate, endDate, reason, applicationNo, email } = parsed.data;
 
+    const db = getTenantDb();
     const session = await getSession(request);
     if (!isAdmin(session)) {
       if (!applicationNo || !email) {
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
       if (!ownership.valid) {
         return NextResponse.json({ error: "本人確認に失敗しました" }, { status: 401 });
       }
-      const student = await prisma.student.findUnique({
+      const student = await db.student.findFirst({
         where: { id: studentId },
         select: { applicationId: true },
       });
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const leave = await prisma.leaveRequest.create({
+    const leave = await db.leaveRequest.create({
       data: { studentId, type, startDate, endDate, reason, status: "申請中" },
     });
     return NextResponse.json(leave, { status: 201 });
@@ -75,9 +77,9 @@ export async function POST(request: NextRequest) {
     logError("POST /api/leave-requests", e);
     return NextResponse.json({ error: "申請に失敗しました" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
   if (!isAdmin(session)) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   try {
@@ -88,7 +90,7 @@ export async function PATCH(request: NextRequest) {
     if (body.status && !LEAVE_STATUSES.has(body.status)) {
       return NextResponse.json({ error: "ステータスが不正です" }, { status: 400 });
     }
-    const leave = await prisma.leaveRequest.update({
+    const leave = await getTenantDb().leaveRequest.update({
       where: { id },
       data: {
         ...(body.status && { status: body.status }),
@@ -106,4 +108,4 @@ export async function PATCH(request: NextRequest) {
     logError("PATCH /api/leave-requests", e);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
-}
+});

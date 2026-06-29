@@ -13,7 +13,13 @@ datasource db {
 
 // テナント(=契約/隔離/計費の境界)。Plan 2 で導入。
 // Phase A は本モデル追加 + 各モデルへ nullable organizationId(列+index のみ)。
-// FK relation は Phase C でまとめて張る。
+// ⚠️ Phase C 完了: 各モデルの organizationId は DB レベルで NOT NULL + 本モデルへの FK を
+//    手書き移行(20260629100000_organization_not_null_fk)で付与済み。ただし schema 上は
+//    意図的に `String?`(nullable・relation 無し)のまま — テナント拡張(tenantPrisma)が実行時に
+//    organizationId を注入する設計のため、必須化すると全 create の型が壊れる(案A)。
+//    AdminUser のみ NOT NULL 除外(PlatformAdmin=null 許容)。
+//    → `prisma migrate dev` はこの乖離を「nullable に戻す」移行として誤検出し得る。生成されても破棄し、
+//       移行は手書き運用すること。Plan 3 で RLS を追加して纵深防御を強化する。
 model Organization {
   id             String   @id @default(cuid())
   name           String

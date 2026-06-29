@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant/scoped";
 
 /**
  * 学校名 + 学科名から FK ID を解決する。
@@ -8,6 +8,9 @@ import { prisma } from "@/lib/prisma";
  * - applySchoolId が直接渡された場合はそれを優先する
  * - schoolName から ApplySchool.name で照合
  * - department が指定されていれば、該当 school の active な ApplyDepartment.name で照合
+ *
+ * getTenantDb() で organizationId スコープ。呼び出し元（applications POST / admin quota POST）は
+ * いずれも withTenant ハンドラ内なので文脈は常に存在する。他テナントの学校マスタには照合しない。
  */
 export async function resolveSchoolFk(input: {
   applySchoolId?: string | null;
@@ -15,6 +18,7 @@ export async function resolveSchoolFk(input: {
   schoolName?: string | null;
   department?: string | null;
 }): Promise<{ applySchoolId: string | null; applyDepartmentId: string | null; schoolName: string; department: string }> {
+  const db = getTenantDb();
   let applySchoolId = input.applySchoolId ?? null;
   let applyDepartmentId = input.applyDepartmentId ?? null;
   let schoolName = input.schoolName ?? "";
@@ -22,11 +26,11 @@ export async function resolveSchoolFk(input: {
 
   // FK が来ている場合: 正規データから snapshot を再構成
   if (applySchoolId) {
-    const s = await prisma.applySchool.findUnique({ where: { id: applySchoolId } });
+    const s = await db.applySchool.findFirst({ where: { id: applySchoolId } });
     if (s) schoolName = s.name;
   }
   if (applyDepartmentId) {
-    const d = await prisma.applyDepartment.findUnique({ where: { id: applyDepartmentId } });
+    const d = await db.applyDepartment.findFirst({ where: { id: applyDepartmentId } });
     if (d) {
       department = d.name;
       if (!applySchoolId) applySchoolId = d.applySchoolId;
@@ -35,12 +39,12 @@ export async function resolveSchoolFk(input: {
 
   // 文字列だけ来ている場合: name で照合して FK を埋める
   if (!applySchoolId && schoolName) {
-    const s = await prisma.applySchool.findFirst({ where: { name: schoolName } });
+    const s = await db.applySchool.findFirst({ where: { name: schoolName } });
     if (s) applySchoolId = s.id;
   }
   if (!applyDepartmentId && applySchoolId && department) {
-    const d = await prisma.applyDepartment.findUnique({
-      where: { applySchoolId_name: { applySchoolId, name: department } },
+    const d = await db.applyDepartment.findFirst({
+      where: { applySchoolId, name: department },
     });
     if (d && d.isActive) applyDepartmentId = d.id;
   }

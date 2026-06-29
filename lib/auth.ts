@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant/scoped";
 import { ENV } from "@/lib/env";
 import crypto from "crypto";
 
@@ -118,7 +119,10 @@ export async function verifyStudentOwnership(
 ): Promise<{ valid: boolean; applicationId?: string }> {
   if (!applicationNo || !email) return { valid: false };
   try {
-    const app = await prisma.application.findFirst({
+    // getTenantDb() で organizationId スコープ。全呼び出し元は withTenant ハンドラ内
+    // （公開 apply/student-portal/documents/enrollment 系）なので文脈は常に存在する。
+    // 解決された org（ホスト/既定）の出願だけを本人確認対象にする。
+    const app = await getTenantDb().application.findFirst({
       where: { applicationNo, email },
       select: { id: true },
     });

@@ -120,7 +120,10 @@ export default function FormConfigPage() {
     if (t === "form" || t === "schools" || t === "general" || t === "payment") setActiveTab(t);
   }, []);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  // フォーム種別: 出願フォーム(apply) / OC予約フォーム(oc)。既定は apply。
+  const [formType, setFormType] = useState<"apply" | "oc">("apply");
   // 出願者タイプは常に実在タイプ（日本人 / 留学生）。既定は留学生。共通スコープは廃止。
+  // OC は applicantType 次元を持たない（常に null 扱い）。
   const [selectedApplicantType, setSelectedApplicantType] = useState<ApplicantType>("foreign");
   // 学校タブ: ApplySchool 一覧から動的構築（学校別のみ）。
   const [schoolTabs, setSchoolTabs] = useState<SchoolTab[]>([]);
@@ -146,13 +149,15 @@ export default function FormConfigPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ fieldKey: string; label: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchConfigs = useCallback(async (schoolId: string | null, applicantType: ApplicantType) => {
+  const fetchConfigs = useCallback(async (schoolId: string | null, applicantType: ApplicantType, ft: "apply" | "oc") => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       if (schoolId) params.set("schoolId", schoolId);
-      params.set("applicantType", applicantType);
+      // OC は applicantType 次元なし（applicantType=null）。apply のみタイプ別。
+      if (ft === "oc") params.set("formType", "oc");
+      else params.set("applicantType", applicantType);
       const qs = params.toString();
       const url = qs ? `/api/admin/form-config?${qs}` : "/api/admin/form-config";
       const res = await fetch(url);
@@ -173,8 +178,8 @@ export default function FormConfigPage() {
   }, [router]);
 
   useEffect(() => {
-    fetchConfigs(selectedSchoolId, selectedApplicantType);
-  }, [fetchConfigs, selectedSchoolId, selectedApplicantType]);
+    fetchConfigs(selectedSchoolId, selectedApplicantType, formType);
+  }, [fetchConfigs, selectedSchoolId, selectedApplicantType, formType]);
 
   // マウント時に ApplySchool 一覧を取得してタブを構築（id=schoolKey・学校別のみ）。
   useEffect(() => {
@@ -212,6 +217,12 @@ export default function FormConfigPage() {
     setError(null);
   };
 
+  const handleFormTypeChange = (ft: "apply" | "oc") => {
+    setFormType(ft);
+    setSuccessMsg(null);
+    setError(null);
+  };
+
   // examMode 区分の安定 ID 生成（既存 ID と衝突しない）
   const genExamModeId = () => {
     let id = "";
@@ -220,8 +231,9 @@ export default function FormConfigPage() {
   };
 
   const handleSave = async () => {
-    // 各区分は表示名（label）必須
-    if (examModeList.some(o => !o.label.trim())) {
+    const isOc = formType === "oc";
+    // 各区分は表示名（label）必須（examMode は apply 専用のため OC ではチェック不要）
+    if (!isOc && examModeList.some(o => !o.label.trim())) {
       setError("選考区分の表示名を入力してください（空の区分があります）");
       setSuccessMsg(null);
       return;
@@ -230,8 +242,12 @@ export default function FormConfigPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      // Attach the current schoolId + applicantType to each config item.
-      // examMode は専用カードで管理するため、generic 行としては送らず（重複防止）末尾に1行だけ付与する。
+      // OC は applicantType 次元なし（null）＋ formType="oc"。apply はタイプ別＋ formType="apply"。
+      const scope = isOc
+        ? { schoolId: selectedSchoolId, applicantType: null, formType: "oc" as const }
+        : { schoolId: selectedSchoolId, applicantType: selectedApplicantType, formType: "apply" as const };
+      // Attach the current scope to each config item.
+      // examMode は apply 専用。専用カードで管理するため、generic 行としては送らず（重複防止）末尾に1行だけ付与する。
       const examModeRow = {
         fieldKey: "examMode",
         label: "選考区分",
@@ -242,16 +258,14 @@ export default function FormConfigPage() {
         displayOrder: 5,
         description: null,
         options: JSON.stringify(examModeList),
-        schoolId: selectedSchoolId,
-        applicantType: selectedApplicantType,
+        ...scope,
       };
       const payload = [
         ...configs.filter(c => c.fieldKey !== "examMode").map(c => ({
           ...c,
-          schoolId: selectedSchoolId,
-          applicantType: selectedApplicantType,
+          ...scope,
         })),
-        examModeRow,
+        ...(isOc ? [] : [examModeRow]),
       ];
       const res = await fetch("/api/admin/form-config", {
         method: "PUT",
@@ -264,7 +278,7 @@ export default function FormConfigPage() {
       }
       setSuccessMsg("保存しました");
       // Reload to reflect isCustom state
-      await fetchConfigs(selectedSchoolId, selectedApplicantType);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType, formType);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -319,8 +333,9 @@ export default function FormConfigPage() {
           schoolId: selectedSchoolId,
           description: addForm.description.trim() || null,
           options: addForm.options.trim() || null,
-          showWhenExamMode: addForm.showWhenExamMode || null,
-          applicantType: selectedApplicantType,
+          showWhenExamMode: formType === "oc" ? null : (addForm.showWhenExamMode || null),
+          applicantType: formType === "oc" ? null : selectedApplicantType,
+          formType,
         }),
       });
       if (!res.ok) {
@@ -330,7 +345,7 @@ export default function FormConfigPage() {
       setShowAddModal(false);
       setAddForm(emptyAddForm);
       setSuccessMsg("フィールドを追加しました");
-      await fetchConfigs(selectedSchoolId, selectedApplicantType);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType, formType);
     } catch (e) {
       setAddError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -348,7 +363,7 @@ export default function FormConfigPage() {
         body: JSON.stringify({
           fieldKey: deleteConfirm.fieldKey,
           schoolId: selectedSchoolId,
-          applicantType: selectedApplicantType,
+          applicantType: formType === "oc" ? null : selectedApplicantType,
         }),
       });
       if (!res.ok) {
@@ -357,7 +372,7 @@ export default function FormConfigPage() {
       }
       setDeleteConfirm(null);
       setSuccessMsg(`「${deleteConfirm.label}」を削除しました`);
-      await fetchConfigs(selectedSchoolId, selectedApplicantType);
+      await fetchConfigs(selectedSchoolId, selectedApplicantType, formType);
     } catch (e) {
       setError(e instanceof Error ? e.message : "削除エラー");
       setDeleteConfirm(null);
@@ -471,7 +486,29 @@ export default function FormConfigPage() {
           </div>
         </div>
 
-        {/* 出願者タイプ切替（日本人 / 留学生）。既定は留学生。 */}
+        {/* フォーム種別切替（出願フォーム / OC予約フォーム）。既定は出願フォーム。 */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-semibold text-gray-500 mr-1">フォーム種別</span>
+          {([["apply", "出願フォーム"], ["oc", "OC予約フォーム"]] as const).map(([ft, label]) => {
+            const active = ft === formType;
+            return (
+              <button
+                key={ft}
+                onClick={() => handleFormTypeChange(ft)}
+                className={`px-3 py-1.5 text-sm font-semibold rounded-full border transition-colors
+                  ${active
+                    ? "border-navy-700 text-navy-800 bg-navy-50"
+                    : "border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 出願者タイプ切替（日本人 / 留学生）。既定は留学生。OC はタイプ次元なしのため非表示。 */}
+        {formType === "apply" && (
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-semibold text-gray-500 mr-1">出願者タイプ</span>
           {(["japanese", "foreign"] as ApplicantType[]).map(t => {
@@ -492,6 +529,7 @@ export default function FormConfigPage() {
             );
           })}
         </div>
+        )}
 
         {/* Context info */}
         <div className="flex items-center justify-between mb-4">
@@ -556,7 +594,8 @@ export default function FormConfigPage() {
           </div>
         )}
 
-        {/* 選考区分・推薦の区分（examMode 専用カード：リスト編集） */}
+        {/* 選考区分・推薦の区分（examMode 専用カード：リスト編集）。apply 専用のため OC では非表示。 */}
+        {formType === "apply" && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <h3 className="font-bold text-gray-800 mb-1">選考区分・推薦の区分</h3>
           <p className="text-xs text-gray-500 mb-3">未チェックの区分は出願フォームに出ません。全て削除すると選考区分の節ごと非表示になります。</p>
@@ -652,6 +691,7 @@ export default function FormConfigPage() {
             ＋区分を追加
           </button>
         </div>
+        )}
 
         {loading ? (
           <SkeletonList rows={8} cols={5} />

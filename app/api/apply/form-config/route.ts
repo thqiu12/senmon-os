@@ -62,6 +62,7 @@ export const GET = withTenant(async (request: NextRequest) => {
           AND: [
             schoolId ? { schoolId } : { schoolId: "__none__" },
             { applicantType: type },
+            { formType: "apply" },
           ],
         },
         orderBy: { displayOrder: "asc" },
@@ -79,7 +80,7 @@ export const GET = withTenant(async (request: NextRequest) => {
 
     // applicantType:null で絞り、type別行(admin が後から作成し得る)を共通結果に混入させない。
     const schoolConfigs = await getTenantDb().formFieldConfig.findMany({
-      where: { schoolId, applicantType: null },
+      where: { schoolId, applicantType: null, formType: "apply" },
       orderBy: { displayOrder: "asc" },
       select: SELECT,
     });

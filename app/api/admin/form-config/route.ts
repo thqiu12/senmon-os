@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/tenant/with-tenant";
 import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { FORM_FIELD_DEFAULTS, defaultEnabledFor } from "@/lib/formFieldDefaults";
+import { OC_FORM_DEFAULTS } from "@/lib/ocForm";
 import { isApplicantType, type ApplicantType } from "@/lib/applicantType";
 import { translateLabelsToEn } from "@/lib/translateFormLabels";
 import { aiEnabled } from "@/lib/anthropic";
@@ -21,6 +22,46 @@ export const GET = withTenant(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId") || null;
+    // formType: "apply"（既定）/ "oc"。OC は applicantType 次元を持たない（常に null）。
+    const formType = searchParams.get("formType") === "oc" ? "oc" : "apply";
+
+    // OC フォーム: 基準は OC_FORM_DEFAULTS、スコープは (schoolId, applicantType=null, formType=oc)。
+    // 保存行があればそれを、無ければ既定から補完。apply とは独立。
+    if (formType === "oc") {
+      const ocConfigs = await getTenantDb().formFieldConfig.findMany({
+        where: { schoolId, applicantType: null, formType: "oc" },
+        orderBy: { displayOrder: "asc" },
+      });
+      const ocMap = new Map(ocConfigs.map((c) => [c.fieldKey, c]));
+      const allKeys = new Set([
+        ...OC_FORM_DEFAULTS.map((f) => f.fieldKey),
+        ...Array.from(ocMap.keys()),
+      ]);
+      const ocResult = Array.from(allKeys).map((fieldKey) => {
+        const stored = ocMap.get(fieldKey);
+        if (stored) return { ...stored, isCustom: true };
+        const def = OC_FORM_DEFAULTS.find((f) => f.fieldKey === fieldKey);
+        if (def) {
+          return {
+            id: "",
+            fieldKey: def.fieldKey,
+            schoolId,
+            applicantType: null,
+            label: def.label,
+            section: def.section,
+            fieldType: def.fieldType,
+            isEnabled: true,
+            isRequired: def.isRequired,
+            displayOrder: def.displayOrder,
+            isCustom: false,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+      ocResult.sort((a, b) => (a!.displayOrder ?? 0) - (b!.displayOrder ?? 0));
+      return NextResponse.json(ocResult);
+    }
+
     // クエリ applicantType を読む。未指定 or 不正値は null（共通）として扱う。
     const applicantTypeParam = searchParams.get("applicantType");
     const applicantType: ApplicantType | null = isApplicantType(applicantTypeParam)
@@ -31,7 +72,7 @@ export const GET = withTenant(async (request: NextRequest) => {
     // 保存済み行があればそれを、無ければ FORM_FIELD_DEFAULTS から defaultEnabledFor で補完。
     if (applicantType) {
       const scopedConfigs = await getTenantDb().formFieldConfig.findMany({
-        where: { schoolId, applicantType },
+        where: { schoolId, applicantType, formType: "apply" },
         orderBy: { displayOrder: "asc" },
       });
       const scopedMap = new Map(scopedConfigs.map((c) => [c.fieldKey, c]));
@@ -116,6 +157,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       options = null,
       showWhenExamMode = null,
       applicantType = null,
+      formType = "apply",
     } = body;
 
     if (!label) {
@@ -140,6 +182,7 @@ export const POST = withTenant(async (request: NextRequest) => {
         options: options || null,
         showWhenExamMode: showWhenExamMode || null,
         applicantType: isApplicantType(applicantType) ? applicantType : null,
+        formType: formType === "oc" ? "oc" : "apply",
         updatedAt: new Date(),
       },
     });
@@ -189,6 +232,7 @@ export const PUT = withTenant(async (request: NextRequest) => {
         fieldKey: string;
         schoolId?: string | null;
         applicantType?: string | null;
+        formType?: string | null;
         label: string;
         section: string;
         fieldType?: string;
@@ -202,6 +246,8 @@ export const PUT = withTenant(async (request: NextRequest) => {
         const schoolId = item.schoolId ?? null;
         // applicantType: 非nullかつ不正値は安全側で null（共通）に丸める。
         const applicantType = isApplicantType(item.applicantType) ? item.applicantType : null;
+        // formType: 既定 "apply"。"oc" のみ別系統。unique scope は [fieldKey,schoolId,applicantType,formType]。
+        const formType = item.formType === "oc" ? "oc" : "apply";
         const updateData = {
           label: item.label,
           section: item.section,
@@ -219,7 +265,7 @@ export const PUT = withTenant(async (request: NextRequest) => {
         // (全校共通/共通タイプ) では一意制約が効かず、同時保存で重複行が生じ得る。単一管理者・
         // 1リクエスト=1スコープの運用前提で許容（厳密化が必要になれば sentinel 値かトランザクション直列化）。
         return db.formFieldConfig.findFirst({
-          where: { fieldKey: item.fieldKey, schoolId, applicantType },
+          where: { fieldKey: item.fieldKey, schoolId, applicantType, formType },
         }).then(async existing => {
           // updateData は labelEn/descriptionEn を含まないため、update は既存の英訳値を保持する
           // (null 上書きしない)。create では未指定 = null（後段の翻訳パスで補完）。
@@ -229,7 +275,7 @@ export const PUT = withTenant(async (request: NextRequest) => {
           const row = existing
             ? await db.formFieldConfig.update({ where: { id: existing.id }, data: updateData })
             : await db.formFieldConfig.create({
-                data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, updatedAt: new Date(), ...updateData },
+                data: { id: require("crypto").randomUUID(), fieldKey: item.fieldKey, schoolId, applicantType, formType, updatedAt: new Date(), ...updateData },
               });
           return { row, fieldKey: item.fieldKey, label: item.label, description, needLabel, needDesc };
         });

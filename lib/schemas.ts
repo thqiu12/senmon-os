@@ -93,6 +93,20 @@ export const ApplicationCreateSchema = z.object({
   extraData: z.record(z.union([z.string().max(5000), z.boolean()])).optional().default({}),
 });
 
+export const OCReservationCreateSchema = z.object({
+  ocEventId: z.string().min(1),
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().max(30).optional().nullable(),
+  attendees: z.coerce.number().int().min(1).max(20).catch(1),
+  extraData: z.record(z.union([z.string().max(5000), z.boolean()])).optional().default({}),
+  source: z.string().max(200).optional().nullable(),
+  utmCampaign: z.string().max(200).optional().nullable(),
+  utmMedium: z.string().max(200).optional().nullable(),
+  gclid: z.string().max(200).optional().nullable(),
+  referrer: z.string().max(500).optional().nullable(),
+});
+
 export const NotificationSchema = z.object({
   type: z.enum(["interview", "result", "enrollment"]),
   to: z.string().email().max(254),

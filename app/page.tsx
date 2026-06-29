@@ -229,6 +229,9 @@ export default function HomePage() {
                 <Link href="/apply/status" className="inline-flex items-center gap-2 text-blue-50 font-semibold text-sm px-5 py-3 rounded-xl ring-1 ring-white/25 hover:bg-white/10 transition active:scale-[0.98]">
                   出願の続き・状況確認
                 </Link>
+                <Link href="/oc" className="inline-flex items-center gap-2 text-blue-50 font-semibold text-sm px-5 py-3 rounded-xl ring-1 ring-white/25 hover:bg-white/10 transition active:scale-[0.98]">
+                  オープンキャンパス予約
+                </Link>
               </div>
             </div>
           </div>

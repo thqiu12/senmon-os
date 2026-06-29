@@ -12,7 +12,7 @@ import { CompassMark } from "@/components/ui/CompassMark";
 
 type IconKey =
   | "home" | "clipboard" | "megaphone" | "edit" | "handshake"
-  | "graduation" | "book" | "chart" | "wrench" | "users" | "trash" | "star";
+  | "graduation" | "book" | "chart" | "wrench" | "users" | "trash" | "star" | "calendar";
 
 interface NavItem {
   href: string;
@@ -37,6 +37,7 @@ const NAV: NavSection[] = [
     label: "入学管理",
     items: [
       { href: "/admin/cohorts",       label: "選考管理",     icon: "clipboard" },
+      { href: "/admin/oc",            label: "オープンキャンパス", icon: "calendar" },
       { href: "/admin/interviews",    label: "面接レビュー", icon: "star" },
       { href: "/admin/announcements", label: "お知らせ",     icon: "megaphone" },
       { href: "/admin/prospects",     label: "CRM管理",      icon: "edit", match: ["/admin/agents"] },
@@ -96,9 +97,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   // 営業(sales)は「出願フォーム編集・選考操作」が不可なので該当ナビを隠す。
   // 教務(academic)は選考・通知に集中させ、CRM/手続き/設定/削除のナビを隠す
   //（API 上の機微な操作は capability で別途制限済み）。
-  const salesHidden = new Set(["/admin/form-config", "/admin/cohorts", "/admin/payment"]);
+  const salesHidden = new Set(["/admin/form-config", "/admin/cohorts", "/admin/payment", "/admin/oc"]);
   const academicHidden = new Set([
     "/admin/form-config",
+    "/admin/oc",
     "/admin/payment",
     "/admin/enrollment",
     "/admin/prospects",
@@ -245,6 +247,10 @@ function NavIcon({ name }: { name: IconKey }) {
     case "star":
       return (
         <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.3 6.8 19l1-5.8-4.2-4.1 5.8-.8z" /></svg>
+      );
+    case "calendar":
+      return (
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
       );
   }
 }

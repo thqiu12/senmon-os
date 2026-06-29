@@ -899,8 +899,56 @@ model FormFieldConfig {
   showWhenExamMode String? // 選考区分IDが入っていると、その区分選択時のみ表示（null=常時）
   labelEn          String? // 英語ラベル（保存時にAI翻訳。EN表示で使用。未設定なら辞書/日本語）
   descriptionEn    String? // 英語ヒント（同上）
-  @@unique([fieldKey, schoolId, applicantType])
+  formType         String   @default("apply") // apply=出願フォーム / oc=オープンキャンパス予約フォーム
+  @@unique([fieldKey, schoolId, applicantType, formType])
   @@index([organizationId])
+}
+
+model OCEvent {
+  organizationId String?
+  id             String          @id @default(cuid())
+  schoolKey      String // ApplySchool.schoolKey 連動
+  title          String
+  description    String?
+  startAt        DateTime // 開催日時
+  endAt          DateTime?
+  capacity       Int // 定員（参加人数合計の上限）
+  location       String? // 会場（対面時）
+  isOnline       Boolean         @default(false)
+  onlineUrl      String?
+  status         String          @default("下書き") // 下書き/公開/締切
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  reservations   OCReservation[]
+
+  @@index([organizationId])
+  @@index([schoolKey, status, startAt])
+}
+
+model OCReservation {
+  organizationId String?
+  id             String    @id @default(cuid())
+  ocEventId      String
+  ocEvent        OCEvent   @relation(fields: [ocEventId], references: [id], onDelete: Cascade)
+  reservationNo  String    @unique // 例 OC-YYMMDD-xxxx
+  name           String
+  email          String
+  phone          String?
+  attendees      Int       @default(1) // 参加人数（定員消費）
+  extraData      Json? // 設定フォームの追加項目回答
+  status         String    @default("予約") // 予約/キャンセル/出席/欠席
+  source         String? // 流入元（utm_source 等。広告アトリビューション用）
+  utmCampaign    String?
+  utmMedium      String?
+  gclid          String?
+  referrer       String?
+  canceledAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([ocEventId, status])
+  @@index([email])
 }
 
 model ApplySchool {

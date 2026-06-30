@@ -89,6 +89,7 @@ interface Analytics {
   byStatus: Record<string, number>;
   conversion: { reservedToApplied: number; attendedToApplied: number; convReserved: number; convAttended: number };
   bySource: { source: string; reservations: number; converted: number; rate: number }[];
+  byAcquisition: { source: string; applications: number; ocReservations: number; ocConverted: number; ocConvRate: number }[];
   byEvent: {
     eventId: string; title: string; startAt: string; capacity: number;
     予約: number; 出席: number; 欠席: number; キャンセル: number;
@@ -622,6 +623,39 @@ export default function OCPage() {
                             <td className="px-4 py-3 text-right text-gray-700">{s.reservations}</td>
                             <td className="px-4 py-3 text-right text-gray-700">{s.converted}</td>
                             <td className="px-4 py-3 text-right font-semibold text-navy-700">{pct(s.rate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {/* ===== 流入元/広告（出願×OC×転換） ===== */}
+              <section>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">流入元/広告</h2>
+                {!analytics.byAcquisition || analytics.byAcquisition.length === 0 ? (
+                  <div className="card text-center py-8 text-gray-400">データがありません</div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                          <th className="px-4 py-3 font-semibold">流入元</th>
+                          <th className="px-4 py-3 font-semibold text-right">出願数</th>
+                          <th className="px-4 py-3 font-semibold text-right">OC予約数</th>
+                          <th className="px-4 py-3 font-semibold text-right">OC経由出願</th>
+                          <th className="px-4 py-3 font-semibold text-right">転換率</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.byAcquisition.map((a) => (
+                          <tr key={a.source} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-700">{a.source}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{a.applications}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{a.ocReservations}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{a.ocConverted}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-navy-700">{pct(a.ocConvRate)}</td>
                           </tr>
                         ))}
                       </tbody>

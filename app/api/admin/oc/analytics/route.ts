@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/tenant/with-tenant";
 import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { computeOCAnalytics } from "@/lib/ocAnalytics";
+import { computeAttribution } from "@/lib/attribution";
 
 // オープンキャンパス（OC）分析API。
 // 認可: 管理者（isAdmin）+ form.edit ケイパビリティ。
@@ -56,12 +57,26 @@ export const GET = withTenant(async (request: NextRequest) => {
         })
       : [];
 
+    // 出願も同じ from/to 期間で絞り込み、流入元分析が期間を反映するようにする。
     const apps = await db.application.findMany({
-      where: { deletedAt: null },
-      select: { email: true, createdAt: true },
+      where: {
+        deletedAt: null,
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: new Date(from) } : {}),
+                ...(to ? { lte: new Date(to) } : {}),
+              },
+            }
+          : {}),
+      },
+      select: { email: true, source: true, createdAt: true },
     });
 
-    return NextResponse.json(computeOCAnalytics(reservations, apps, events));
+    return NextResponse.json({
+      ...computeOCAnalytics(reservations, apps, events),
+      byAcquisition: computeAttribution(apps, reservations),
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });

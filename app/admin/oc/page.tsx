@@ -75,14 +75,49 @@ function toLocalInput(s: string | null): string {
   return local.toISOString().slice(0, 16);
 }
 
+function dateInput(d: Date): string {
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+}
+
+function pct(x: number): string {
+  return `${(x * 100).toFixed(1)}%`;
+}
+
+interface Analytics {
+  summary: { reservations: number; attendeesTotal: number; attendanceRate: number; cancellationRate: number };
+  byStatus: Record<string, number>;
+  conversion: { reservedToApplied: number; attendedToApplied: number; convReserved: number; convAttended: number };
+  bySource: { source: string; reservations: number; converted: number; rate: number }[];
+  byEvent: {
+    eventId: string; title: string; startAt: string; capacity: number;
+    予約: number; 出席: number; 欠席: number; キャンセル: number;
+    used: number; converted: number; remaining: number; convRate: number;
+  }[];
+}
+
 export default function OCPage() {
   const router = useRouter();
   const { toast, confirm } = useUI();
+
+  const [tab, setTab] = useState<"events" | "analytics">("events");
 
   const [events, setEvents] = useState<OCEvent[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Analytics tab
+  const [aSchool, setASchool] = useState("");
+  const [aFrom, setAFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return dateInput(d);
+  });
+  const [aTo, setATo] = useState(() => dateInput(new Date()));
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [aLoading, setALoading] = useState(false);
+  const [aError, setAError] = useState<string | null>(null);
 
   // Modal (create/edit)
   const [showModal, setShowModal] = useState(false);
@@ -133,6 +168,36 @@ export default function OCPage() {
       })
       .catch(() => {});
   }, []);
+
+  const fetchAnalytics = async () => {
+    setALoading(true);
+    setAError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (aSchool) qs.set("school", aSchool);
+      if (aFrom) qs.set("from", new Date(aFrom).toISOString());
+      if (aTo) {
+        // include the entire "to" day
+        const end = new Date(aTo);
+        end.setHours(23, 59, 59, 999);
+        qs.set("to", end.toISOString());
+      }
+      const res = await fetch(`/api/admin/oc/analytics?${qs.toString()}`);
+      if (res.status === 401 || res.status === 403) { router.push("/admin"); return; }
+      if (!res.ok) throw new Error("取得に失敗しました");
+      setAnalytics(await res.json());
+    } catch (e) {
+      setAError(e instanceof Error ? e.message : "エラーが発生しました");
+      setAnalytics(null);
+    } finally {
+      setALoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "analytics") fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, aSchool, aFrom, aTo]);
 
   const openCreate = () => {
     setEditEvent(null);
@@ -268,6 +333,19 @@ export default function OCPage() {
         </div>
       </div>
 
+      {/* ===== Tab switcher ===== */}
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-6">
+        <button
+          onClick={() => setTab("events")}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "events" ? "border-navy-600 text-navy-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}
+        >イベント管理</button>
+        <button
+          onClick={() => setTab("analytics")}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "analytics" ? "border-navy-600 text-navy-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}
+        >分析</button>
+      </div>
+
+      {tab === "events" && (
       <div className="space-y-8">
         {/* ===== Event管理 ===== */}
         <section>
@@ -425,6 +503,136 @@ export default function OCPage() {
           </section>
         )}
       </div>
+      )}
+
+      {tab === "analytics" && (
+        <div className="space-y-6">
+          {/* ===== Filters ===== */}
+          <div className="card flex flex-wrap items-end gap-4">
+            <div>
+              <label className="form-label">学校</label>
+              <select className="form-input" value={aSchool} onChange={(e) => setASchool(e.target.value)}>
+                <option value="">すべての学校</option>
+                {schools.map((s) => <option key={s.schoolKey} value={s.schoolKey}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">開始日</label>
+              <input type="date" className="form-input" value={aFrom} onChange={(e) => setAFrom(e.target.value)} />
+            </div>
+            <div>
+              <label className="form-label">終了日</label>
+              <input type="date" className="form-input" value={aTo} onChange={(e) => setATo(e.target.value)} />
+            </div>
+          </div>
+
+          {aError ? (
+            <div className="card text-center py-8 text-red-600">
+              <p>{aError}</p>
+              <button onClick={fetchAnalytics} className="btn-primary mt-4">再読み込み</button>
+            </div>
+          ) : aLoading ? (
+            <div className="card text-center py-16 text-gray-500">読み込み中...</div>
+          ) : !analytics || analytics.summary.reservations === 0 ? (
+            <div className="card text-center py-16 text-gray-400">
+              <p className="text-lg mb-2">データがありません</p>
+              <p className="text-sm">期間または学校の条件を変更してください</p>
+            </div>
+          ) : (
+            <>
+              {/* ===== Summary cards ===== */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <div className="text-xs text-gray-500 font-semibold mb-1">予約者数</div>
+                  <div className="text-2xl font-bold text-gray-900">{analytics.summary.reservations}</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <div className="text-xs text-gray-500 font-semibold mb-1">出席率</div>
+                  <div className="text-2xl font-bold text-green-600">{pct(analytics.summary.attendanceRate)}</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <div className="text-xs text-gray-500 font-semibold mb-1">キャンセル率</div>
+                  <div className="text-2xl font-bold text-red-500">{pct(analytics.summary.cancellationRate)}</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <div className="text-xs text-gray-500 font-semibold mb-1">予約→出願転換率</div>
+                  <div className="text-2xl font-bold text-navy-700">{pct(analytics.conversion.reservedToApplied)}</div>
+                </div>
+              </div>
+
+              {/* ===== イベント別 ===== */}
+              <section>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">イベント別</h2>
+                {analytics.byEvent.length === 0 ? (
+                  <div className="card text-center py-8 text-gray-400">データがありません</div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                          <th className="px-4 py-3 font-semibold">タイトル</th>
+                          <th className="px-4 py-3 font-semibold">日時</th>
+                          <th className="px-4 py-3 font-semibold text-right">予約</th>
+                          <th className="px-4 py-3 font-semibold text-right">出席</th>
+                          <th className="px-4 py-3 font-semibold text-right">欠席</th>
+                          <th className="px-4 py-3 font-semibold text-right">キャンセル</th>
+                          <th className="px-4 py-3 font-semibold text-right">残席</th>
+                          <th className="px-4 py-3 font-semibold text-right">転換率</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.byEvent.map((e) => (
+                          <tr key={e.eventId} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="px-4 py-3 font-semibold text-gray-900">{e.title}</td>
+                            <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{fmtDateTime(e.startAt)}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{e.予約}</td>
+                            <td className="px-4 py-3 text-right text-green-700">{e.出席}</td>
+                            <td className="px-4 py-3 text-right text-amber-700">{e.欠席}</td>
+                            <td className="px-4 py-3 text-right text-gray-400">{e.キャンセル}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{e.remaining}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-navy-700">{pct(e.convRate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {/* ===== 流入元別 ===== */}
+              <section>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">流入元別</h2>
+                {analytics.bySource.length === 0 ? (
+                  <div className="card text-center py-8 text-gray-400">データがありません</div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                          <th className="px-4 py-3 font-semibold">流入元</th>
+                          <th className="px-4 py-3 font-semibold text-right">予約数</th>
+                          <th className="px-4 py-3 font-semibold text-right">転換</th>
+                          <th className="px-4 py-3 font-semibold text-right">転換率</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.bySource.map((s) => (
+                          <tr key={s.source} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-700">{s.source}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{s.reservations}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{s.converted}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-navy-700">{pct(s.rate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ===== Create/Edit Modal ===== */}
       {showModal && (

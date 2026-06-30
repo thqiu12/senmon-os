@@ -91,6 +91,12 @@ export const ApplicationCreateSchema = z.object({
     .max(5)
     .optional(),
   extraData: z.record(z.union([z.string().max(5000), z.boolean()])).optional().default({}),
+  // 流入元（広告/UTM/gclid/referrer）。任意・null許容のため既存出願はそのまま検証通過。
+  source: z.string().max(200).optional().nullable(),
+  utmCampaign: z.string().max(200).optional().nullable(),
+  utmMedium: z.string().max(200).optional().nullable(),
+  gclid: z.string().max(200).optional().nullable(),
+  referrer: z.string().max(500).optional().nullable(),
 });
 
 export const OCReservationCreateSchema = z.object({

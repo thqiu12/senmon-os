@@ -34,6 +34,8 @@ export interface FormData {
   examMode: string; referrerName: string; referrerType: string;
   applicantType: ApplicantType | "";
   extraData: Record<string, string | boolean>;
+  // 流入元（広告/UTM/gclid/referrer）。初回マウントで一度だけ捕捉し、新規作成POSTで送る。
+  source?: string; utmCampaign?: string; utmMedium?: string; gclid?: string; referrer?: string;
 }
 
 export const PREFECTURES = [

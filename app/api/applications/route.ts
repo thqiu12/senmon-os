@@ -503,6 +503,11 @@ export const POST = withTenant(async (request: NextRequest) => {
         applicantType: body.applicantType,
         referrerName: body.referrerName || null,
         referrerType: body.referrerType || null,
+        source: body.source ?? null,
+        utmCampaign: body.utmCampaign ?? null,
+        utmMedium: body.utmMedium ?? null,
+        gclid: body.gclid ?? null,
+        referrer: body.referrer ?? null,
         applySchoolId: primary.applySchoolId,
         applyDepartmentId: primary.applyDepartmentId,
         applicationSchools: {

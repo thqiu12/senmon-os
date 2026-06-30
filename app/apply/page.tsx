@@ -151,6 +151,7 @@ const initialForm: FormData = {
   examMode: "一般", referrerName: "", referrerType: "",
   applicantType: "",
   extraData: {},
+  source: "", utmCampaign: "", utmMedium: "", gclid: "", referrer: "",
 };
 
 // ========== Step Indicator ==========
@@ -1234,6 +1235,21 @@ function ApplyPageInner() {
     }
   }, [form, applicationId, isResumed, submitted, saveDraftToStorage]);
 
+  // 流入元（UTM/gclid/referrer）を初回マウントで一度だけ捕捉（OCページと同方式）。
+  // 新規作成POST（saveStep1And2）でのみ送信。resume復元時は上書きしない。
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setForm(prev => ({
+      ...prev,
+      source: sp.get("utm_source") || prev.source,
+      utmCampaign: sp.get("utm_campaign") || prev.utmCampaign,
+      utmMedium: sp.get("utm_medium") || prev.utmMedium,
+      gclid: sp.get("gclid") || prev.gclid,
+      referrer: (typeof document !== "undefined" ? document.referrer : "") || prev.referrer,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 受付中バッチを取得
   useEffect(() => {
     fetch("/api/apply/cohorts")
@@ -1557,7 +1573,15 @@ function ApplyPageInner() {
       const r = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, status: "書類待ち" }),
+        body: JSON.stringify({
+          ...form,
+          status: "書類待ち",
+          source: form.source || null,
+          utmCampaign: form.utmCampaign || null,
+          utmMedium: form.utmMedium || null,
+          gclid: form.gclid || null,
+          referrer: form.referrer || null,
+        }),
       });
       const data = await r.json();
       if (!r.ok) { setSubmitError(data.error || "保存に失敗しました"); return false; }

@@ -235,6 +235,13 @@ model Application {
   // 合否通知
   resultEmailSent Boolean @default(false)
 
+  // 流入元（広告アトリビューション）。referrerName/referrerType[推薦機関] とは別物。
+  source      String? // utm_source 等の流入元
+  utmCampaign String?
+  utmMedium   String?
+  gclid       String? // Google広告クリックID
+  referrer    String? // 流入元URL（document.referrer）
+
   // アップロードファイル
   documents Document[]
 

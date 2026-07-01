@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
-import { escapeCsv, formatDateTimeJP } from "@/lib/utils";
+import { escapeCsv } from "@/lib/utils";
 import { getSession } from "@/lib/auth";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { getTenantDb } from "@/lib/tenant/scoped";
 import { hasCapability } from "@/lib/permissions";
 import { logError } from "@/lib/logger";
 import { statusWhere } from "@/lib/schemas";
-
-const HEADERS = [
-  "申請番号","状態","申請日時","姓","名","姓（カナ）","名（カナ）","生年月日","性別","国籍",
-  "電話番号","メールアドレス","郵便番号","都道府県","市区町村","住所","住所詳細","在留資格",
-  "在留期限","日本語レベル","JLPT取得","志望校","志望学科","志望コース","入学希望年","入学希望月",
-  "志望動機","最終学歴（学校名）","最終学歴（国）","卒業状況","職務経歴","提出書類","面接総合スコア",
-  "面接推薦","入学手続きステータス","学費振込","学校承認","許可書発行","エージェント名",
-];
+import {
+  CSV_INCLUDE,
+  resolveRow,
+  sanitizeColumns,
+  defaultColumns,
+  customCsvColumns,
+  type CsvApp,
+  type ColRef,
+} from "@/lib/csvColumns";
 
 const PAGE_SIZE = 500;
+const CSV_COLUMNS_KEY = "applications_csv_columns";
 
 export const GET = withTenant(async (request: NextRequest) => {
   const session = await getSession(request);
@@ -36,64 +37,51 @@ export const GET = withTenant(async (request: NextRequest) => {
     // org スコープ済みクライアントを stream 構築前に捕捉(後で start が走っても org に束縛される)
     const db = getTenantDb();
 
+    // 管理者が選択した出力列を解決(未設定なら現行 39 列)
+    const settingRow = await db.systemSetting.findFirst({ where: { key: CSV_COLUMNS_KEY } });
+    let columns: ColRef[];
+    if (settingRow?.value) {
+      const cfgRows = await db.formFieldConfig.findMany({
+        select: { fieldKey: true, label: true, fieldType: true },
+      });
+      const customKeys = new Set(customCsvColumns(cfgRows).map((c) => c.key));
+      try {
+        columns = sanitizeColumns(JSON.parse(settingRow.value), customKeys);
+      } catch {
+        columns = defaultColumns();
+      }
+    } else {
+      columns = defaultColumns();
+    }
+
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const enc = new TextEncoder();
-        controller.enqueue(enc.encode("﻿" + HEADERS.join(",") + "\n"));
-
-        const include = {
-          documents: { select: { docType: true } },
-          interviewFeedbacks: {
-            select: { scoreOverall: true, recommendation: true, createdAt: true },
-            orderBy: { createdAt: "desc" },
-          },
-          enrollmentProcedure: {
-            select: { status: true, tuitionPaidAt: true, schoolConfirmed: true, admitLetterIssued: true },
-          },
-          agent: { select: { name: true } },
-        } satisfies Prisma.ApplicationInclude;
+        controller.enqueue(
+          enc.encode("﻿" + columns.map((c) => escapeCsv(c.label)).join(",") + "\n"),
+        );
 
         let cursor: string | undefined = undefined;
         try {
           // eslint-disable-next-line no-constant-condition
           while (true) {
-            const batch: Prisma.ApplicationGetPayload<{ include: typeof include }>[] =
-              await db.application.findMany({
-                where,
-                orderBy: { id: "asc" },
-                take: PAGE_SIZE,
-                ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-                include,
-              });
+            const batch: CsvApp[] = await db.application.findMany({
+              where,
+              orderBy: { id: "asc" },
+              take: PAGE_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+              include: CSV_INCLUDE,
+            });
             if (batch.length === 0) break;
 
             for (const app of batch) {
-              const docTypes = app.documents.map((d) => d.docType).join("／");
-              const fbs = app.interviewFeedbacks ?? [];
-              const valid = fbs.filter((f) => f.scoreOverall !== null);
-              const avg = valid.length > 0
-                ? (valid.reduce((s, f) => s + (f.scoreOverall ?? 0), 0) / valid.length).toFixed(1)
-                : "";
-              const rec = fbs.length > 0 ? (fbs[0].recommendation ?? "") : "";
-              const ep = app.enrollmentProcedure;
-
-              const row = [
-                app.applicationNo, app.status, formatDateTimeJP(app.createdAt),
-                app.lastName, app.firstName, app.lastNameKana, app.firstNameKana,
-                app.birthDate, app.gender, app.nationality, app.phone, app.email,
-                app.postalCode, app.prefecture, app.city, app.address, app.addressDetail || "",
-                app.residenceStatus || "", app.residenceExpiry || "", app.japaneseLevel,
-                app.jlptCertified ? "あり" : "なし",
-                app.schoolName, app.department, app.course || "",
-                app.enrollmentYear, app.enrollmentMonth, app.applicationReason,
-                app.lastSchoolName, app.lastSchoolCountry, app.lastSchoolGraduate,
-                app.workExperience || "", docTypes, avg, rec,
-                ep?.status ?? "",
-                ep ? (ep.tuitionPaidAt ? "振込済" : "未振込") : "",
-                ep ? (ep.schoolConfirmed ? "承認済" : "未") : "",
-                ep ? (ep.admitLetterIssued ? "発行済" : "未") : "",
-                app.agent?.name ?? "",
-              ].map(escapeCsv).join(",");
+              const row = resolveRow(
+                app,
+                columns,
+                (app.extraData ?? null) as Record<string, unknown> | null,
+              )
+                .map(escapeCsv)
+                .join(",");
               controller.enqueue(enc.encode(row + "\n"));
             }
 

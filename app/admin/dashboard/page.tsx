@@ -15,6 +15,8 @@ const STATUSES = ["all", "受付中", "書類確認中", "面接待ち", "結果
 const JAPANESE_LEVELS = ["all", "N1", "N2", "N3", "N4", "N5", "なし"];
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+type ColRef = { key: string; label: string };
+
 interface Agent { id: string; name: string; country: string; isActive: boolean; }
 interface Cohort { id: string; name: string; status: string; }
 
@@ -158,6 +160,13 @@ export default function AdminDashboard() {
   const [showColMenu, setShowColMenu] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
 
+  // CSV出力項目設定モーダル
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [csvAvailable, setCsvAvailable] = useState<{ builtin: ColRef[]; custom: ColRef[] } | null>(null);
+  const [csvSelected, setCsvSelected] = useState<ColRef[]>([]);
+  const [csvSaving, setCsvSaving] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
   // 列メニューの外クリックで閉じる
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -261,6 +270,85 @@ export default function AdminDashboard() {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
     window.open(`/api/admin/schedule/export?${params}`, "_blank");
+  };
+
+  // CSV出力項目: モーダルを開いて現在の設定を取得
+  const openCsvModal = () => {
+    setCsvModalOpen(true);
+    setCsvError(null);
+    fetch("/api/admin/csv-columns")
+      .then(r => { if (!r.ok) throw new Error("取得に失敗しました"); return r.json(); })
+      .then((d: { selected: ColRef[]; available: { builtin: ColRef[]; custom: ColRef[] } }) => {
+        setCsvAvailable(d.available);
+        setCsvSelected(d.selected);
+      })
+      .catch(() => setCsvError("設定の取得に失敗しました。時間をおいて再度お試しください。"));
+  };
+
+  // 選択済みに含まれるか
+  const csvIsSelected = (key: string) => csvSelected.some(c => c.key === key);
+
+  // チェックボックスのトグル（ON=末尾に追加 / OFF=除去）
+  const csvToggle = (col: ColRef) => {
+    setCsvSelected(prev =>
+      prev.some(c => c.key === col.key)
+        ? prev.filter(c => c.key !== col.key)
+        : [...prev, { key: col.key, label: col.label }],
+    );
+  };
+
+  const csvMove = (index: number, dir: -1 | 1) => {
+    setCsvSelected(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const csvRemove = (key: string) => {
+    setCsvSelected(prev => prev.filter(c => c.key !== key));
+  };
+
+  // 既定（標準39項目）に戻して保存し、その場で反映
+  const csvResetDefault = async () => {
+    setCsvSaving(true);
+    setCsvError(null);
+    try {
+      const res = await fetch("/api/admin/csv-columns", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ columns: [] }),
+      });
+      if (!res.ok) throw new Error("失敗");
+      const d: { selected: ColRef[] } = await res.json();
+      setCsvSelected(d.selected);
+    } catch {
+      setCsvError("既定に戻せませんでした。時間をおいて再度お試しください。");
+    } finally {
+      setCsvSaving(false);
+    }
+  };
+
+  const csvSave = async () => {
+    setCsvSaving(true);
+    setCsvError(null);
+    try {
+      const res = await fetch("/api/admin/csv-columns", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ columns: csvSelected }),
+      });
+      if (!res.ok) throw new Error("失敗");
+      const d: { selected: ColRef[] } = await res.json();
+      setCsvSelected(d.selected);
+      setCsvModalOpen(false);
+    } catch {
+      setCsvError("保存に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setCsvSaving(false);
+    }
   };
 
   const col = (key: string) => visibleCols[key] !== false;
@@ -582,6 +670,18 @@ export default function AdminDashboard() {
               申請一覧
             </button>
 
+            {/* CSV出力項目の設定 */}
+            <button
+              onClick={openCsvModal}
+              title="CSVに出力する項目の選択・並べ替え"
+              className="btn-secondary flex items-center gap-2 whitespace-nowrap"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+              </svg>
+              CSV出力項目
+            </button>
+
             {/* CSV: 試験日程表 */}
             <button
               onClick={handleScheduleExport}
@@ -878,6 +978,129 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
+
+      {/* ===== CSV出力項目の設定モーダル ===== */}
+      {csvModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 shrink-0 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">CSV出力項目の設定</h3>
+              <button
+                onClick={() => setCsvModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto flex-1">
+              {csvError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mb-4">{csvError}</div>
+              )}
+
+              {!csvAvailable ? (
+                <p className="text-sm text-gray-400 py-8 text-center">読み込み中…</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 利用可能な項目 */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">利用可能な項目</p>
+
+                    <p className="text-xs font-semibold text-gray-400 mt-2 mb-1">組み込み項目</p>
+                    <div className="space-y-0.5">
+                      {csvAvailable.builtin.map(c => (
+                        <label key={c.key} className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-gray-50 rounded">
+                          <input
+                            type="checkbox"
+                            checked={csvIsSelected(c.key)}
+                            onChange={() => csvToggle(c)}
+                            className="accent-navy-700"
+                          />
+                          <span className="text-sm text-gray-700">{c.label}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <p className="text-xs font-semibold text-gray-400 mt-3 mb-1">カスタム項目</p>
+                    {csvAvailable.custom.length === 0 ? (
+                      <p className="text-xs text-gray-300 px-1 py-1">カスタム項目なし</p>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {csvAvailable.custom.map(c => (
+                          <label key={c.key} className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-gray-50 rounded">
+                            <input
+                              type="checkbox"
+                              checked={csvIsSelected(c.key)}
+                              onChange={() => csvToggle(c)}
+                              className="accent-navy-700"
+                            />
+                            <span className="text-sm text-gray-700">{c.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 選択済み（出力順） */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">選択済み（出力順）</p>
+                    {csvSelected.length === 0 ? (
+                      <p className="text-xs text-gray-300 px-1 py-1">項目が選択されていません（保存すると標準39項目に戻ります）</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {csvSelected.map((c, i) => (
+                          <div key={c.key} className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50">
+                            <span className="text-sm text-gray-700 flex-1 truncate">{c.label}</span>
+                            <button
+                              onClick={() => csvMove(i, -1)}
+                              disabled={i === 0}
+                              className="text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed px-1"
+                              aria-label="上へ移動"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => csvMove(i, 1)}
+                              disabled={i === csvSelected.length - 1}
+                              className="text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed px-1"
+                              aria-label="下へ移動"
+                            >
+                              ↓
+                            </button>
+                            <button
+                              onClick={() => csvRemove(c.key)}
+                              className="text-red-400 hover:text-red-600 px-1"
+                              aria-label="削除"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                onClick={csvResetDefault}
+                disabled={csvSaving || !csvAvailable}
+                title="既定（標準39項目）に戻して保存"
+                className="text-sm text-gray-500 hover:text-gray-800 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                既定に戻す
+              </button>
+              <div className="flex gap-3">
+                <button onClick={() => setCsvModalOpen(false)} className="btn-secondary" disabled={csvSaving}>キャンセル</button>
+                <button onClick={csvSave} className="btn-primary" disabled={csvSaving || !csvAvailable}>{csvSaving ? "保存中…" : "保存"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

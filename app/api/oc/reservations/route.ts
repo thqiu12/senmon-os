@@ -7,6 +7,7 @@ import { OCReservationCreateSchema } from "@/lib/schemas";
 import { canReserve } from "@/lib/ocCapacity";
 import { sendOCConfirmation } from "@/lib/email";
 import { ENV } from "@/lib/env";
+import { uploadClickConversion } from "@/lib/googleAds";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export const POST = withTenant(async (request: NextRequest) => {
     }
 
     const reservationNo = generateReservationNo();
-    await db.oCReservation.create({
+    const reservation = await db.oCReservation.create({
       data: {
         ocEventId: event.id,
         reservationNo,
@@ -86,6 +87,17 @@ export const POST = withTenant(async (request: NextRequest) => {
       });
     } catch (mailErr) {
       console.error("OC確認メール送信エラー (予約自体は成功):", mailErr);
+    }
+
+    // Google Ads: gclid 付き OC予約をオフラインコンバージョン送信（fire-and-forget）
+    if (reservation.gclid) {
+      void uploadClickConversion({
+        gclid: reservation.gclid,
+        conversionActionId: ENV.GOOGLE_ADS_CONV_OC,
+        at: reservation.createdAt,
+      }).then((r) => {
+        if (!r.ok && r.error) console.warn("Google Ads OC予約CV送信 失敗:", r.error);
+      });
     }
 
     return NextResponse.json({ reservationNo }, { status: 201 });

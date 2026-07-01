@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIp } from "@/lib/security";
 import { APPLY_RATE_LIMITS } from "@/lib/rateLimits";
 import { ApplicationCreateSchema, statusWhere } from "@/lib/schemas";
 import { ENV } from "@/lib/env";
+import { uploadClickConversion } from "@/lib/googleAds";
 import { resolveSchoolFk } from "@/lib/school-fk";
 import { isWrittenExamExempt } from "@/lib/examConfig";
 import { FORM_FIELD_DEFAULTS } from "@/lib/formFieldDefaults";
@@ -547,6 +548,17 @@ export const POST = withTenant(async (request: NextRequest) => {
         },
       },
     });
+
+    // Google Ads: gclid 付き出願をオフラインコンバージョン送信（fire-and-forget・失敗しても出願は成功）
+    if (application.gclid) {
+      void uploadClickConversion({
+        gclid: application.gclid,
+        conversionActionId: ENV.GOOGLE_ADS_CONV_APPLICATION,
+        at: application.createdAt,
+      }).then((r) => {
+        if (!r.ok && r.error) console.warn("Google Ads 出願CV送信 失敗:", r.error);
+      });
+    }
 
     // 希望者リスト（Prospect）との自動マッチング
     // エージェントが事前に登録した希望者と email/氏名+誕生日で照合し、見つかれば

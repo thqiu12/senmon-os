@@ -26,4 +26,13 @@ export const ENV = {
   PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "",
   // AI書類照合(Haiku vision)。未設定なら AI 機能はUIに出ない・APIは無効。
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || "",
+  // Google Ads オフラインコンバージョン送信。未設定(6点のいずれか欠け)なら送信は no-op。
+  GOOGLE_ADS_DEVELOPER_TOKEN: process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",
+  GOOGLE_ADS_CLIENT_ID: process.env.GOOGLE_ADS_CLIENT_ID || "",
+  GOOGLE_ADS_CLIENT_SECRET: process.env.GOOGLE_ADS_CLIENT_SECRET || "",
+  GOOGLE_ADS_REFRESH_TOKEN: process.env.GOOGLE_ADS_REFRESH_TOKEN || "",
+  GOOGLE_ADS_CUSTOMER_ID: process.env.GOOGLE_ADS_CUSTOMER_ID || "",
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || "",
+  GOOGLE_ADS_CONV_APPLICATION: process.env.GOOGLE_ADS_CONV_APPLICATION || "",
+  GOOGLE_ADS_CONV_OC: process.env.GOOGLE_ADS_CONV_OC || "",
 } as const;

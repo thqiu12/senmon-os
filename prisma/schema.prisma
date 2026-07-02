@@ -950,6 +950,10 @@ model OCReservation {
   gclid          String?
   referrer       String?
   canceledAt     DateTime?
+  reminderSentAt      DateTime? // 前日リマインド送信済み
+  attendedMailSentAt  DateTime? // 出席御礼＋出願案内 送信済み
+  absentMailSentAt    DateTime? // 欠席フォロー 送信済み
+  unappliedMailSentAt DateTime? // 未出願フォロー 送信済み
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

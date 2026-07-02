@@ -101,7 +101,7 @@ export default function OCPage() {
   const router = useRouter();
   const { toast, confirm } = useUI();
 
-  const [tab, setTab] = useState<"events" | "analytics">("events");
+  const [tab, setTab] = useState<"events" | "analytics" | "email">("events");
 
   const [events, setEvents] = useState<OCEvent[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
@@ -119,6 +119,14 @@ export default function OCPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [aLoading, setALoading] = useState(false);
   const [aError, setAError] = useState<string | null>(null);
+
+  // 自動メール tab
+  type EmailTpl = { enabled: boolean; subject: string; body: string };
+  type EmailKey = "reminder" | "attendedApply" | "absentFollowup" | "unappliedFollowup";
+  const [emailTpls, setEmailTpls] = useState<Record<EmailKey, EmailTpl> | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
 
   // Modal (create/edit)
   const [showModal, setShowModal] = useState(false);
@@ -325,6 +333,49 @@ export default function OCPage() {
     }
   };
 
+  const EMAIL_META: { key: EmailKey; label: string; timing: string }[] = [
+    { key: "reminder", label: "前日リマインド", timing: "イベント前日に予約者へ送信" },
+    { key: "attendedApply", label: "出席御礼＋出願案内", timing: "イベント翌日に出席者へ送信（出願リンク付）" },
+    { key: "absentFollowup", label: "欠席フォロー", timing: "イベント翌日に欠席者へ送信" },
+    { key: "unappliedFollowup", label: "未出願フォロー", timing: "イベント7日後、出席かつ未出願の方へ送信" },
+  ];
+
+  const loadEmailTpls = async () => {
+    setEmailLoading(true);
+    setEmailMsg(null);
+    try {
+      const res = await fetch("/api/admin/oc/email-templates");
+      if (!res.ok) throw new Error("取得に失敗しました");
+      const data = await res.json();
+      setEmailTpls(data.templates);
+    } catch (e) {
+      setEmailMsg(e instanceof Error ? e.message : "取得に失敗しました");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const saveEmailTpls = async () => {
+    if (!emailTpls) return;
+    setEmailSaving(true);
+    setEmailMsg(null);
+    try {
+      const res = await fetch("/api/admin/oc/email-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: emailTpls }),
+      });
+      if (!res.ok) throw new Error("保存に失敗しました");
+      const data = await res.json();
+      setEmailTpls(data.templates);
+      setEmailMsg("保存しました");
+    } catch (e) {
+      setEmailMsg(e instanceof Error ? e.message : "保存に失敗しました");
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
   return (
     <>
       <div className="wsdb-topbar">
@@ -344,6 +395,10 @@ export default function OCPage() {
           onClick={() => setTab("analytics")}
           className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "analytics" ? "border-navy-600 text-navy-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}
         >分析</button>
+        <button
+          onClick={() => { setTab("email"); if (!emailTpls) loadEmailTpls(); }}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === "email" ? "border-navy-600 text-navy-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}
+        >自動メール</button>
       </div>
 
       {tab === "events" && (
@@ -663,6 +718,60 @@ export default function OCPage() {
                   </div>
                 )}
               </section>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "email" && (
+        <div className="space-y-6">
+          <p className="text-sm text-gray-600">
+            利用可能な変数: <code>{"{{name}}"}</code> <code>{"{{eventTitle}}"}</code> <code>{"{{startAt}}"}</code>{" "}
+            <code>{"{{schoolName}}"}</code> <code>{"{{applyUrl}}"}</code> <code>{"{{cancelUrl}}"}</code>
+            （メール送信は日次バッチで実行されます）
+          </p>
+          {emailMsg && <div className="text-sm text-navy-700">{emailMsg}</div>}
+          {emailLoading || !emailTpls ? (
+            <div className="text-gray-500">読み込み中…</div>
+          ) : (
+            <>
+              {EMAIL_META.map((m) => {
+                const t = emailTpls[m.key];
+                return (
+                  <div key={m.key} className="border border-gray-200 rounded-xl p-4 bg-white">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-gray-900">{m.label}</h3>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={t.enabled}
+                          onChange={(e) => setEmailTpls((prev) => prev && ({ ...prev, [m.key]: { ...prev[m.key], enabled: e.target.checked } }))}
+                          className="w-4 h-4 rounded border-gray-300 text-navy-600 focus:ring-navy-600"
+                        />
+                        有効
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">{m.timing}</p>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">件名</label>
+                    <input
+                      type="text"
+                      value={t.subject}
+                      onChange={(e) => setEmailTpls((prev) => prev && ({ ...prev, [m.key]: { ...prev[m.key], subject: e.target.value } }))}
+                      className="form-input mb-3"
+                    />
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">本文</label>
+                    <textarea
+                      value={t.body}
+                      onChange={(e) => setEmailTpls((prev) => prev && ({ ...prev, [m.key]: { ...prev[m.key], body: e.target.value } }))}
+                      rows={7}
+                      className="form-input font-mono"
+                    />
+                  </div>
+                );
+              })}
+              <button onClick={saveEmailTpls} disabled={emailSaving} className="btn-primary">
+                {emailSaving ? "保存中…" : "保存"}
+              </button>
             </>
           )}
         </div>
